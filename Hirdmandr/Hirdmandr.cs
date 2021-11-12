@@ -46,6 +46,60 @@ namespace Hirdmandr
 
             PrefabManager.OnVanillaPrefabsAvailable += CreateNPCPieces;
             PrefabManager.OnVanillaPrefabsAvailable += CreateNPCPlayer;
+
+            On.Tutorial.Awake += OnTutorialAwake;
+        }
+
+        public void OnTutorialAwake(On.Tutorial.orig_Awake orig, Tutorial self)
+        {
+            orig(self);
+
+            var tut_adds = new List<string>
+            {
+                "hirdmandr_find_rescue",
+                "hirdmandr_first_rescue"
+            };
+            for (var i = 0; i < self.m_texts.Count; i++)
+            {
+                if (tut_adds.Contains(self.m_texts[i].m_name))
+                {
+                    tut_adds.RemoveAt(tut_adds.IndexOf(self.m_texts[i].m_name));
+                }
+            }
+
+            if (tut_adds.Contains("hirdmandr_find_rescue"))
+            {
+                Tutorial.TutorialText hm_temp = new Tutorial.TutorialText()
+                {
+                    m_name = "hirdmandr_find_rescue",
+                    m_topic = "You are not the first...",
+                    m_label = "This is the label",
+                    m_text = "Odin's Valkyires have been bringing warriors to Valheim for centuries. Some of them still reside in this realm.\n\n" +
+                    "Warriors who succeed in the tasks laid out by Odin are carried to Valhalla by the Valkyries. Warriors who fail the allfather's tasks lose " +
+                    "his blessing and become lost, no longer to be reborn on Valheim when they die. Lost warriors are claimed by Hel and the Valkyries bring them to " +
+                    "Helheim upon their death.\n\n" +
+                    "If you are able to rescue these lost warriors and provide them protection: they will join your cause as a Hirdmandr and serve you faithfully."
+                };
+
+                self.m_texts.Add(hm_temp);
+            }
+            if (tut_adds.Contains("hirdmandr_first_rescue"))
+            {
+                Tutorial.TutorialText hm_temp = new Tutorial.TutorialText()
+                {
+                    m_name = "hirdmandr_first_rescue",
+                    m_topic = "Becoming a Jarl of Valheim",
+                    m_label = "This is the label",
+                    m_text = "You have rescued a lost warrior! For those without Odin's blessing, death is permanent and bars them from Valhalla forever. Protect your charge carefully! \n\n" +
+                    "You have taken your first step to becoming a mighty Jarl of Valheim! To be a Jarl is to be responsible for the health, happiness, and security of your Hirdmandr. " +
+                    "Your first task as a Jarl is to lead this lost warrior to one of your strongholds or camps. Once they are within range of a workbench and a fire, talk to the lost warrior " +
+                    "and welcome them to their new home. \n\n" +
+                    "Whether grand castle or humble shack, your new friend will make their home in that place as a Hirdmandr, loyal to their benevolent Jarl: You."
+                };
+
+                self.m_texts.Add(hm_temp);
+            }
+
         }
 
         private void FejdStartup_Awake(On.FejdStartup.orig_Awake orig, FejdStartup self)

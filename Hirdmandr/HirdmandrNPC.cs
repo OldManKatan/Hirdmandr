@@ -125,11 +125,17 @@ namespace Hirdmandr
 
         public void Update()
         {
-            Player closestPlayer = Player.GetClosestPlayer(base.transform.position, 10);
-            if ((bool)closestPlayer && !m_monsterai.IsAlerted())
+            Player closestPlayer = Player.GetClosestPlayer(transform.position, 15);
+            if ((bool)closestPlayer)
             {
-                LookAt(closestPlayer);
-
+                // if (!m_monsterai.IsAlerted())
+                // {
+                //     m_character.SetLookDir(closestPlayer.GetEyePoint());
+                // }
+                if (!m_isRescued && closestPlayer == Player.m_localPlayer)
+                {
+                    Player.m_localPlayer?.ShowTutorial("hirdmandr_find_rescue");
+                }
             }
         }
 
@@ -444,7 +450,7 @@ namespace Hirdmandr
             m_znet.GetZDO().Set("hmnpc_isrescued", false);
         }
 
-        public List<float> GetValuesList()
+        public List<float> GetPValuesList()
         {
             return new List<float> {
                     m_valueswork,
@@ -458,7 +464,7 @@ namespace Hirdmandr
                 };
         }
 
-        public string GetHighestValue()
+        public string GetHighestPValue()
         {
             var highest_value_str = "";
             var value_str = new List<string>
@@ -467,7 +473,7 @@ namespace Hirdmandr
             };
 
             float highest = -2f;
-            var value_values = GetValuesList();
+            var value_values = GetPValuesList();
             for (var i = 0; i < value_values.Count; i++)
             {
                 if (value_values[i] > highest)
@@ -543,7 +549,7 @@ namespace Hirdmandr
                 m_valuesstrength = UnityEngine.Random.Range(-1f, 1f);
                 m_valuescompassion = UnityEngine.Random.Range(-1f, 1f);
 
-                List<float> all_values = GetValuesList();
+                List<float> all_values = GetPValuesList();
 
                 int num_positive = 0;
                 for (int j = 0; j < all_values.Count; j++)
@@ -557,19 +563,8 @@ namespace Hirdmandr
                 {
                     break;
                 }
+                ZDOSavePersonality();
             }
-
-            // ZDOs
-            m_znet.GetZDO().Set("hmnpc_mentalcontentment", m_mentalcontentment);
-            m_znet.GetZDO().Set("hmnpc_mentalstress", m_mentalstress);
-            m_znet.GetZDO().Set("hmnpc_valueswork", m_valueswork);
-            m_znet.GetZDO().Set("hmnpc_valuesrelationships", m_valuesrelationships);
-            m_znet.GetZDO().Set("hmnpc_valuesvalor", m_valuesvalor);
-            m_znet.GetZDO().Set("hmnpc_valueslearning", m_valueslearning);
-            m_znet.GetZDO().Set("hmnpc_valuesauthority", m_valuesauthority);
-            m_znet.GetZDO().Set("hmnpc_valuescomfort", m_valuescomfort);
-            m_znet.GetZDO().Set("hmnpc_valuesstrength", m_valuesstrength);
-            m_znet.GetZDO().Set("hmnpc_valuescompassion", m_valuescompassion);
         }
 
         public void ZDOtoPersonality()
@@ -584,6 +579,21 @@ namespace Hirdmandr
             m_valuescomfort = m_znet.GetZDO().GetFloat("hmnpc_valuescomfort");
             m_valuesstrength = m_znet.GetZDO().GetFloat("hmnpc_valuesstrength");
             m_valuescompassion = m_znet.GetZDO().GetFloat("hmnpc_valuescompassion");
+        }
+
+        public void ZDOSavePersonality()
+        {
+            // ZDOs
+            m_znet.GetZDO().Set("hmnpc_mentalcontentment", m_mentalcontentment);
+            m_znet.GetZDO().Set("hmnpc_mentalstress", m_mentalstress);
+            m_znet.GetZDO().Set("hmnpc_valueswork", m_valueswork);
+            m_znet.GetZDO().Set("hmnpc_valuesrelationships", m_valuesrelationships);
+            m_znet.GetZDO().Set("hmnpc_valuesvalor", m_valuesvalor);
+            m_znet.GetZDO().Set("hmnpc_valueslearning", m_valueslearning);
+            m_znet.GetZDO().Set("hmnpc_valuesauthority", m_valuesauthority);
+            m_znet.GetZDO().Set("hmnpc_valuescomfort", m_valuescomfort);
+            m_znet.GetZDO().Set("hmnpc_valuesstrength", m_valuesstrength);
+            m_znet.GetZDO().Set("hmnpc_valuescompassion", m_valuescompassion);
         }
 
         public List<float> GetSkillsList()
@@ -641,18 +651,7 @@ namespace Hirdmandr
                 Jotunn.Logger.LogInfo(string.Format("RandomizeSkills assigned {0} to skill {1}", floats_to_assign[i], all_skill_str[skill_str_index]));
                 all_skill_str.RemoveAt(skill_str_index);
             }
-
-            // ZDOs
-            m_znet.GetZDO().Set("hmnpc_skillwoodburner", m_skillwoodburner);
-            m_znet.GetZDO().Set("hmnpc_skillfurnaceoperator", m_skillfurnaceoperator);
-            m_znet.GetZDO().Set("hmnpc_skillfarmer", m_skillfarmer);
-            m_znet.GetZDO().Set("hmnpc_skillcook", m_skillcook);
-            m_znet.GetZDO().Set("hmnpc_skillbaker", m_skillbaker);
-            m_znet.GetZDO().Set("hmnpc_skillmelee", m_skillmelee);
-            m_znet.GetZDO().Set("hmnpc_skillrange", m_skillrange);
-            m_znet.GetZDO().Set("hmnpc_skillfighter", m_skillfighter);
-            m_znet.GetZDO().Set("hmnpc_skillgatherer", m_skillgatherer);
-
+            ZDOSaveSkills();
         }
 
         public void ZDOtoSkills()
@@ -667,6 +666,20 @@ namespace Hirdmandr
             m_skillfighter = m_znet.GetZDO().GetFloat("hmnpc_skillfighter");
             m_skillgatherer = m_znet.GetZDO().GetFloat("hmnpc_skillgatherer");
 
+        }
+
+        public void ZDOSaveSkills()
+        {
+            // ZDOs
+            m_znet.GetZDO().Set("hmnpc_skillwoodburner", m_skillwoodburner);
+            m_znet.GetZDO().Set("hmnpc_skillfurnaceoperator", m_skillfurnaceoperator);
+            m_znet.GetZDO().Set("hmnpc_skillfarmer", m_skillfarmer);
+            m_znet.GetZDO().Set("hmnpc_skillcook", m_skillcook);
+            m_znet.GetZDO().Set("hmnpc_skillbaker", m_skillbaker);
+            m_znet.GetZDO().Set("hmnpc_skillmelee", m_skillmelee);
+            m_znet.GetZDO().Set("hmnpc_skillrange", m_skillrange);
+            m_znet.GetZDO().Set("hmnpc_skillfighter", m_skillfighter);
+            m_znet.GetZDO().Set("hmnpc_skillgatherer", m_skillgatherer);
         }
 
         public string GetHighestSkill()
@@ -691,18 +704,51 @@ namespace Hirdmandr
             return highest_skill_str;
         }
 
-        public bool ModifySkill(string skill_str, float change)
+        public void ModifySkill(string skill_str, float change)
         {
-            if (skill_str == "skillwoodburner" || skill_str == "woodburner") { m_skillfarmer += change; return true; }
-            else if (skill_str == "skillfurnaceoperator" || skill_str == "furnaceoperator") { m_skillfarmer += change; return true; }
-            else if (skill_str == "skillfarmer" || skill_str == "farmer") { m_skillfarmer += change; return true; }
-            else if (skill_str == "skillcook" || skill_str == "cook") { m_skillfarmer += change; return true; }
-            else if (skill_str == "skillbaker" || skill_str == "baker") { m_skillfarmer += change; return true; }
-            else if (skill_str == "skillmelee" || skill_str == "melee") { m_skillfarmer += change; return true; }
-            else if (skill_str == "skillrange" || skill_str == "range") { m_skillfarmer += change; return true; }
-            else if (skill_str == "skillfighter" || skill_str == "fighter") { m_skillfarmer += change; return true; }
-            else if (skill_str == "skillgatherer" || skill_str == "gatherer") { m_skillfarmer += change; return true; }
-            else { return false; }
+            if (skill_str == "skillwoodburner" || skill_str == "woodburner") { m_skillwoodburner += change; }
+            else if (skill_str == "skillfurnaceoperator" || skill_str == "furnaceoperator") { m_skillfurnaceoperator += change; }
+            else if (skill_str == "skillfarmer" || skill_str == "farmer") { m_skillfarmer += change; }
+            else if (skill_str == "skillcook" || skill_str == "cook") { m_skillcook += change; }
+            else if (skill_str == "skillbaker" || skill_str == "baker") { m_skillbaker += change; }
+            else if (skill_str == "skillmelee" || skill_str == "melee") { m_skillmelee += change; }
+            else if (skill_str == "skillrange" || skill_str == "range") { m_skillrange += change; }
+            else if (skill_str == "skillfighter" || skill_str == "fighter") { m_skillfighter += change; }
+            else if (skill_str == "skillgatherer" || skill_str == "gatherer") { m_skillgatherer += change; }
+            BoundSkills();
+        }
+
+        public void BoundSkills()
+        {
+            // woodburner
+            if (m_skillwoodburner < 0) { m_skillwoodburner = 0; }
+            else if (m_skillwoodburner > 100) { m_skillwoodburner = 0; }
+            // furnaceoperator
+            if (m_skillfurnaceoperator < 0) { m_skillfurnaceoperator = 0; }
+            else if (m_skillfurnaceoperator > 100) { m_skillfurnaceoperator = 0; }
+            // farmer
+            if (m_skillfarmer < 0) { m_skillfarmer = 0; }
+            else if (m_skillfarmer > 100) { m_skillfarmer = 0; }
+            // cook
+            if (m_skillcook < 0) { m_skillcook = 0; }
+            else if (m_skillcook > 100) { m_skillcook = 0; }
+            // baker
+            if (m_skillbaker < 0) { m_skillbaker = 0; }
+            else if (m_skillbaker > 100) { m_skillbaker = 0; }
+            // melee
+            if (m_skillmelee < 0) { m_skillmelee = 0; }
+            else if (m_skillmelee > 100) { m_skillmelee = 0; }
+            // range
+            if (m_skillrange < 0) { m_skillrange = 0; }
+            else if (m_skillrange > 100) { m_skillrange = 0; }
+            // fighter
+            if (m_skillfighter < 0) { m_skillfighter = 0; }
+            else if (m_skillfighter > 100) { m_skillfighter = 0; }
+            // gatherer
+            if (m_skillgatherer < 0) { m_skillgatherer = 0; }
+            else if (m_skillgatherer > 100) { m_skillgatherer = 0; }
+
+            ZDOSaveSkills();
         }
 
         public void RandomTalkRescue()
@@ -799,24 +845,27 @@ namespace Hirdmandr
             var NPCZNetView = GetComponent<ZNetView>();
             NPCZNetView.m_ghost = false;
             m_monsterai.enabled = true;
+            // m_monsterai.arroundPointTarget = Vector3.zero;
+            m_monsterai.ResetPatrolPoint();
             m_monsterai.SetFollowTarget(m_user.gameObject);
             m_guirescuecomp.TogglePanel();
             if (!m_isRescued)
             {
                 m_rescueEffect.Create(base.transform.position, base.transform.rotation);
+                m_user.GetComponent<Player>().ShowTutorial("hirdmandr_first_rescue");
             }
             m_isRescued = true;
             m_znet.GetZDO().Set("hmnpc_isrescued", true);
             CancelInvoke("RandomTalkRescue");
-            Stand();
         }
         public void RescueWait()
         {
             Jotunn.Logger.LogInfo("RescueWait was hit on " + m_humanoid.m_name);
-            m_monsterai.enabled = false;
             m_monsterai.SetFollowTarget(null);
+            m_monsterai.SetPatrolPoint();
+            // m_monsterai.SetFollowTarget(null);
+            // m_monsterai.m_spawnPoint = GetComponent<Transform>().position;
             m_guirescuecomp.TogglePanel();
-            Sit();
         }
 
         public void WelcomeHome()
