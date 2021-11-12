@@ -115,7 +115,7 @@ namespace Hirdmandr
                     parent: GUIRescue.transform,
                     anchorMin: new Vector2(0.5f, 0.0f),
                     anchorMax: new Vector2(0.5f, 0.0f),
-                    position: new Vector2(0f, 140f),
+                    position: new Vector2(0f, 220f),
                     width: 300f,
                     height: 60f);
                 g_b_follow.SetActive(true);
@@ -130,7 +130,7 @@ namespace Hirdmandr
                     parent: GUIRescue.transform,
                     anchorMin: new Vector2(0.5f, 0.0f),
                     anchorMax: new Vector2(0.5f, 0.0f),
-                    position: new Vector2(0f, 55f),
+                    position: new Vector2(0f, 140f),
                     width: 300f,
                     height: 60f);
                 g_b_stay.SetActive(true);

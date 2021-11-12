@@ -110,7 +110,17 @@ namespace Hirdmandr
                 Sit();
             }
 
-            m_rescueEffect.m_effectPrefabs.SetValue(PrefabManager.Instance.GetPrefab("vfx_boar_love"), 0);
+            m_rescueEffect.m_effectPrefabs = new EffectList.EffectData[1];
+            m_rescueEffect.m_effectPrefabs[0] = new EffectList.EffectData
+            {
+                m_prefab = PrefabManager.Instance.GetPrefab("vfx_boar_love"),
+                m_enabled = true,
+                m_attach = false,
+                m_inheritParentRotation = true,
+                m_inheritParentScale = true,
+                m_randomRotation = false,
+                m_scale = true
+            };
         }
 
         public void Update()
@@ -791,11 +801,14 @@ namespace Hirdmandr
             m_monsterai.enabled = true;
             m_monsterai.SetFollowTarget(m_user.gameObject);
             m_guirescuecomp.TogglePanel();
+            if (!m_isRescued)
+            {
+                m_rescueEffect.Create(base.transform.position, base.transform.rotation);
+            }
             m_isRescued = true;
             m_znet.GetZDO().Set("hmnpc_isrescued", true);
             CancelInvoke("RandomTalkRescue");
             Stand();
-            m_rescueEffect.Create(base.transform.position, base.transform.rotation);
         }
         public void RescueWait()
         {
