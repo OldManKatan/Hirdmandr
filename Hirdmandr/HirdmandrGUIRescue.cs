@@ -43,6 +43,8 @@ namespace Hirdmandr
 
         public void TogglePanel()
         {
+            Jotunn.Logger.LogInfo("TogglePanel happened in Hirdmandr GUI Rescue");
+
             // Create the panel if it does not exist
             if (!GUIRescue)
             {
@@ -64,18 +66,18 @@ namespace Hirdmandr
                 // Create the panel object
                 GUIRescue = GUIManager.Instance.CreateWoodpanel(
                     parent: GUIManager.CustomGUIFront.transform,
-                    anchorMin: new Vector2(0.5f, 0.5f),
-                    anchorMax: new Vector2(0.5f, 0.5f),
-                    position: new Vector2(0, 0),
-                    width: 500,
+                    anchorMin: new Vector2(0f, 0.5f),
+                    anchorMax: new Vector2(0f, 0.5f),
+                    position: new Vector2(200, 0),
+                    width: 350,
                     height: 500,
                     draggable: true);
                 GUIRescue.SetActive(false);
 
                 // Add the Jötunn draggable Component to the panel
                 // Note: This is normally automatically added when using CreateWoodpanel()
-                // GUIRescue.AddComponent<DragWindowCntrl>();
-                // DragWindowCntrl.ApplyDragWindowCntrl(GUIRescue);
+                // GUIHirdmandr.AddComponent<DragWindowCntrl>();
+                // DragWindowCntrl.ApplyDragWindowCntrl(GUIHirdmandr);
 
                 // Create the text object
                 g_name = GUIManager.Instance.CreateText(
@@ -89,7 +91,7 @@ namespace Hirdmandr
                     color: GUIManager.Instance.ValheimOrange,
                     outline: true,
                     outlineColor: Color.black,
-                    width: 450f,
+                    width: 300f,
                     height: 40f,
                     addContentSizeFitter: false);
 
@@ -104,7 +106,7 @@ namespace Hirdmandr
                     color: Color.white,
                     outline: true,
                     outlineColor: Color.black,
-                    width: 450f,
+                    width: 300f,
                     height: 240f,
                     addContentSizeFitter: false);
 
@@ -148,10 +150,10 @@ namespace Hirdmandr
                     position: new Vector2(0f, 55f),
                     width: 300f,
                     height: 60f);
-                g_b_newhome.SetActive(false);
+                g_b_newhome.SetActive(true);
 
                 // Add a listener to the button to close the panel again
-                Button b_newhomeComp = g_b_stay.GetComponent<Button>();
+                Button b_newhomeComp = g_b_newhome.GetComponent<Button>();
                 b_newhomeComp.onClick.AddListener(m_hirdmandrnpc.WelcomeHome);
 
             }
@@ -163,6 +165,7 @@ namespace Hirdmandr
             {
                 g_speak.GetComponent<Text>().text = m_hirdmandrnpc.GetRescueText();
             }
+
             // Set the active state of the panel
             GUIRescue.SetActive(state);
 

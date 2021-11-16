@@ -324,6 +324,7 @@ namespace Hirdmandr
                 NPCCharComp.m_faction = Character.Faction.Players;
 
                 NPCPlayerPrefab.AddComponent<HirdmandrNPC>();
+                NPCPlayerPrefab.AddComponent<HirdmandrGUI>();
                 NPCPlayerPrefab.AddComponent<HirdmandrGUIRescue>();
 
                 // NPCPlayerPrefab.AddComponent<HMInteract>();

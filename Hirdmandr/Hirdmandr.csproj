@@ -84,9 +84,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="HirdmandrGUI.cs" />
     <Compile Include="HirdmandrGUIRescue.cs" />
     <Compile Include="HirdmandrNPC.cs" />
     <Compile Include="Hirdmandr.cs" />
+    <Compile Include="HMPersonality.cs" />
+    <Compile Include="HMSkills.cs" />
     <Compile Include="Properties\IgnoreAccessModifiers.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TrimCloneTag.cs" />
