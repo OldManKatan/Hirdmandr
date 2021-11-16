@@ -1,5 +1,5 @@
 // Hirdmandr
-// a Valheim mod skeleton using Jötunn
+// a Valheim mod skeleton using JÃ¶tunn
 // 
 // File:    Hirdmandr.cs
 // Project: Hirdmandr
@@ -64,6 +64,10 @@ namespace Hirdmandr
         public bool m_fightingStyleDefense = true;
         public bool m_fightingStyleOffense = false;
         public bool m_jobGatherer = false;
+        public bool m_fightingRangeClose = true;
+        public bool m_fightingRangeMid = false;
+        public bool m_fightingRangeFar = false;
+
 
         protected virtual void Awake()
         {
