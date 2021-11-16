@@ -45,6 +45,12 @@ namespace Hirdmandr
         GameObject g_war_ch_styleOffense;
         GameObject g_war_t_styleOffense;
         GameObject g_war_t_rangeHeader;
+        GameObject g_war_ch_rangeClose;
+        GameObject g_war_t_rangeClose;
+        GameObject g_war_ch_rangeMid;
+        GameObject g_war_t_rangeMid;
+        GameObject g_war_ch_rangeFar;
+        GameObject g_war_t_rangeFar;
 
         GameObject[] all_arts = new GameObject[0];
         GameObject[] all_wars = new GameObject[0];
@@ -141,7 +147,7 @@ namespace Hirdmandr
                     draggable: true);
                 GUIHirdmandr.SetActive(true);
 
-                // Add the Jötunn draggable Component to the panel
+                // Add the JÃ¶tunn draggable Component to the panel
                 // Note: This is normally automatically added when using CreateWoodpanel()
                 // GUIHirdmandr.AddComponent<DragWindowCntrl>();
                 // DragWindowCntrl.ApplyDragWindowCntrl(GUIHirdmandr);
@@ -688,9 +694,96 @@ namespace Hirdmandr
                     width: 300f,
                     height: 40f,
                     addContentSizeFitter: false);
+                
+                g_war_ch_rangeClose = GUIManager.Instance.CreateToggle(
+                    parent: GUIHirdmandr.transform,
+                    width: 30f,
+                    height: 30f);
+
+                var g_war_ch_rangeCloseRect = g_war_ch_rangeClose.GetComponent<RectTransform>();
+                g_war_ch_rangeCloseRect.anchorMin = new Vector2(0.55f, 1f);
+                g_war_ch_rangeCloseRect.anchorMax = new Vector2(0.55f, 1f);
+                g_war_ch_rangeCloseRect.anchoredPosition = new Vector2(0f, -400);
+
+                var g_war_ch_rangeCloseComp = g_war_ch_rangeClose.GetComponent<Toggle>();
+                g_war_ch_rangeCloseComp.isOn = m_hirdmandrnpc.m_jobHimthiki;
+                g_war_ch_rangeCloseComp.onValueChanged.AddListener(FightingRange);
+
+                g_war_t_rangeClose = GUIManager.Instance.CreateText(
+                    text: "Close",
+                    parent: GUIHirdmandr.transform,
+                    anchorMin: new Vector2(0.62f, 1f),
+                    anchorMax: new Vector2(0.62f, 1f),
+                    position: new Vector2(0f, -400),
+                    font: GUIManager.Instance.AveriaSerifBold,
+                    fontSize: 24,
+                    color: Color.white,
+                    outline: true,
+                    outlineColor: Color.black,
+                    width: 80f,
+                    height: 40f,
+                    addContentSizeFitter: false);
+
+                g_war_ch_rangeMid = GUIManager.Instance.CreateToggle(
+                    parent: GUIHirdmandr.transform,
+                    width: 30f,
+                    height: 30f);
+
+                var g_war_ch_rangeMidRect = g_war_ch_rangeMid.GetComponent<RectTransform>();
+                g_war_ch_rangeMidRect.anchorMin = new Vector2(0.70f, 1f);
+                g_war_ch_rangeMidRect.anchorMax = new Vector2(0.70f, 1f);
+                g_war_ch_rangeMidRect.anchoredPosition = new Vector2(0f, -400);
+
+                var g_war_ch_rangeMidComp = g_war_ch_rangeMid.GetComponent<Toggle>();
+                g_war_ch_rangeMidComp.isOn = m_hirdmandrnpc.m_jobHimthiki;
+                g_war_ch_rangeMidComp.onValueChanged.AddListener(FightingRange);
+
+                g_war_t_rangeMid = GUIManager.Instance.CreateText(
+                    text: "Mid",
+                    parent: GUIHirdmandr.transform,
+                    anchorMin: new Vector2(0.77f, 1f),
+                    anchorMax: new Vector2(0.77f, 1f),
+                    position: new Vector2(0f, -400),
+                    font: GUIManager.Instance.AveriaSerifBold,
+                    fontSize: 24,
+                    color: Color.white,
+                    outline: true,
+                    outlineColor: Color.black,
+                    width: 80f,
+                    height: 40f,
+                    addContentSizeFitter: false);
+
+                g_war_ch_rangeFar = GUIManager.Instance.CreateToggle(
+                    parent: GUIHirdmandr.transform,
+                    width: 30f,
+                    height: 30f);
+
+                var g_war_ch_rangeFarRect = g_war_ch_rangeFar.GetComponent<RectTransform>();
+                g_war_ch_rangeFarRect.anchorMin = new Vector2(0.85f, 1f);
+                g_war_ch_rangeFarRect.anchorMax = new Vector2(0.85f, 1f);
+                g_war_ch_rangeFarRect.anchoredPosition = new Vector2(0f, -400);
+
+                var g_war_ch_rangeFarComp = g_war_ch_rangeFar.GetComponent<Toggle>();
+                g_war_ch_rangeFarComp.isOn = m_hirdmandrnpc.m_jobHimthiki;
+                g_war_ch_rangeFarComp.onValueChanged.AddListener(FightingRange);
+
+                g_war_t_rangeFar = GUIManager.Instance.CreateText(
+                    text: "Far",
+                    parent: GUIHirdmandr.transform,
+                    anchorMin: new Vector2(0.92f, 1f),
+                    anchorMax: new Vector2(0.92f, 1f),
+                    position: new Vector2(0f, -400),
+                    font: GUIManager.Instance.AveriaSerifBold,
+                    fontSize: 24,
+                    color: Color.white,
+                    outline: true,
+                    outlineColor: Color.black,
+                    width: 80f,
+                    height: 40f,
+                    addContentSizeFitter: false);
 
 
-                all_wars = new GameObject[12] {
+                all_wars = new GameObject[18] {
                     g_war_ch_thegn,
                     g_war_t_thegn,
                     g_war_ch_himthiki,
@@ -702,7 +795,14 @@ namespace Hirdmandr
                     g_war_t_styleDefense,
                     g_war_ch_styleOffense,
                     g_war_t_styleOffense,
-                    g_war_t_rangeHeader
+                    g_war_t_rangeHeader,
+                    
+                    g_war_ch_rangeClose,
+                    g_war_t_rangeClose,
+                    g_war_ch_rangeMid,
+                    g_war_t_rangeMid,
+                    g_war_ch_rangeFar,
+                    g_war_t_rangeFar
                 };
 
                 g_role_tg = g_role_t_header.AddComponent<ToggleGroup>();
@@ -740,6 +840,29 @@ namespace Hirdmandr
                     m_hirdmandrnpc.m_fightingStyleDefense = true;
                 }
                 g_style_tg.allowSwitchOff = false;
+                
+                g_range_tg = g_war_t_rangeHeader.AddComponent<ToggleGroup>();
+                g_war_ch_rangeCloseComp.group = g_range_tg;
+                g_war_ch_rangeMidComp.group = g_range_tg;
+                g_war_ch_rangeFarComp.group = g_range_tg;
+                if (m_hirdmandrnpc.m_fightingRangeClose)
+                {
+                    g_war_ch_rangeCloseComp.isOn = true;
+                }
+                if (m_hirdmandrnpc.m_fightingRangeMid)
+                {
+                    g_war_ch_rangeMidComp.isOn = true;
+                }
+                if (m_hirdmandrnpc.m_fightingRangeFar)
+                {
+                    g_war_ch_rangeFarComp.isOn = true;
+                }
+                if (!g_war_ch_rangeCloseComp.isOn && !g_war_ch_rangeMidComp.isOn && !g_war_ch_rangeFarComp.isOn)
+                {
+                    g_war_ch_rangeCloseComp.isOn = true;
+                }
+                g_style_tg.allowSwitchOff = false;
+
             }
 
             // Switch the current state
@@ -861,6 +984,26 @@ namespace Hirdmandr
             {
                 Jotunn.Logger.LogInfo("Warrior fighting style changed to Offensive");
             }
+        }
+        public void FightingRange(bool toggle_value)
+        {
+            m_hirdmandrnpc.m_fightingRangeClose = g_war_ch_rangeCloseComp.GetComponent<Toggle>().isOn;
+            m_hirdmandrnpc.m_fightingRangeMid = g_war_ch_rangeMidComp.GetComponent<Toggle>().isOn;
+            m_hirdmandrnpc.m_fightingRangeFar = g_war_ch_rangeFarComp.GetComponent<Toggle>().isOn;
+
+            if (m_hirdmandrnpc.m_fightingRangeClose)
+            {
+                Jotunn.Logger.LogInfo("Warrior fighting range changed to Close");
+            }
+            if (m_hirdmandrnpc.m_fightingRangeMid)
+            {
+                Jotunn.Logger.LogInfo("Warrior fighting range changed to Mid");
+            }
+            if (m_hirdmandrnpc.m_fightingRangeFar)
+            {
+                Jotunn.Logger.LogInfo("Warrior fighting range changed to Far");
+            }
+
         }
     }
 }
