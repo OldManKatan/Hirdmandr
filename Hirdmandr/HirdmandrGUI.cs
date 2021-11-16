@@ -881,33 +881,35 @@ namespace Hirdmandr
 
         }
 
-        private void RoleChanged(bool value)
+        private void RoleChanged(bool toggle_value)
         {
-            m_hirdmandrnpc.m_roleArtisan = g_role_ch_artisan.GetComponent<Toggle>().isOn;
-            m_hirdmandrnpc.m_roleWarrior = g_role_ch_warrior.GetComponent<Toggle>().isOn;
+            if (toggle_value) {
+                m_hirdmandrnpc.m_roleArtisan = g_role_ch_artisan.GetComponent<Toggle>().isOn;
+                m_hirdmandrnpc.m_roleWarrior = g_role_ch_warrior.GetComponent<Toggle>().isOn;
 
-            if (m_hirdmandrnpc.m_roleArtisan)
-            {
-                Jotunn.Logger.LogInfo("Role changed to Artisan");
-                foreach (GameObject go in all_arts)
+                if (m_hirdmandrnpc.m_roleArtisan)
                 {
-                    go.SetActive(true);
+                    Jotunn.Logger.LogInfo("Role changed to Artisan");
+                    foreach (GameObject go in all_arts)
+                    {
+                        go.SetActive(true);
+                    }
+                    foreach (GameObject go in all_wars)
+                    {
+                        go.SetActive(false);
+                    }
                 }
-                foreach (GameObject go in all_wars)
+                if (m_hirdmandrnpc.m_roleWarrior)
                 {
-                    go.SetActive(false);
-                }
-            }
-            if (m_hirdmandrnpc.m_roleWarrior)
-            {
-                Jotunn.Logger.LogInfo("Role changed to Warrior");
-                foreach (GameObject go in all_arts)
-                {
-                    go.SetActive(false);
-                }
-                foreach (GameObject go in all_wars)
-                {
-                    go.SetActive(true);
+                    Jotunn.Logger.LogInfo("Role changed to Warrior");
+                    foreach (GameObject go in all_arts)
+                    {
+                        go.SetActive(false);
+                    }
+                    foreach (GameObject go in all_wars)
+                    {
+                        go.SetActive(true);
+                    }
                 }
             }
         }
@@ -973,37 +975,40 @@ namespace Hirdmandr
 
         public void FightingStyle(bool toggle_value)
         {
-            m_hirdmandrnpc.m_fightingStyleDefense = g_war_ch_styleDefense.GetComponent<Toggle>().isOn;
-            m_hirdmandrnpc.m_fightingStyleOffense = g_war_ch_styleOffense.GetComponent<Toggle>().isOn;
+            if (toggle_value) {
+                m_hirdmandrnpc.m_fightingStyleDefense = g_war_ch_styleDefense.GetComponent<Toggle>().isOn;
+                m_hirdmandrnpc.m_fightingStyleOffense = g_war_ch_styleOffense.GetComponent<Toggle>().isOn;
 
-            if (m_hirdmandrnpc.m_fightingStyleDefense)
-            {
-                Jotunn.Logger.LogInfo("Warrior fighting style changed to Defensive");
-            }
-            if (m_hirdmandrnpc.m_fightingStyleOffense)
-            {
-                Jotunn.Logger.LogInfo("Warrior fighting style changed to Offensive");
+                if (m_hirdmandrnpc.m_fightingStyleDefense)
+                {
+                    Jotunn.Logger.LogInfo("Warrior fighting style changed to Defensive");
+                }
+                if (m_hirdmandrnpc.m_fightingStyleOffense)
+                {
+                    Jotunn.Logger.LogInfo("Warrior fighting style changed to Offensive");
+                }
             }
         }
         public void FightingRange(bool toggle_value)
         {
-            m_hirdmandrnpc.m_fightingRangeClose = g_war_ch_rangeCloseComp.GetComponent<Toggle>().isOn;
-            m_hirdmandrnpc.m_fightingRangeMid = g_war_ch_rangeMidComp.GetComponent<Toggle>().isOn;
-            m_hirdmandrnpc.m_fightingRangeFar = g_war_ch_rangeFarComp.GetComponent<Toggle>().isOn;
+            if (toggle_value) {
+                m_hirdmandrnpc.m_fightingRangeClose = g_war_ch_rangeCloseComp.GetComponent<Toggle>().isOn;
+                m_hirdmandrnpc.m_fightingRangeMid = g_war_ch_rangeMidComp.GetComponent<Toggle>().isOn;
+                m_hirdmandrnpc.m_fightingRangeFar = g_war_ch_rangeFarComp.GetComponent<Toggle>().isOn;
 
-            if (m_hirdmandrnpc.m_fightingRangeClose)
-            {
-                Jotunn.Logger.LogInfo("Warrior fighting range changed to Close");
+                if (m_hirdmandrnpc.m_fightingRangeClose)
+                {
+                    Jotunn.Logger.LogInfo("Warrior fighting range changed to Close");
+                }
+                if (m_hirdmandrnpc.m_fightingRangeMid)
+                {
+                    Jotunn.Logger.LogInfo("Warrior fighting range changed to Mid");
+                }
+                if (m_hirdmandrnpc.m_fightingRangeFar)
+                {
+                    Jotunn.Logger.LogInfo("Warrior fighting range changed to Far");
+                }
             }
-            if (m_hirdmandrnpc.m_fightingRangeMid)
-            {
-                Jotunn.Logger.LogInfo("Warrior fighting range changed to Mid");
-            }
-            if (m_hirdmandrnpc.m_fightingRangeFar)
-            {
-                Jotunn.Logger.LogInfo("Warrior fighting range changed to Far");
-            }
-
         }
     }
 }
