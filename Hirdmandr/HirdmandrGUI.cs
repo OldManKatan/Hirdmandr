@@ -947,6 +947,11 @@ namespace Hirdmandr
             if (m_hirdmandrnpc.m_jobThegn)
             {
                 Jotunn.Logger.LogInfo("Warrior job Thegn enabled");
+                var thisPlayer = m_hirdmandrnpc.m_user.GetComponent<Player>();
+                if (thisPlayer == Player.m_localPlayer) 
+                {
+                    Player.m_localPlayer?.ShowTutorial("hirdmandr_thegn");
+                }
             }
             if (!m_hirdmandrnpc.m_jobThegn)
             {
@@ -961,6 +966,11 @@ namespace Hirdmandr
             if (m_hirdmandrnpc.m_jobHimthiki)
             {
                 Jotunn.Logger.LogInfo("Warrior job Himthiki enabled");
+                var thisPlayer = m_hirdmandrnpc.m_user.GetComponent<Player>();
+                if (thisPlayer == Player.m_localPlayer) 
+                {
+                    Player.m_localPlayer?.ShowTutorial("hirdmandr_himthiki");
+                }
             }
             if (!m_hirdmandrnpc.m_jobHimthiki)
             {
