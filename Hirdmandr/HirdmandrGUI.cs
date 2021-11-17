@@ -899,6 +899,11 @@ namespace Hirdmandr
                     {
                         go.SetActive(false);
                     }
+                    var thisPlayer = m_hirdmandrnpc.m_user.GetComponent<Player>();
+                    if (thisPlayer == Player.m_localPlayer) 
+                    {
+                        Player.m_localPlayer?.ShowTutorial("hirdmandr_artisan");
+                    }
                 }
                 if (m_hirdmandrnpc.m_roleWarrior)
                 {
