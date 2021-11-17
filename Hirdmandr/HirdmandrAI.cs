@@ -165,11 +165,8 @@ namespace Hirdmandr
             {
                 resetArtJob,
                 setupArtJob,
-                goPout,
-                atPout,
                 goArtJob,
-                setupSocialize,
-                startSocialize
+                doJob
             };
             
             public workStateMachine = new WorkDaySM(workStates);
@@ -197,9 +194,7 @@ namespace Hirdmandr
             {
                 findBed,
                 goBed,
-                atBed,
-                goPout,
-                atPout
+                atBed
             };
             
             public restStateMachine = new RestSM(restStates);
@@ -230,7 +225,7 @@ namespace Hirdmandr
                 atFood
             };
             
-            public selfCareStateMachine = new selfCareSM(selfCareStates);
+            public selfCareStateMachine = new SelfCareSM(selfCareStates);
             
             public void EnterFrom(int aState)
             {
@@ -285,9 +280,6 @@ namespace Hirdmandr
                 startDepressed,
                 findComfort,
                 goComfort,
-                findAlone,
-                goAlone,
-                idleSad,
                 whine
             };
             
