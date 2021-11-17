@@ -75,10 +75,10 @@ namespace OldManSM
     
     public class SMNode
     {
-        public void EnterFrom()
+        public void EnterFrom(int aState)
         {
         }
-        public void ExitTo()
+        public void ExitTo(int aState)
         {
         }
         public void RunState()
