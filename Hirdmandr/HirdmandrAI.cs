@@ -64,7 +64,7 @@ namespace Hirdmandr
         
         protected virtual void Update()
         {
-            if (m_hmMonsterAI.IsAlerted())
+            if (m_hmMonsterAI.IsAlerted() && topSM.curState != hmStatesTop.patrol)
             {
                 if (m_hmnpc.m_roleWarrior)
                 {
@@ -178,7 +178,7 @@ namespace Hirdmandr
             {
                 if (aState == hmStatesTop.schedule || aState == hmStatesTop.socialize)
                 {
-                    workStateMachine.ChangeState(workStates.setupArtJob);
+                    workStateMachine.ChangeState(workStates.resetArtJob);
                 }
             }
             public void RunState()
@@ -206,9 +206,9 @@ namespace Hirdmandr
             
             public void EnterFrom(int aState)
             {
-                if (aState == hmStatesTop.schedule || aState == hmStatesTop.socialize)
+                if (aState == hmStatesTop.schedule || aState == hmStatesTop.socialize || aState == hmStatesTop.patrol)
                 {
-                    restStateMachine.ChangeState(restStates.setupArtJob);
+                    restStateMachine.ChangeState(restStates.findBed);
                 }
             }
             public void RunState()
@@ -222,29 +222,179 @@ namespace Hirdmandr
             }
         }
         public class NodeSelfCare : HMNode
-        { }
+        {
+            public enum selfCareStates
+            {
+                findFood,
+                goFood,
+                atFood
+            };
+            
+            public selfCareStateMachine = new selfCareSM(selfCareStates);
+            
+            public void EnterFrom(int aState)
+            {
+                if (aState == hmStatesTop.schedule || aState == hmStatesTop.rest || aState == hmStatesTop.depressed || aState == hmStatesTop.hide)
+                {
+                    selfCareStateMachine.ChangeState(selfCareStates.findFood);
+                }
+            }
+            public void RunState()
+            {
+                selfCareStateMachine.Evaluate()
+                if (selfCareStateMachine.changeTopState > -1)
+                {
+                    topSM.ChangeState(selfCareStateMachine.changeTopState);
+                    selfCareStateMachine.changeTopState = -1;
+                }
+            }
+        }
         public class NodePatrol : HMNode
-        { }
+        {
+            public enum patrolStates
+            {
+                setupPatrol,
+                goPost,
+                atPost,
+                isAlerted
+            };
+            
+            public patrolStateMachine = new PatrolSM(patrolStates);
+            
+            public void EnterFrom(int aState)
+            {
+                if (aState == hmStatesTop.schedule)
+                {
+                    patrolStateMachine.ChangeState(patrolStates.setupPatrol);
+                }
+            }
+            public void RunState()
+            {
+                patrolStateMachine.Evaluate()
+                if (patrolStateMachine.changeTopState > -1)
+                {
+                    topSM.ChangeState(patrolStateMachine.changeTopState);
+                    patrolStateMachine.changeTopState = -1;
+                }
+            }
+        }
         public class NodeDepressed : HMNode
-        { }
+        {
+            public enum depressedStates
+            {
+                startDepressed,
+                findComfort,
+                goComfort,
+                findAlone,
+                goAlone,
+                idleSad,
+                whine
+            };
+            
+            public depressedStateMachine = new DepressedSM(depressedStates);
+            
+            public void EnterFrom(int aState)
+            {
+                if (aState == hmStatesTop.schedule)
+                {
+                    depressedStateMachine.ChangeState(depressedStates.startDepressed);
+                }
+            }
+            public void RunState()
+            {
+                depressedStateMachine.Evaluate()
+                if (depressedStateMachine.changeTopState > -1)
+                {
+                    topSM.ChangeState(depressedStateMachine.changeTopState);
+                    depressedStateMachine.changeTopState = -1;
+                }
+            }
+        }
         public class NodeRunInTerror : HMNode
-        { }
+        {
+            public enum terrorStates
+            {
+                callForHelp,
+                escapeHelp,
+                escapeAny,
+                panic
+            };
+            
+            public terrorStateMachine = new RunInTerrorSM(terrorStates);
+            
+            public void EnterFrom(int aState)
+            {
+                terrorStateMachine.ChangeState(terrorStates.callForHelp);
+            }
+            public void RunState()
+            {
+                terrorStateMachine.Evaluate()
+                if (terrorStateMachine.changeTopState > -1)
+                {
+                    topSM.ChangeState(terrorStateMachine.changeTopState);
+                    terrorStateMachine.changeTopState = -1;
+                }
+            }
+        }
         public class NodeHide : HMNode
-        { }
+        {
+            public enum hideStates
+            {
+                findSafe,
+                goSafe,
+                atSafe
+            };
+            
+            public hideStateMachine = new HideSM(hideStates);
+            
+            public void EnterFrom(int aState)
+            {
+                hideStateMachine.ChangeState(hideStates.findSafe);
+            }
+            public void RunState()
+            {
+                hideStateMachine.Evaluate()
+                if (hideStateMachine.changeTopState > -1)
+                {
+                    topSM.ChangeState(hideStateMachine.changeTopState);
+                    hideStateMachine.changeTopState = -1;
+                }
+            }
+        }
         public class NodeDefendHome : HMNode
-        { }
-
-                
-        schedule,
-        socialize,
-        workDay,
-        rest,
-        selfCare,
-        patrol,
-        depressed,
-        runInTerror,
-        hide,
-        defendVillage
-
+        {
+            public enum defendHomeStates
+            {
+                isAlerted,
+                findNeedsHelp,
+                goNeedsHelp,
+                findThreat,
+                goThreat,
+                caution
+            };
+            
+            public defendHomeStateMachine = new DefendHomeSM(defendHomeStates);
+            
+            public void EnterFrom(int aState)
+            {
+                if (m_hmMonsterAI.IsAlerted())
+                {
+                    defendHomeStateMachine.ChangeState(defendHomeStates.isAlerted);
+                }
+                else
+                {
+                    defendHomeStateMachine.ChangeState(defendHomeStates.findNeedsHelp);
+                }
+            }
+            public void RunState()
+            {
+                defendHomeStateMachine.Evaluate()
+                if (defendHomeStateMachine.changeTopState > -1)
+                {
+                    topSM.ChangeState(defendHomeStateMachine.changeTopState);
+                    defendHomeStateMachine.changeTopState = -1;
+                }
+            }
+        }
     }
 }
