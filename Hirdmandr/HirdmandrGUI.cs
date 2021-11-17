@@ -51,6 +51,7 @@ namespace Hirdmandr
         GameObject g_war_t_rangeMid;
         GameObject g_war_ch_rangeFar;
         GameObject g_war_t_rangeFar;
+        ToggleGroup g_range_tg;
 
         GameObject[] all_arts = new GameObject[0];
         GameObject[] all_wars = new GameObject[0];
@@ -992,9 +993,9 @@ namespace Hirdmandr
         public void FightingRange(bool toggle_value)
         {
             if (toggle_value) {
-                m_hirdmandrnpc.m_fightingRangeClose = g_war_ch_rangeCloseComp.GetComponent<Toggle>().isOn;
-                m_hirdmandrnpc.m_fightingRangeMid = g_war_ch_rangeMidComp.GetComponent<Toggle>().isOn;
-                m_hirdmandrnpc.m_fightingRangeFar = g_war_ch_rangeFarComp.GetComponent<Toggle>().isOn;
+                m_hirdmandrnpc.m_fightingRangeClose = g_war_ch_rangeClose.GetComponent<Toggle>().isOn;
+                m_hirdmandrnpc.m_fightingRangeMid = g_war_ch_rangeMid.GetComponent<Toggle>().isOn;
+                m_hirdmandrnpc.m_fightingRangeFar = g_war_ch_rangeFar.GetComponent<Toggle>().isOn;
 
                 if (m_hirdmandrnpc.m_fightingRangeClose)
                 {

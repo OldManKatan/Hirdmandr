@@ -68,7 +68,7 @@ namespace Hirdmandr
                     parent: GUIManager.CustomGUIFront.transform,
                     anchorMin: new Vector2(0f, 0.5f),
                     anchorMax: new Vector2(0f, 0.5f),
-                    position: new Vector2(200, 0),
+                    position: new Vector2(300, 0),
                     width: 350,
                     height: 500,
                     draggable: true);

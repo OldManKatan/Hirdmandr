@@ -80,11 +80,19 @@ namespace Hirdmandr
             m_guiHirdmandr = GetComponent<HirdmandrGUI>();
             m_guirescuecomp = GetComponent<HirdmandrGUIRescue>();
             m_znet = GetComponent<ZNetView>();
+            if (m_znet is null)
+            {
+                Jotunn.Logger.LogInfo("m_znet is null!");
+                gameObject.AddComponent<ZNetView>();
+            }
+            m_humanoid.m_nview = m_znet;
+            m_character.m_nview = m_znet;
             m_skills.m_znetv = m_znet;
             m_personality.m_znetv = m_znet;
 
             On.Character.GetHoverText += OnGetHoverText;
             On.Character.GetHoverName += OnGetHoverName;
+            On.Character.RPC_Damage += OnChar_RPC_Damage;
 
             SetupNPC();
 
@@ -244,7 +252,7 @@ namespace Hirdmandr
 
         private void Hirdmandr_RPC_Damage(Character character, long sender, HitData hit)
         {
-            if (m_character.IsDebugFlying() || !m_character.m_nview.IsOwner() || m_character.GetHealth() <= 0f || m_character.IsDead() || m_character.IsTeleporting() || m_character.InCutscene() || (hit.m_dodgeable && m_character.IsDodgeInvincible()))
+            if (m_character.IsDebugFlying() || !m_znet.IsOwner() || m_character.GetHealth() <= 0f || m_character.IsDead() || m_character.IsTeleporting() || m_character.InCutscene() || (hit.m_dodgeable && m_character.IsDodgeInvincible()))
             {
                 return;
             }
@@ -295,7 +303,24 @@ namespace Hirdmandr
             hit.ApplyResistance(damageModifiers, out var significantModifier);
 
             // Begin modifications
-            float bodyArmor = m_character.GetBodyArmor();
+            float bodyArmor = 0f;
+            if (m_humanoid.m_chestItem != null)
+            {
+                bodyArmor += m_humanoid.m_chestItem.GetArmor();
+            }
+            if (m_humanoid.m_legItem != null)
+            {
+                bodyArmor += m_humanoid.m_legItem.GetArmor();
+            }
+            if (m_humanoid.m_helmetItem != null)
+            {
+                bodyArmor += m_humanoid.m_helmetItem.GetArmor();
+            }
+            if (m_humanoid.m_shoulderItem != null)
+            {
+                bodyArmor += m_humanoid.m_shoulderItem.GetArmor();
+            }
+            Jotunn.Logger.LogInfo("NPC body armor is " + bodyArmor);
             hit.ApplyArmor(bodyArmor);
             // End modifications
 
@@ -334,13 +359,13 @@ namespace Hirdmandr
             }
             Jotunn.Logger.LogInfo("Interact happened!");
             m_user = user;
+            ZInput.ResetButtonStatus("Inventory");
+            ZInput.ResetButtonStatus("JoyButtonB");
+            ZInput.ResetButtonStatus("JoyButtonY");
+            ZInput.ResetButtonStatus("Use");
+
             if (!m_isHirdmandr)
             {
-                ZInput.ResetButtonStatus("Inventory");
-                ZInput.ResetButtonStatus("JoyButtonB");
-                ZInput.ResetButtonStatus("JoyButtonY");
-                ZInput.ResetButtonStatus("Use");
-
                 m_guirescuecomp.TogglePanel();
             }
             else
@@ -719,7 +744,14 @@ namespace Hirdmandr
 
         public void Sit()
         {
-            StartEmote("sit", oneshot: false);
+            // StartEmote("sit", oneshot: false);
+            var m_animator = transform.Find("Visual").GetComponent<Animator>();
+            m_animator.SetBool("emote_sit", value: false);
+        }
+        public void TryEmote(string a_string)
+        {
+            var m_animator = GetComponent<Animator>();
+            m_animator.SetBool("emote_" + a_string, value: false);
         }
 
         public void Stand()
@@ -730,6 +762,7 @@ namespace Hirdmandr
 
         public bool StartEmote(string emote, bool oneshot = true)
         {
+            // m_animator.SetBool("emote_" + m_emoteState, value: false);
             int @int = m_znet.GetZDO().GetInt("emoteID");
             m_znet.GetZDO().Set("emoteID", @int + 1);
             m_znet.GetZDO().Set("emote", emote);
@@ -785,10 +818,16 @@ namespace Hirdmandr
 
             if (CheckWelcomeRanges())
             {
+                if (!m_isRescued)
+                {
+                    Rescue();
+                }
                 Jotunn.Logger.LogInfo("WelcomeHome triggered an actual home, " + m_humanoid.m_name);
                 m_isHirdmandr = true;
                 m_znet.GetZDO().Set("hmnpc_isHirdmandr", m_isHirdmandr);
                 m_welcomeEffect.Create(base.transform.position, base.transform.rotation);
+                m_monsterai.SetFollowTarget(null);
+                m_monsterai.SetPatrolPoint();
             }
             else
             {
