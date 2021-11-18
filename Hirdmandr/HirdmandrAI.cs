@@ -80,22 +80,9 @@ namespace Hirdmandr
                 }
             }
         }
-       
-        public void ChangeState(sts setNextState)
+              
+        public void CheckDepression()
         {
-            nextState = setNextState;
-        }
-        
-        public void Evaluate() 
-        {
-            if (nextState != curState)
-            {
-                
-            }
-        }
-       
-       public void CheckDepression()
-       {
             if (m_hmnpc.m_mentalcontentment < -2500 || m_hmnpc.m_mentalcontentment < m_mentalstress)
             {
                 if (topSM.curState != (int)hmStatesTop.depressed && topSM.curState != (int)hmStatesTop.selfCare)
@@ -104,11 +91,11 @@ namespace Hirdmandr
                 }
             }
             Invoke("CheckDepression", UnityEngine.Random.Range(60f, 300f))
-       }
+        }
         
         // Create Nodes
         
-        public class NodeSchedule : HMNode
+        public class NodeSchedule : SMNode
         {
             public void RunState()
             {
@@ -145,7 +132,7 @@ namespace Hirdmandr
             }
         }
         
-        public class NodeSocialize : HMNode
+        public class NodeSocialize : SMNode
         {
             public enum socialStates
             {
@@ -176,7 +163,7 @@ namespace Hirdmandr
                 }
             }
         }
-        public class NodeWorkDay : HMNode
+        public class NodeWorkDay : SMNode
         {
             public enum workStates
             {
@@ -205,7 +192,7 @@ namespace Hirdmandr
                 }
             }
         }
-        public class NodeRest : HMNode
+        public class NodeRest : SMNode
         {
             public enum restStates
             {
@@ -233,7 +220,7 @@ namespace Hirdmandr
                 }
             }
         }
-        public class NodeSelfCare : HMNode
+        public class NodeSelfCare : SMNode
         {
             public enum selfCareStates
             {
@@ -261,7 +248,7 @@ namespace Hirdmandr
                 }
             }
         }
-        public class NodePatrol : HMNode
+        public class NodePatrol : SMNode
         {
             public enum patrolStates
             {
@@ -290,7 +277,7 @@ namespace Hirdmandr
                 }
             }
         }
-        public class NodeDepressed : HMNode
+        public class NodeDepressed : SMNode
         {
             public enum depressedStates
             {
@@ -319,7 +306,7 @@ namespace Hirdmandr
                 }
             }
         }
-        public class NodeRunInTerror : HMNode
+        public class NodeRunInTerror : SMNode
         {
             public enum terrorStates
             {
@@ -345,7 +332,7 @@ namespace Hirdmandr
                 }
             }
         }
-        public class NodeHide : HMNode
+        public class NodeHide : SMNode
         {
             public enum hideStates
             {
@@ -370,7 +357,7 @@ namespace Hirdmandr
                 }
             }
         }
-        public class NodeDefendHome : HMNode
+        public class NodeDefendHome : SMNode
         {
             public enum defendHomeStates
             {
