@@ -17,11 +17,13 @@ namespace OldManSM
     {
         public enum sts {};
         
-        public sts lastState = 0;
-        public sts curState = 0;
-        public sts nextState = 0;
+        public sts lastState;
+        public sts curState;
+        public sts nextState;
         
         public Dictionary<sts, SMNode> states = new Dictionary<sts, SMNode>();
+        
+        public StateMachine parentSM = null;
 
         public void ChangeState(sts stateEnum)
         {
@@ -68,6 +70,12 @@ namespace OldManSM
             states.Add(stateEnum, nodeObj);
         }
 
+        public void InitializeAtState(sts StartState)
+        {
+            lastState = StartState;
+            curState = StartState;
+            nextState = StartState;
+        }
     }
     
     public class SMNode
