@@ -27,7 +27,7 @@ namespace Hirdmandr
         public MonsterAI m_hmMonsterAI;
         public long m_nextDepressionUpdate = 0;
 
-        enum hmStatesTop
+        enum sts
         {
             schedule,
             socialize,
@@ -41,7 +41,11 @@ namespace Hirdmandr
             defendHome
         };
         
-        public StateMachine topSM = new StateMachine();
+        public sts lastState = 0;
+        public sts curState = 0;
+        public sts nextState = 0;
+        
+        public string className = "HirdmandrAI"
         
         protected virtual void Awake()
         {
@@ -68,14 +72,27 @@ namespace Hirdmandr
             {
                 if (m_hmnpc.m_roleWarrior)
                 {
-                    topSM.ChangeState((int)hmStatesTop.defendHome);
+                    topSM.ChangeState(hmStatesTop.defendHome);
                 }
                 else
                 {
-                    topSM.ChangeState((int)hmStatesTop.runInTerror);
+                    topSM.ChangeState(hmStatesTop.runInTerror);
                 }
             }
-       }
+        }
+       
+        public void ChangeState(sts setNextState)
+        {
+            nextState = setNextState;
+        }
+        
+        public void Evaluate() 
+        {
+            if (nextState != curState)
+            {
+                
+            }
+        }
        
        public void CheckDepression()
        {
