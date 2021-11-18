@@ -15,25 +15,18 @@ namespace OldManSM
 {
     public interface StateMachine
     {
-        public int lastState = 0;
-        public int curState = 0;
-        public int nextState = 0;
+        public enum sts {};
+        
+        public sts lastState = 0;
+        public sts curState = 0;
+        public sts nextState = 0;
 
-        public Dictionary<int, SMNode> states = new Dictionary<int, SMNode>();
-
-        public void ChangeState(int stateInt)
+        public virtual void ChangeState(sts nextState)
         {
-            if (states.ContainsKey(stateInt))
-            {
-                nextState = stateInt;
-            }
-            else
-            {
-                Jotunn.Logger.LogError("State Change requested to invalid state " + stateInt + "! State remains at " + curState);
-            }
+            nextState = stateInt;
         }
         
-        public void Evaluate()
+        public virtual void Evaluate()
         {
             if (nextState != curState)  // State transition is queued
             {
@@ -59,11 +52,6 @@ namespace OldManSM
                     Jotunn.Logger.LogError("This should never happen! Invalid current state?! curState = " + curState);
                 }
             }
-        }
-
-        public void AddState(int stateInt, SMNode nodeObj)
-        {
-            states.Add(stateInt, nodeObj);
         }
     }
     
