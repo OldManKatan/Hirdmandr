@@ -15,9 +15,9 @@ using UnityEngine.UI;
 
 namespace Hirdmandr
 {
-    public class SocializeSM extends StateMachine 
+    public class SocializeSM : StateMachine 
     {
-        SocializeSM(enum these_states)
+        SocializeSM()
         {
             // public HirdmandrAI.NodeSocialize.socialStates enum_states;
             
@@ -91,7 +91,7 @@ namespace Hirdmandr
         }
     }
 
-    public class WorkDaySM : OldManSM 
+    public class WorkDaySM : StateMachine 
     {
         WorkDaySM(enum these_states)
         {
@@ -145,7 +145,7 @@ namespace Hirdmandr
         }
     }
 
-    public class RestSM : OldManSM 
+    public class RestSM : StateMachine 
     {
         RestSM(enum these_states)
         {
@@ -189,7 +189,7 @@ namespace Hirdmandr
         }
     }
 
-    public class SelfCareSM : OldManSM 
+    public class SelfCareSM : StateMachine 
     {
         SelfCareSM(enum these_states)
         {
@@ -233,7 +233,7 @@ namespace Hirdmandr
         }
     }
 
-    public class PatrolSM : OldManSM 
+    public class PatrolSM : StateMachine 
     {
         PatrolSM(enum these_states)
         {
@@ -287,7 +287,7 @@ namespace Hirdmandr
         }
     }
 
-    public class DepressedSM : OldManSM 
+    public class DepressedSM : StateMachine 
     {
         DepressedSM(enum these_states)
         {
@@ -341,7 +341,7 @@ namespace Hirdmandr
         }
     }
 
-    public class RunInTerrorSM : OldManSM 
+    public class RunInTerrorSM : StateMachine 
     {
         RunInTerrorSM(enum these_states)
         {
@@ -395,7 +395,7 @@ namespace Hirdmandr
         }
     }
 
-    public class HideSM : OldManSM 
+    public class HideSM : StateMachine 
     {
         HideSM(enum these_states)
         {
@@ -439,7 +439,7 @@ namespace Hirdmandr
         }
     }
 
-    public class DefendHomeSM : OldManSM 
+    public class DefendHomeSM : StateMachine 
     {
         DefendHomeSM(enum these_states)
         {
