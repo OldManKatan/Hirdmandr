@@ -74,11 +74,11 @@ namespace OldManSM
     {
         public string notImpPrefix = "Generic StateMachine : SMNode";
             
-        public void EnterFrom(int aState)
+        public void EnterFrom(sts aState)
         {
             Jotunn.Logger.LogError(notImpPrefix + " EnterFrom is not implemented");
         }
-        public void ExitTo(int aState)
+        public void ExitTo(sts aState)
         {
             Jotunn.Logger.LogError(notImpPrefix + " ExitTo is not implemented");
         }
