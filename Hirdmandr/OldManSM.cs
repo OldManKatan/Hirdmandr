@@ -20,13 +20,22 @@ namespace OldManSM
         public sts lastState = 0;
         public sts curState = 0;
         public sts nextState = 0;
+        
+        public Dictionary<int, SMNode> states = new Dictionary<int, SMNode>();
 
-        public virtual void ChangeState(sts nextState)
+        public void ChangeState(int stateInt)
         {
-            nextState = stateInt;
+            if (states.ContainsKey(stateInt))
+            {
+                nextState = stateInt;
+            }
+            else
+            {
+                Jotunn.Logger.LogError("State Change requested to invalid state " + stateInt + "! State remains at " + curState);
+            }
         }
         
-        public virtual void Evaluate()
+        public void Evaluate()
         {
             if (nextState != curState)  // State transition is queued
             {
@@ -53,6 +62,12 @@ namespace OldManSM
                 }
             }
         }
+        
+        public void AddState(int stateInt, SMNode nodeObj)
+        {
+            states.Add(stateInt, nodeObj);
+        }
+
     }
     
     public class SMNode
