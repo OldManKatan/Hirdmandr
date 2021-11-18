@@ -17,30 +17,31 @@ namespace Hirdmandr
 {
     public class SocializeSM extends StateMachine 
     {
-        SocializeSM(HirdmandrAI.NodeSocialize.socialStates these_states)
+        SocializeSM(enum these_states)
         {
-            public HirdmandrAI.NodeSocialize.socialStates enum_states;
-            // public enum socialStates
-            // {
-            //     findMeetPoint,
-            //     goMeetPoint,
-            //     goIdlePoint,
-            //     atIdlePoint,
-            //     setupSocialize,
-            //     startSocialize
-            // };
+            // public HirdmandrAI.NodeSocialize.socialStates enum_states;
+            
+            public enum sts
+            {
+                findMeetPoint,
+                goMeetPoint,
+                goIdlePoint,
+                atIdlePoint,
+                setupSocialize,
+                startSocialize
+            };
             
             public int changeTopState = -1;
             
-            AddState((int)enum_states.findMeetPoint, new NodeFindMeetPoint());
-            AddState((int)enum_states.goMeetPoint, new NodeGoMeetPoint());
-            AddState((int)enum_states.goIdlePoint, new NodeGoIdlePoint());
-            AddState((int)enum_states.atIdlePoint, new NodeAtIdlePoint());
-            AddState((int)enum_states.setupSocialize, new NodeSetupSocialize());
-            AddState((int)enum_states.startSocialize, new NodeStartSocialize());
+            AddState(sts.findMeetPoint, new NodeFindMeetPoint());
+            AddState(sts.goMeetPoint, new NodeGoMeetPoint());
+            AddState(sts.goIdlePoint, new NodeGoIdlePoint());
+            AddState(sts.atIdlePoint, new NodeAtIdlePoint());
+            AddState(sts.setupSocialize, new NodeSetupSocialize());
+            AddState(sts.startSocialize, new NodeStartSocialize());
         }
 
-        public class NodeFindMeetPoint : HMNode
+        public class NodeFindMeetPoint : SMNode
         {
             public string no_imp = "SocializeSM.NodeFindMeetPoint not implemented";
 
@@ -48,7 +49,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeGoMeetPoint : HMNode
+        public class NodeGoMeetPoint : SMNode
         {
             public string no_imp = "SocializeSM.NodeGoMeetPoint not implemented";
 
@@ -56,7 +57,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeGoIdlePoint : HMNode
+        public class NodeGoIdlePoint : SMNode
         {
             public string no_imp = "SocializeSM.NodeGoIdlePoint not implemented";
 
@@ -64,7 +65,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeAtIdlePoint : HMNode
+        public class NodeAtIdlePoint : SMNode
         {
             public string no_imp = "SocializeSM.NodeAtIdlePoint not implemented";
 
@@ -72,7 +73,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeSetupSocialize : HMNode
+        public class NodeSetupSocialize : SMNode
         {
             public string no_imp = "SocializeSM.NodeSetupSocialize not implemented";
 
@@ -80,7 +81,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeStartSocialize : HMNode
+        public class NodeStartSocialize : SMNode
         {
             public string no_imp = "SocializeSM.NodeStartSocialize not implemented";
 
@@ -94,8 +95,7 @@ namespace Hirdmandr
     {
         WorkDaySM(enum these_states)
         {
-            public enum enum_states = these_states;
-            public enum workStates
+            public enum sts
             {
                 resetArtJob,
                 setupArtJob,
@@ -105,13 +105,13 @@ namespace Hirdmandr
            
             public int changeTopState = -1;
             
-            AddState(enum_states.resetArtJob, new NodeResetArtJob());
-            AddState(enum_states.setupArtJob, new NodeSetupArtJob());
-            AddState(enum_states.goArtJob, new NodeGoArtJob());
-            AddState(enum_states.doJob, new NodeDoJob());
+            AddState(sts.resetArtJob, new NodeResetArtJob());
+            AddState(sts.setupArtJob, new NodeSetupArtJob());
+            AddState(sts.goArtJob, new NodeGoArtJob());
+            AddState(sts.doJob, new NodeDoJob());
         }
 
-        public class NodeResetArtJob : HMNode
+        public class NodeResetArtJob : SMNode
         {
             public string no_imp = "WorkDaySM.NodeResetArtJob not implemented";
 
@@ -119,7 +119,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeSetupArtJob : HMNode
+        public class NodeSetupArtJob : SMNode
         {
             public string no_imp = "WorkDaySM.NodeSetupArtJob not implemented";
 
@@ -127,7 +127,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeGoArtJob : HMNode
+        public class NodeGoArtJob : SMNode
         {
             public string no_imp = "WorkDaySM.NodeGoArtJob not implemented";
 
@@ -135,7 +135,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeDoJob : HMNode
+        public class NodeDoJob : SMNode
         {
             public string no_imp = "WorkDaySM.NodeDoJob not implemented";
 
@@ -149,7 +149,6 @@ namespace Hirdmandr
     {
         RestSM(enum these_states)
         {
-            public enum enum_states = these_states;
             public enum restStates
             {
                 findBed,
@@ -159,12 +158,12 @@ namespace Hirdmandr
            
             public int changeTopState = -1;
             
-            AddState(enum_states.findBed, new NodeFindBed());
-            AddState(enum_states.goBed, new NodeGoBed());
-            AddState(enum_states.atBed, new NodeAtBed());
+            AddState(sts.findBed, new NodeFindBed());
+            AddState(sts.goBed, new NodeGoBed());
+            AddState(sts.atBed, new NodeAtBed());
         }
 
-        public class NodeFindBed : HMNode
+        public class NodeFindBed : SMNode
         {
             public string no_imp = "RestSM.NodeFindBed not implemented";
 
@@ -172,7 +171,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeGoBed : HMNode
+        public class NodeGoBed : SMNode
         {
             public string no_imp = "RestSM.NodeGoBed not implemented";
 
@@ -180,7 +179,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeAtBed : HMNode
+        public class NodeAtBed : SMNode
         {
             public string no_imp = "RestSM.NodeAtBed not implemented";
 
@@ -194,8 +193,7 @@ namespace Hirdmandr
     {
         SelfCareSM(enum these_states)
         {
-            public enum enum_states = these_states;
-            public enum selfCareStates
+            public enum sts
             {
                 findFood,
                 goFood,
@@ -204,12 +202,12 @@ namespace Hirdmandr
            
             public int changeTopState = -1;
             
-            AddState(enum_states.findFood, new NodeFindFood());
-            AddState(enum_states.goFood, new NodeGoFood());
-            AddState(enum_states.atFood, new NodeAtFood());
+            AddState(sts.findFood, new NodeFindFood());
+            AddState(sts.goFood, new NodeGoFood());
+            AddState(sts.atFood, new NodeAtFood());
         }
 
-        public class NodeFindFood : HMNode
+        public class NodeFindFood : SMNode
         {
             public string no_imp = "selfCareSM.NodeFindFood not implemented";
 
@@ -217,7 +215,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeGoFood : HMNode
+        public class NodeGoFood : SMNode
         {
             public string no_imp = "selfCareSM.NodeGoFood not implemented";
 
@@ -225,7 +223,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeAtFood : HMNode
+        public class NodeAtFood : SMNode
         {
             public string no_imp = "selfCareSM.NodeAtFood not implemented";
 
@@ -239,24 +237,23 @@ namespace Hirdmandr
     {
         PatrolSM(enum these_states)
         {
-            public enum enum_states = these_states;
-            public enum patrolStates
+            public enum sts
             {
                 setupPatrol,
                 goPost,
                 atPost,
                 isAlerted
             };
-           
+
             public int changeTopState = -1;
             
-            AddState(enum_states.setupPatrol, new NodeSetupPatrol());
-            AddState(enum_states.goPost, new NodeGoPost());
-            AddState(enum_states.atPost, new NodeAtPost());
-            AddState(enum_states.isAlerted, new NodeIsAlerted());
+            AddState(sts.setupPatrol, new NodeSetupPatrol());
+            AddState(sts.goPost, new NodeGoPost());
+            AddState(sts.atPost, new NodeAtPost());
+            AddState(sts.isAlerted, new NodeIsAlerted());
         }
 
-        public class NodeSetupPatrol : HMNode
+        public class NodeSetupPatrol : SMNode
         {
             public string no_imp = "PatrolSM.NodeSetupPatrol not implemented";
 
@@ -264,7 +261,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeGoPost : HMNode
+        public class NodeGoPost : SMNode
         {
             public string no_imp = "PatrolSM.NodeGoPost not implemented";
 
@@ -272,7 +269,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeAtPost : HMNode
+        public class NodeAtPost : SMNode
         {
             public string no_imp = "PatrolSM.NodeAtPost not implemented";
 
@@ -280,7 +277,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeIsAlerted : HMNode
+        public class NodeIsAlerted : SMNode
         {
             public string no_imp = "PatrolSM.NodeIsAlerted not implemented";
 
@@ -294,24 +291,23 @@ namespace Hirdmandr
     {
         DepressedSM(enum these_states)
         {
-            public enum enum_states = these_states;
-            public enum depressedStates
+            public enum sts
             {
                 startDepressed,
                 findComfort,
                 goComfort,
                 whine
             };
-           
+
             public int changeTopState = -1;
             
-            AddState(enum_states.startDepressed, new NodeStartDepressed());
-            AddState(enum_states.findComfort, new NodeFindComfort());
-            AddState(enum_states.goComfort, new NodeGoComfort());
-            AddState(enum_states.whine, new NodeWhine());
+            AddState(sts.startDepressed, new NodeStartDepressed());
+            AddState(sts.findComfort, new NodeFindComfort());
+            AddState(sts.goComfort, new NodeGoComfort());
+            AddState(sts.whine, new NodeWhine());
         }
 
-        public class NodeStartDepressed : HMNode
+        public class NodeStartDepressed : SMNode
         {
             public string no_imp = "DepressedSM.NodeStartDepressed not implemented";
 
@@ -319,7 +315,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeFindComfort : HMNode
+        public class NodeFindComfort : SMNode
         {
             public string no_imp = "DepressedSM.NodeFindComfort not implemented";
 
@@ -327,7 +323,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeGoComfort : HMNode
+        public class NodeGoComfort : SMNode
         {
             public string no_imp = "DepressedSM.NodeGoComfort not implemented";
 
@@ -335,7 +331,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeWhine : HMNode
+        public class NodeWhine : SMNode
         {
             public string no_imp = "DepressedSM.NodeWhine not implemented";
 
@@ -349,8 +345,7 @@ namespace Hirdmandr
     {
         RunInTerrorSM(enum these_states)
         {
-            public enum enum_states = these_states;
-            public enum terrorStates
+            public enum sts
             {
                 callForHelp,
                 escapeHelp,
@@ -360,13 +355,13 @@ namespace Hirdmandr
            
             public int changeTopState = -1;
             
-            AddState(enum_states.callForHelp, new NodeCallForHelp());
-            AddState(enum_states.escapeHelp, new NodeEscapeHelp());
-            AddState(enum_states.escapeAny, new NodeEscapeAny());
-            AddState(enum_states.panic, new NodePanic());
+            AddState(sts.callForHelp, new NodeCallForHelp());
+            AddState(sts.escapeHelp, new NodeEscapeHelp());
+            AddState(sts.escapeAny, new NodeEscapeAny());
+            AddState(sts.panic, new NodePanic());
         }
 
-        public class NodeCallForHelp : HMNode
+        public class NodeCallForHelp : SMNode
         {
             public string no_imp = "RunInTerrorSM.NodeCallForHelp not implemented";
 
@@ -374,7 +369,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeEscapeHelp : HMNode
+        public class NodeEscapeHelp : SMNode
         {
             public string no_imp = "RunInTerrorSM.NodeEscapeHelp not implemented";
 
@@ -382,7 +377,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeEscapeAny : HMNode
+        public class NodeEscapeAny : SMNode
         {
             public string no_imp = "RunInTerrorSM.NodeEscapeAny not implemented";
 
@@ -390,7 +385,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodePanic : HMNode
+        public class NodePanic : SMNode
         {
             public string no_imp = "RunInTerrorSM.NodePanic not implemented";
 
@@ -404,22 +399,21 @@ namespace Hirdmandr
     {
         HideSM(enum these_states)
         {
-            public enum enum_states = these_states;
-            public enum hideStates
+            public enum sts
             {
                 findSafe,
                 goSafe,
                 atSafe
             };
-           
+
             public int changeTopState = -1;
             
-            AddState(enum_states.findSafe, new NodeFindSafe());
-            AddState(enum_states.goSafe, new NodeGoSafe());
-            AddState(enum_states.atSafe, new NodeAtSafe());
+            AddState(sts.findSafe, new NodeFindSafe());
+            AddState(sts.goSafe, new NodeGoSafe());
+            AddState(sts.atSafe, new NodeAtSafe());
         }
 
-        public class NodeFindSafe : HMNode
+        public class NodeFindSafe : SMNode
         {
             public string no_imp = "HideSM.NodeFindSafe not implemented";
 
@@ -427,7 +421,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeGoSafe : HMNode
+        public class NodeGoSafe : SMNode
         {
             public string no_imp = "HideSM.NodeGoSafe not implemented";
 
@@ -435,7 +429,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeAtSafe : HMNode
+        public class NodeAtSafe : SMNode
         {
             public string no_imp = "HideSM.NodeAtSafe not implemented";
 
@@ -449,8 +443,7 @@ namespace Hirdmandr
     {
         DefendHomeSM(enum these_states)
         {
-            public enum enum_states = these_states;
-            public enum defendHomeStates
+            public enum sts
             {
                 isAlerted,
                 findNeedsHelp,
@@ -459,18 +452,18 @@ namespace Hirdmandr
                 goThreat,
                 caution
             };
-           
+
             public int changeTopState = -1;
             
-            AddState(enum_states.isAlerted, new NodeIsAlerted());
-            AddState(enum_states.findNeedsHelp, new NodeFindNeedsHelp());
-            AddState(enum_states.goNeedsHelp, new NodeGoNeedsHelp());
-            AddState(enum_states.findThreat, new NodeFindThreat());
-            AddState(enum_states.goThreat, new NodeGoThreat());
-            AddState(enum_states.caution, new NodeCaution());
+            AddState(sts.isAlerted, new NodeIsAlerted());
+            AddState(sts.findNeedsHelp, new NodeFindNeedsHelp());
+            AddState(sts.goNeedsHelp, new NodeGoNeedsHelp());
+            AddState(sts.findThreat, new NodeFindThreat());
+            AddState(sts.goThreat, new NodeGoThreat());
+            AddState(sts.caution, new NodeCaution());
         }
 
-        public class NodeIsAlerted : HMNode
+        public class NodeIsAlerted : SMNode
         {
             public string no_imp = "DefendHomeSM.NodeIsAlerted not implemented";
 
@@ -478,7 +471,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeFindNeedsHelp : HMNode
+        public class NodeFindNeedsHelp : SMNode
         {
             public string no_imp = "DefendHomeSM.NodeFindNeedsHelp not implemented";
 
@@ -486,7 +479,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeGoNeedsHelp : HMNode
+        public class NodeGoNeedsHelp : SMNode
         {
             public string no_imp = "DefendHomeSM.NodeGoNeedsHelp not implemented";
 
@@ -494,7 +487,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeFindThreat : HMNode
+        public class NodeFindThreat : SMNode
         {
             public string no_imp = "DefendHomeSM.NodeFindThreat not implemented";
 
@@ -502,7 +495,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeGoThreat : HMNode
+        public class NodeGoThreat : SMNode
         {
             public string no_imp = "DefendHomeSM.NodeGoThreat not implemented";
 
@@ -510,7 +503,7 @@ namespace Hirdmandr
             public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
             public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
         }
-        public class NodeCaution : HMNode
+        public class NodeCaution : SMNode
         {
             public string no_imp = "DefendHomeSM.NodeCaution not implemented";
 
