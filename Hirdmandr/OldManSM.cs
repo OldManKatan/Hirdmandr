@@ -21,17 +21,17 @@ namespace OldManSM
         public sts curState = 0;
         public sts nextState = 0;
         
-        public Dictionary<int, SMNode> states = new Dictionary<int, SMNode>();
+        public Dictionary<sts, SMNode> states = new Dictionary<sts, SMNode>();
 
-        public void ChangeState(int stateInt)
+        public void ChangeState(sts stateEnum)
         {
-            if (states.ContainsKey(stateInt))
+            if (states.ContainsKey(stateEnum))
             {
-                nextState = stateInt;
+                nextState = stateEnum;
             }
             else
             {
-                Jotunn.Logger.LogError("State Change requested to invalid state " + stateInt + "! State remains at " + curState);
+                Jotunn.Logger.LogError("State Change requested to invalid state " + (int)stateEnum + "! State remains at " + (int)curState);
             }
         }
         
@@ -39,7 +39,7 @@ namespace OldManSM
         {
             if (nextState != curState)  // State transition is queued
             {
-                if (states.TryGetValue(curState, out SMNode curNode) && states.TryGetValue(nextState, out SMNode nextNode))
+                if (states.TryGetValue(curState, out SMNode curNode) && sts.TryGetValue(nextState, out SMNode nextNode))
                 {
                     curNode.ExitTo(nextState);
                     nextNode.EnterFrom(curState);
@@ -58,28 +58,33 @@ namespace OldManSM
                 }
                 else 
                 {
-                    Jotunn.Logger.LogError("This should never happen! Invalid current state?! curState = " + curState);
+                    Jotunn.Logger.LogError("This should never happen! Invalid current state?! curState = " + (int)curState);
                 }
             }
         }
         
-        public void AddState(int stateInt, SMNode nodeObj)
+        public void AddState(sts stateEnum, SMNode nodeObj)
         {
-            states.Add(stateInt, nodeObj);
+            states.Add(stateEnum, nodeObj);
         }
 
     }
     
     public class SMNode
     {
+        public string notImpPrefix = "Generic StateMachine : SMNode";
+            
         public void EnterFrom(int aState)
         {
+            Jotunn.Logger.LogError(notImpPrefix + " EnterFrom is not implemented");
         }
         public void ExitTo(int aState)
         {
+            Jotunn.Logger.LogError(notImpPrefix + " ExitTo is not implemented");
         }
         public void RunState()
         {
+            Jotunn.Logger.LogError(notImpPrefix + " RunState is not implemented");
         }
     }
 }
