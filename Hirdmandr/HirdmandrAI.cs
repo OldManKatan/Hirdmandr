@@ -27,7 +27,7 @@ namespace Hirdmandr
         public MonsterAI m_hmMonsterAI;
         public long m_nextDepressionUpdate = 0;
 
-        public enum hmStatesTop
+        enum hmStatesTop
         {
             schedule,
             socialize,
@@ -43,19 +43,19 @@ namespace Hirdmandr
         
         public StateMachine topSM = new StateMachine();
         
-        topSM.AddState(hmStatesTop.schedule, new NodeSchedule());
-        topSM.AddState(hmStatesTop.socialize, new NodeSocialize());
-        topSM.AddState(hmStatesTop.workDay, new NodeWorkDay());
-        topSM.AddState(hmStatesTop.rest, new NodeRest());
-        topSM.AddState(hmStatesTop.selfCare, new NodeSelfCare());
-        topSM.AddState(hmStatesTop.patrol, new NodePatrol());
-        topSM.AddState(hmStatesTop.depressed, new NodeDepressed());
-        topSM.AddState(hmStatesTop.runInTerror, new NodeRunInTerror());
-        topSM.AddState(hmStatesTop.hide, new NodeHide());
-        topSM.AddState(hmStatesTop.defendHome, new NodeDefendHome());
-
         protected virtual void Awake()
         {
+            topSM.AddState((int)hmStatesTop.schedule, new NodeSchedule());
+            topSM.AddState((int)hmStatesTop.socialize, new NodeSocialize());
+            topSM.AddState((int)hmStatesTop.workDay, new NodeWorkDay());
+            topSM.AddState((int)hmStatesTop.rest, new NodeRest());
+            topSM.AddState((int)hmStatesTop.selfCare, new NodeSelfCare());
+            topSM.AddState((int)hmStatesTop.patrol, new NodePatrol());
+            topSM.AddState((int)hmStatesTop.depressed, new NodeDepressed());
+            topSM.AddState((int)hmStatesTop.runInTerror, new NodeRunInTerror());
+            topSM.AddState((int)hmStatesTop.hide, new NodeHide());
+            topSM.AddState((int)hmStatesTop.defendHome, new NodeDefendHome());
+
             m_hmnpc = GetComponent<HirdmandrNPC>();
             m_hmMonsterAI = GetComponent<MonsterAI>();
             
@@ -64,15 +64,15 @@ namespace Hirdmandr
         
         protected virtual void Update()
         {
-            if (m_hmMonsterAI.IsAlerted() && topSM.curState != hmStatesTop.patrol)
+            if (m_hmMonsterAI.IsAlerted() && topSM.curState != (int)hmStatesTop.patrol)
             {
                 if (m_hmnpc.m_roleWarrior)
                 {
-                    topSM.ChangeState(hmStatesTop.defendHome);
+                    topSM.ChangeState((int)hmStatesTop.defendHome);
                 }
                 else
                 {
-                    topSM.ChangeState(hmStatesTop.runInTerror);
+                    topSM.ChangeState((int)hmStatesTop.runInTerror);
                 }
             }
        }
@@ -81,9 +81,9 @@ namespace Hirdmandr
        {
             if (m_hmnpc.m_mentalcontentment < -2500 || m_hmnpc.m_mentalcontentment < m_mentalstress)
             {
-                if (topSM.curState != hmStatesTop.depressed && topSM.curState != hmStatesTop.selfCare)
+                if (topSM.curState != (int)hmStatesTop.depressed && topSM.curState != (int)hmStatesTop.selfCare)
                 {
-                    topSM.ChangeState(hmStatesTop.depressed);
+                    topSM.ChangeState((int)hmStatesTop.depressed);
                 }
             }
             Invoke("CheckDepression", UnityEngine.Random.Range(60f, 300f))
@@ -96,34 +96,34 @@ namespace Hirdmandr
             public void RunState()
             {
                 if (m_hmnpc.m_roleArtisan) {
-                    if (Game.ToD >= 0.2483 && Game.ToD < 0.3333) { topSM.ChangeState(hmStatesTop.socialize); }
-                    else if (Game.ToD >= 0.3333 && Game.ToD < 0.7083) { topSM.ChangeState(hmStatesTop.workDay); }
-                    else if (Game.ToD >= 0.7083 && Game.ToD < 0.909) { topSM.ChangeState(hmStatesTop.socialize); }
-                    else if (Game.ToD >= 0.909 || Game.ToD < 0.2083) { topSM.ChangeState(hmStatesTop.rest); }
-                    else if (Game.ToD >= 0.2083 && Game.ToD < 0.2483) { topSM.ChangeState(hmStatesTop.selfCare); }
+                    if (Game.ToD >= 0.2483 && Game.ToD < 0.3333) { topSM.ChangeState((int)hmStatesTop.socialize); }
+                    else if (Game.ToD >= 0.3333 && Game.ToD < 0.7083) { topSM.ChangeState((int)hmStatesTop.workDay); }
+                    else if (Game.ToD >= 0.7083 && Game.ToD < 0.909) { topSM.ChangeState((int)hmStatesTop.socialize); }
+                    else if (Game.ToD >= 0.909 || Game.ToD < 0.2083) { topSM.ChangeState((int)hmStatesTop.rest); }
+                    else if (Game.ToD >= 0.2083 && Game.ToD < 0.2483) { topSM.ChangeState((int)hmStatesTop.selfCare); }
                 }
                 if (m_hmnpc.m_roleWarrior && m_hmnpc.m_jobThegn)
                 {
                     if (m_hmnpc.m_thegnDayshift)
                     {
-                        if (Game.ToD >= 0.2083 && Game.ToD < 0.2608) { topSM.ChangeState(hmStatesTop.selfCare); }
-                        else if (Game.ToD >= 0.2608 && Game.ToD < 0.7083) { topSM.ChangeState(hmStatesTop.patrol); }
-                        else if (Game.ToD >= 0.7083 && Game.ToD < 0.909) { topSM.ChangeState(hmStatesTop.socialize); }
-                        else if (Game.ToD >= 0.909 || Game.ToD < 0.2083) { topSM.ChangeState(hmStatesTop.rest); }
+                        if (Game.ToD >= 0.2083 && Game.ToD < 0.2608) { topSM.ChangeState((int)hmStatesTop.selfCare); }
+                        else if (Game.ToD >= 0.2608 && Game.ToD < 0.7083) { topSM.ChangeState((int)hmStatesTop.patrol); }
+                        else if (Game.ToD >= 0.7083 && Game.ToD < 0.909) { topSM.ChangeState((int)hmStatesTop.socialize); }
+                        else if (Game.ToD >= 0.909 || Game.ToD < 0.2083) { topSM.ChangeState((int)hmStatesTop.rest); }
                     }
                     else
                     {
-                        if (Game.ToD >= 0.6083 && Game.ToD < 0.6983) { topSM.ChangeState(hmStatesTop.selfCare); }
-                        else if (Game.ToD >= 0.6983 || Game.ToD < 0.2708) { topSM.ChangeState(hmStatesTop.patrol); }
-                        else if (Game.ToD >= 0.2708 && Game.ToD < 0.3333) { topSM.ChangeState(hmStatesTop.socialize); }
-                        else if (Game.ToD >= 0.3333 && Game.ToD < 0.6083) { topSM.ChangeState(hmStatesTop.rest); }
+                        if (Game.ToD >= 0.6083 && Game.ToD < 0.6983) { topSM.ChangeState((int)hmStatesTop.selfCare); }
+                        else if (Game.ToD >= 0.6983 || Game.ToD < 0.2708) { topSM.ChangeState((int)hmStatesTop.patrol); }
+                        else if (Game.ToD >= 0.2708 && Game.ToD < 0.3333) { topSM.ChangeState((int)hmStatesTop.socialize); }
+                        else if (Game.ToD >= 0.3333 && Game.ToD < 0.6083) { topSM.ChangeState((int)hmStatesTop.rest); }
                     }
                 }
                 else if (m_hmnpc.m_roleWarrior && m_hmnpc.m_jobHimthiki)
                 {
-                    if (Game.ToD >= 0.2483 && Game.ToD < 0.909) { topSM.ChangeState(hmStatesTop.socialize); }
-                    else if (Game.ToD >= 0.909 || Game.ToD < 0.2083) { topSM.ChangeState(hmStatesTop.rest); }
-                    else if (Game.ToD >= 0.2083 && Game.ToD < 0.2483) { topSM.ChangeState(hmStatesTop.selfCare); }
+                    if (Game.ToD >= 0.2483 && Game.ToD < 0.909) { topSM.ChangeState((int)hmStatesTop.socialize); }
+                    else if (Game.ToD >= 0.909 || Game.ToD < 0.2083) { topSM.ChangeState((int)hmStatesTop.rest); }
+                    else if (Game.ToD >= 0.2083 && Game.ToD < 0.2483) { topSM.ChangeState((int)hmStatesTop.selfCare); }
                 }
             }
         }
@@ -140,11 +140,11 @@ namespace Hirdmandr
                 startSocialize
             };
             
-            public socialStateMachine = new SocializeSM(socialStates);
+            public SocializeSM socialStateMachine = new SocializeSM(socialStates);
             
             public void EnterFrom(int aState)
             {
-                if (aState == hmStatesTop.schedule || aState == hmStatesTop.workDay)
+                if (aState == (int)hmStatesTop.schedule || aState == (int)hmStatesTop.workDay)
                 {
                     socialStateMachine.ChangeState(socialStates.findMeetPoint);
                 }

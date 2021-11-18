@@ -1,4 +1,5 @@
 using BepInEx;
+using Hirdmandr;
 using Jotunn.Configs;
 using Jotunn.Entities;
 using Jotunn.GUI;
@@ -14,29 +15,29 @@ using UnityEngine.UI;
 
 namespace Hirdmandr
 {
-    public class SocializeSM : OldManSM 
+    public class SocializeSM extends StateMachine 
     {
-        SocializeSM(enum these_states)
+        SocializeSM(HirdmandrAI.NodeSocialize.socialStates these_states)
         {
-            public enum enum_states = these_states;
-            public enum socialStates
-            {
-                findMeetPoint,
-                goMeetPoint,
-                goIdlePoint,
-                atIdlePoint,
-                setupSocialize,
-                startSocialize
-            };
+            public HirdmandrAI.NodeSocialize.socialStates enum_states;
+            // public enum socialStates
+            // {
+            //     findMeetPoint,
+            //     goMeetPoint,
+            //     goIdlePoint,
+            //     atIdlePoint,
+            //     setupSocialize,
+            //     startSocialize
+            // };
             
             public int changeTopState = -1;
             
-            AddState(enum_states.findMeetPoint, new NodeFindMeetPoint());
-            AddState(enum_states.goMeetPoint, new NodeGoMeetPoint());
-            AddState(enum_states.goIdlePoint, new NodeGoIdlePoint());
-            AddState(enum_states.atIdlePoint, new NodeAtIdlePoint());
-            AddState(enum_states.setupSocialize, new NodeSetupSocialize());
-            AddState(enum_states.startSocialize, new NodeStartSocialize());
+            AddState((int)enum_states.findMeetPoint, new NodeFindMeetPoint());
+            AddState((int)enum_states.goMeetPoint, new NodeGoMeetPoint());
+            AddState((int)enum_states.goIdlePoint, new NodeGoIdlePoint());
+            AddState((int)enum_states.atIdlePoint, new NodeAtIdlePoint());
+            AddState((int)enum_states.setupSocialize, new NodeSetupSocialize());
+            AddState((int)enum_states.startSocialize, new NodeStartSocialize());
         }
 
         public class NodeFindMeetPoint : HMNode

@@ -2,6 +2,7 @@ using BepInEx;
 using Jotunn.Configs;
 using Jotunn.Entities;
 using Jotunn.GUI;
+using Jotunn;
 using Jotunn.Managers;
 using Jotunn.Utils;
 using System;
@@ -12,29 +13,17 @@ using UnityEngine.UI;
 
 namespace OldManSM 
 {
-    public class StateMachine
+    public interface StateMachine
     {
         public int lastState = 0;
         public int curState = 0;
         public int nextState = 0;
-        
+
         public Dictionary<int, SMNode> states = new Dictionary<int, SMNode>();
-        
-        public State AddState(int stateInt, SMNode nodeObj)
-        {
-            if (stateInt && nodeObj)
-            {
-                states.Add(new KeyValuePair<int, SMNode>(stateInt, nodeObj));
-            }
-            else
-            {
-                Jotunn.Logger.LogError("AddState failed because either stateInt or nodeObj was null/invalid");
-            }
-        }
-        
+
         public void ChangeState(int stateInt)
         {
-            if States.ContainsKey(stateInt)
+            if (states.ContainsKey(stateInt))
             {
                 nextState = stateInt;
             }
@@ -48,7 +37,7 @@ namespace OldManSM
         {
             if (nextState != curState)  // State transition is queued
             {
-                if (states.TryGetValue(curState, out curNode) && states.TryGetValue(nextState, out nextNode))
+                if (states.TryGetValue(curState, out SMNode curNode) && states.TryGetValue(nextState, out SMNode nextNode))
                 {
                     curNode.ExitTo(nextState);
                     nextNode.EnterFrom(curState);
@@ -61,7 +50,7 @@ namespace OldManSM
             }
             else  // Normal state execution: RunState
             {
-                if (states.TryGetValue(curState, out curNode))
+                if (states.TryGetValue(curState, out SMNode curNode))
                 {
                     curNode.RunState();
                 }
@@ -70,6 +59,11 @@ namespace OldManSM
                     Jotunn.Logger.LogError("This should never happen! Invalid current state?! curState = " + curState);
                 }
             }
+        }
+
+        public void AddState(int stateInt, SMNode nodeObj)
+        {
+            states.Add(stateInt, nodeObj);
         }
     }
     
