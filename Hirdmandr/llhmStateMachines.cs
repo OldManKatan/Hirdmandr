@@ -17,515 +17,683 @@ namespace Hirdmandr
 {
     public class SocializeSM : StateMachine 
     {
-        SocializeSM()
+        public string changeTopState = "";
+
+        public SocializeSM()
         {
-            // public HirdmandrAI.NodeSocialize.socialStates enum_states;
-            
-            public enum sts
-            {
-                findMeetPoint,
-                goMeetPoint,
-                goIdlePoint,
-                atIdlePoint,
-                setupSocialize,
-                startSocialize
-            };
-            
-            public int changeTopState = -1;
-            
-            AddState(sts.findMeetPoint, new NodeFindMeetPoint());
-            AddState(sts.goMeetPoint, new NodeGoMeetPoint());
-            AddState(sts.goIdlePoint, new NodeGoIdlePoint());
-            AddState(sts.atIdlePoint, new NodeAtIdlePoint());
-            AddState(sts.setupSocialize, new NodeSetupSocialize());
-            AddState(sts.startSocialize, new NodeStartSocialize());
+            AddState("findMeetPoint", new NodeFindMeetPoint(this));
+            AddState("goMeetPoint", new NodeGoMeetPoint(this));
+            AddState("goIdlePoint", new NodeGoIdlePoint(this));
+            AddState("atIdlePoint", new NodeAtIdlePoint(this));
+            AddState("setupSocialize", new NodeSetupSocialize(this));
+            AddState("startSocialize", new NodeStartSocialize(this));
         }
 
         public class NodeFindMeetPoint : SMNode
         {
+            public SocializeSM parentSM;
+
+            public NodeFindMeetPoint(SocializeSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "SocializeSM.NodeFindMeetPoint not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeGoMeetPoint : SMNode
         {
+            public SocializeSM parentSM;
+
+            public NodeGoMeetPoint(SocializeSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "SocializeSM.NodeGoMeetPoint not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeGoIdlePoint : SMNode
         {
+            public SocializeSM parentSM;
+
+            public NodeGoIdlePoint(SocializeSM psm)
+            {
+                parentSM = psm;
+            }
+            
             public string no_imp = "SocializeSM.NodeGoIdlePoint not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeAtIdlePoint : SMNode
         {
+            public SocializeSM parentSM;
+
+            public NodeAtIdlePoint(SocializeSM psm)
+            {
+                parentSM = psm;
+            }
+            
             public string no_imp = "SocializeSM.NodeAtIdlePoint not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeSetupSocialize : SMNode
         {
+            public SocializeSM parentSM;
+
+            public NodeSetupSocialize(SocializeSM psm)
+            {
+                parentSM = psm;
+            }
+            
             public string no_imp = "SocializeSM.NodeSetupSocialize not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeStartSocialize : SMNode
         {
+            public SocializeSM parentSM;
+
+            public NodeStartSocialize(SocializeSM psm)
+            {
+                parentSM = psm;
+            }
+            
             public string no_imp = "SocializeSM.NodeStartSocialize not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
     }
 
     public class WorkDaySM : StateMachine 
     {
-        WorkDaySM(enum these_states)
-        {
-            public enum sts
-            {
-                resetArtJob,
-                setupArtJob,
-                goArtJob,
-                doJob
-            };
+        public string changeTopState = "";
 
-            public int changeTopState = -1;
-            
-            AddState(sts.resetArtJob, new NodeResetArtJob());
-            AddState(sts.setupArtJob, new NodeSetupArtJob());
-            AddState(sts.goArtJob, new NodeGoArtJob());
-            AddState(sts.doJob, new NodeDoJob());
-            
-            InitializeAtState(sts.resetArtJob);
+        public WorkDaySM()
+        {
+            AddState("resetArtJob", new NodeResetArtJob(this));
+            AddState("setupArtJob", new NodeSetupArtJob(this));
+            AddState("goArtJob", new NodeGoArtJob(this));
+            AddState("doJob", new NodeDoJob(this));
         }
 
         public class NodeResetArtJob : SMNode
         {
+            public WorkDaySM parentSM;
+
+            public NodeResetArtJob(WorkDaySM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "WorkDaySM.NodeResetArtJob not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeSetupArtJob : SMNode
         {
+            public WorkDaySM parentSM;
+
+            public NodeSetupArtJob(WorkDaySM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "WorkDaySM.NodeSetupArtJob not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeGoArtJob : SMNode
         {
+            public WorkDaySM parentSM;
+
+            public NodeGoArtJob(WorkDaySM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "WorkDaySM.NodeGoArtJob not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeDoJob : SMNode
         {
+            public WorkDaySM parentSM;
+
+            public NodeDoJob(WorkDaySM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "WorkDaySM.NodeDoJob not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
     }
 
     public class RestSM : StateMachine 
     {
-        RestSM(enum these_states)
+        public string changeTopState = "";
+
+        public RestSM()
         {
-            public enum restStates
-            {
-                findBed,
-                goBed,
-                atBed
-            };
-           
-            public int changeTopState = -1;
-            
-            AddState(sts.findBed, new NodeFindBed());
-            AddState(sts.goBed, new NodeGoBed());
-            AddState(sts.atBed, new NodeAtBed());
-            
-            InitializeAtState(sts.findBed);
+            AddState("findBed", new NodeFindBed(this));
+            AddState("goBed", new NodeGoBed(this));
+            AddState("atBed", new NodeAtBed(this));
         }
 
         public class NodeFindBed : SMNode
         {
+            public RestSM parentSM;
+
+            public NodeFindBed(RestSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "RestSM.NodeFindBed not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeGoBed : SMNode
         {
+            public RestSM parentSM;
+
+            public NodeGoBed(RestSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "RestSM.NodeGoBed not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeAtBed : SMNode
         {
+            public RestSM parentSM;
+
+            public NodeAtBed(RestSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "RestSM.NodeAtBed not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
     }
 
     public class SelfCareSM : StateMachine 
     {
-        SelfCareSM(enum these_states)
+        public string changeTopState = "";
+
+        public SelfCareSM()
         {
-            public enum sts
-            {
-                findFood,
-                goFood,
-                atFood
-            };
-           
-            public int changeTopState = -1;
-            
-            AddState(sts.findFood, new NodeFindFood());
-            AddState(sts.goFood, new NodeGoFood());
-            AddState(sts.atFood, new NodeAtFood());
-            
-            InitializeAtState(sts.findFood);
+            AddState("findFood", new NodeFindFood(this));
+            AddState("goFood", new NodeGoFood(this));
+            AddState("atFood", new NodeAtFood(this));
         }
 
         public class NodeFindFood : SMNode
         {
+            public SelfCareSM parentSM;
+
+            public NodeFindFood(SelfCareSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "selfCareSM.NodeFindFood not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeGoFood : SMNode
         {
+            public SelfCareSM parentSM;
+
+            public NodeGoFood(SelfCareSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "selfCareSM.NodeGoFood not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeAtFood : SMNode
         {
+            public SelfCareSM parentSM;
+
+            public NodeAtFood(SelfCareSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "selfCareSM.NodeAtFood not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
     }
 
     public class PatrolSM : StateMachine 
     {
-        PatrolSM(enum these_states)
-        {
-            public enum sts
-            {
-                setupPatrol,
-                goPost,
-                atPost,
-                isAlerted
-            };
+        public string changeTopState = "";
 
-            public int changeTopState = -1;
-            
-            AddState(sts.setupPatrol, new NodeSetupPatrol());
-            AddState(sts.goPost, new NodeGoPost());
-            AddState(sts.atPost, new NodeAtPost());
-            AddState(sts.isAlerted, new NodeIsAlerted());
-            
-            InitializeAtState(sts.setupPatrol);
+        public PatrolSM()
+        {
+            AddState("setupPatrol", new NodeSetupPatrol(this));
+            AddState("goPost", new NodeGoPost(this));
+            AddState("atPost", new NodeAtPost(this));
+            AddState("isAlerted", new NodeIsAlerted(this));
         }
 
         public class NodeSetupPatrol : SMNode
         {
+            public PatrolSM parentSM;
+
+            public NodeSetupPatrol(PatrolSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "PatrolSM.NodeSetupPatrol not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeGoPost : SMNode
         {
+            public PatrolSM parentSM;
+
+            public NodeGoPost(PatrolSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "PatrolSM.NodeGoPost not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeAtPost : SMNode
         {
+            public PatrolSM parentSM;
+
+            public NodeAtPost(PatrolSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "PatrolSM.NodeAtPost not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeIsAlerted : SMNode
         {
+            public PatrolSM parentSM;
+
+            public NodeIsAlerted(PatrolSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "PatrolSM.NodeIsAlerted not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
     }
 
     public class DepressedSM : StateMachine 
     {
-        DepressedSM(enum these_states)
+        public string changeTopState = "";
+
+        public DepressedSM()
         {
-            public enum sts
-            {
-                startDepressed,
-                findComfort,
-                goComfort,
-                whine
-            };
-
-            public int changeTopState = -1;
-            
-            AddState(sts.startDepressed, new NodeStartDepressed());
-            AddState(sts.findComfort, new NodeFindComfort());
-            AddState(sts.goComfort, new NodeGoComfort());
-            AddState(sts.whine, new NodeWhine());
-
-            InitializeAtState(sts.startDepressed);
+            AddState("startDepressed", new NodeStartDepressed(this));
+            AddState("findComfort", new NodeFindComfort(this));
+            AddState("goComfort", new NodeGoComfort(this));
+            AddState("whine", new NodeWhine(this));
         }
 
         public class NodeStartDepressed : SMNode
         {
+            public DepressedSM parentSM;
+
+            public NodeStartDepressed(DepressedSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "DepressedSM.NodeStartDepressed not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeFindComfort : SMNode
         {
+            public DepressedSM parentSM;
+
+            public NodeFindComfort(DepressedSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "DepressedSM.NodeFindComfort not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeGoComfort : SMNode
         {
+            public DepressedSM parentSM;
+
+            public NodeGoComfort(DepressedSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "DepressedSM.NodeGoComfort not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeWhine : SMNode
         {
+            public DepressedSM parentSM;
+
+            public NodeWhine(DepressedSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "DepressedSM.NodeWhine not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
     }
 
     public class RunInTerrorSM : StateMachine 
     {
-        RunInTerrorSM(enum these_states)
-        {
-            public enum sts
-            {
-                callForHelp,
-                escapeHelp,
-                escapeAny,
-                panic
-            };
-           
-            public int changeTopState = -1;
-            
-            AddState(sts.callForHelp, new NodeCallForHelp());
-            AddState(sts.escapeHelp, new NodeEscapeHelp());
-            AddState(sts.escapeAny, new NodeEscapeAny());
-            AddState(sts.panic, new NodePanic());
+        public string changeTopState = "";
 
-            InitializeAtState(sts.callForHelp);
+        public RunInTerrorSM()
+        {
+            AddState("callForHelp", new NodeCallForHelp(this));
+            AddState("escapeHelp", new NodeEscapeHelp(this));
+            AddState("escapeAny", new NodeEscapeAny(this));
+            AddState("panic", new NodePanic(this));
         }
 
         public class NodeCallForHelp : SMNode
         {
+            public RunInTerrorSM parentSM;
+
+            public NodeCallForHelp(RunInTerrorSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "RunInTerrorSM.NodeCallForHelp not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeEscapeHelp : SMNode
         {
+            public RunInTerrorSM parentSM;
+
+            public NodeEscapeHelp(RunInTerrorSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "RunInTerrorSM.NodeEscapeHelp not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeEscapeAny : SMNode
         {
+            public RunInTerrorSM parentSM;
+
+            public NodeEscapeAny(RunInTerrorSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "RunInTerrorSM.NodeEscapeAny not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodePanic : SMNode
         {
+            public RunInTerrorSM parentSM;
+
+            public NodePanic(RunInTerrorSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "RunInTerrorSM.NodePanic not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
     }
 
     public class HideSM : StateMachine 
     {
-        HideSM(enum these_states)
+        public string changeTopState = "";
+
+        public HideSM()
         {
-            public enum sts
-            {
-                findSafe,
-                goSafe,
-                atSafe
-            };
-
-            public int changeTopState = -1;
-            
-            AddState(sts.findSafe, new NodeFindSafe());
-            AddState(sts.goSafe, new NodeGoSafe());
-            AddState(sts.atSafe, new NodeAtSafe());
-
-            InitializeAtState(sts.findSafe);
+            AddState("findSafe", new NodeFindSafe(this));
+            AddState("goSafe", new NodeGoSafe(this));
+            AddState("atSafe", new NodeAtSafe(this));
         }
 
         public class NodeFindSafe : SMNode
         {
+            public HideSM parentSM;
+
+            public NodeFindSafe(HideSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "HideSM.NodeFindSafe not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeGoSafe : SMNode
         {
+            public HideSM parentSM;
+
+            public NodeGoSafe(HideSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "HideSM.NodeGoSafe not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeAtSafe : SMNode
         {
+            public HideSM parentSM;
+
+            public NodeAtSafe(HideSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "HideSM.NodeAtSafe not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
     }
 
     public class DefendHomeSM : StateMachine 
     {
-        DefendHomeSM(enum these_states)
+        public string changeTopState = "";
+
+        public DefendHomeSM()
         {
-            public enum sts
-            {
-                isAlerted,
-                findNeedsHelp,
-                goNeedsHelp,
-                findThreat,
-                goThreat,
-                caution
-            };
-
-            public int changeTopState = -1;
-            
-            AddState(sts.isAlerted, new NodeIsAlerted());
-            AddState(sts.findNeedsHelp, new NodeFindNeedsHelp());
-            AddState(sts.goNeedsHelp, new NodeGoNeedsHelp());
-            AddState(sts.findThreat, new NodeFindThreat());
-            AddState(sts.goThreat, new NodeGoThreat());
-            AddState(sts.caution, new NodeCaution());
-
-            InitializeAtState(sts.isAlerted);
+            AddState("isAlerted", new NodeIsAlerted(this));
+            AddState("findNeedsHelp", new NodeFindNeedsHelp(this));
+            AddState("goNeedsHelp", new NodeGoNeedsHelp(this));
+            AddState("findThreat", new NodeFindThreat(this));
+            AddState("goThreat", new NodeGoThreat(this));
+            AddState("caution", new NodeCaution(this));
         }
 
         public class NodeIsAlerted : SMNode
         {
+            public DefendHomeSM parentSM;
+
+            public NodeIsAlerted(DefendHomeSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "DefendHomeSM.NodeIsAlerted not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeFindNeedsHelp : SMNode
         {
+            public DefendHomeSM parentSM;
+
+            public NodeFindNeedsHelp(DefendHomeSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "DefendHomeSM.NodeFindNeedsHelp not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeGoNeedsHelp : SMNode
         {
+            public DefendHomeSM parentSM;
+
+            public NodeGoNeedsHelp(DefendHomeSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "DefendHomeSM.NodeGoNeedsHelp not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeFindThreat : SMNode
         {
+            public DefendHomeSM parentSM;
+
+            public NodeFindThreat(DefendHomeSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "DefendHomeSM.NodeFindThreat not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeGoThreat : SMNode
         {
+            public DefendHomeSM parentSM;
+
+            public NodeGoThreat(DefendHomeSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "DefendHomeSM.NodeGoThreat not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
         public class NodeCaution : SMNode
         {
+            public DefendHomeSM parentSM;
+
+            public NodeCaution(DefendHomeSM psm)
+            {
+                parentSM = psm;
+            }
+
             public string no_imp = "DefendHomeSM.NodeCaution not implemented";
 
-            public void EnterFrom(sts aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp) }
-            public void ExitTo(sts aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp) }
-            public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp) }
+            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
+            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
         }
     }
 }

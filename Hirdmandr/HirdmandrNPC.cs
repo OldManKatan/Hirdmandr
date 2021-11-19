@@ -60,6 +60,7 @@ namespace Hirdmandr
         public bool m_roleArtisan = true;
         public bool m_roleWarrior = false;
         public bool m_jobThegn = false;
+        public bool m_thegnDayshift = true;
         public bool m_jobHimthiki = false;
         public bool m_fightingStyleDefense = true;
         public bool m_fightingStyleOffense = false;
@@ -829,7 +830,7 @@ namespace Hirdmandr
                 m_monsterai.SetFollowTarget(null);
                 m_monsterai.SetPatrolPoint();
                 
-                var thisPlayer = m_hirdmandrnpc.m_user.GetComponent<Player>();
+                var thisPlayer = m_user.GetComponent<Player>();
                 if (thisPlayer == Player.m_localPlayer) 
                 {
                     Player.m_localPlayer?.ShowTutorial("hirdmandr_welcome_home");

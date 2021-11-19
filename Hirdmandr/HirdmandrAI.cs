@@ -28,314 +28,381 @@ namespace Hirdmandr
         public long m_nextDepressionUpdate = 0;
 
         public TopLevelSM topSM = new TopLevelSM();
-        
-        public string className = "HirdmandrAI"
-        
+
+        public string className = "HirdmandrAI";
+
         protected virtual void Awake()
         {
             m_hmnpc = GetComponent<HirdmandrNPC>();
             m_hmMonsterAI = GetComponent<MonsterAI>();
-            
+            topSM.hmNPC = m_hmnpc;
+            topSM.hmMonAI = m_hmMonsterAI;
+
             Invoke("CheckDepression", UnityEngine.Random.Range(60f, 300f));
             InvokeRepeating("EvalutateSM", 30f, 3f);
         }
-        
+
         protected virtual void Update()
         {
-            if (m_hmMonsterAI.IsAlerted() && topSM.curState != topSM.sts.patrol)
+            if (m_hmMonsterAI.IsAlerted() && topSM.curState != topSM.StateInt("patrol"))
             {
                 if (m_hmnpc.m_roleWarrior)
                 {
-                    topSM.ChangeState(topSM.sts.defendHome);
+                    topSM.ChangeState(topSM.StateInt("defendHome"));
                 }
                 else
                 {
-                    topSM.ChangeState(topSM.sts.runInTerror);
+                    topSM.ChangeState(topSM.StateInt("runInTerror"));
                 }
             }
         }
-        
+
         public void CheckDepression()
         {
-            if (m_hmnpc.m_mentalcontentment < -2500 || m_hmnpc.m_mentalcontentment < m_mentalstress)
+            if (m_hmnpc.m_mentalcontentment < -2500 || m_hmnpc.m_mentalcontentment < m_hmnpc.m_mentalstress)
             {
-                if (topSM.curState != topSM.sts.depressed && topSM.curState != topSM.sts.selfCare)
+                if (topSM.curState != topSM.StateInt("depressed") && topSM.curState != topSM.StateInt("selfCare"))
                 {
-                    topSM.ChangeState(topSM.sts.depressed);
+                    topSM.ChangeState("depressed");
                 }
             }
-            Invoke("CheckDepression", UnityEngine.Random.Range(60f, 300f))
+            Invoke("CheckDepression", UnityEngine.Random.Range(60f, 300f));
         }
-        
+
         public void EvaluateSM()
         {
-            topSM.Evaluate()
+            topSM.Evaluate();
         }
-        
+    
         public class TopLevelSM : StateMachine
         {
-            TopLevelSM()
-            {
-                public enum sts
-                {
-                    schedule,
-                    socialize,
-                    workDay,
-                    rest,
-                    selfCare,
-                    patrol,
-                    depressed,
-                    runInTerror,
-                    hide,
-                    defendHome
-                };
-                
-                AddState(sts.schedule, new NodeSchedule());
-                AddState(sts.socialize, new NodeSocialize());
-                AddState(sts.workDay, new NodeWorkDay());
-                AddState(sts.rest, new NodeRest());
-                AddState(sts.selfCare, new NodeSelfCare());
-                AddState(sts.patrol, new NodePatrol());
-                AddState(sts.depressed, new NodeDepressed());
-                AddState(sts.runInTerror, new NodeRunInTerror());
-                AddState(sts.hide, new NodeHide());
-                AddState(sts.defendHome, new NodeDefendHome());
+            public HirdmandrNPC hmNPC;
+            public MonsterAI hmMonAI;
 
-                InitializeAtState(sts.schedule);
+            public TopLevelSM()
+            {
+
+                var allStates = new List<string>()
+                {
+                    "schedule",
+                    "socialize",
+                    "workDay",
+                    "rest",
+                    "selfCare",
+                    "patrol",
+                    "depressed",
+                    "runInTerror",
+                    "hide",
+                    "defendHome"
+                };
+
+                AddState("schedule", new NodeSchedule(this));
+                AddState("socialize", new NodeSocialize(this));
+                AddState("workDay", new NodeWorkDay(this));
+                AddState("rest", new NodeRest(this));
+                AddState("selfCare", new NodeSelfCare(this));
+                AddState("patrol", new NodePatrol(this));
+                AddState("depressed", new NodeDepressed(this));
+                AddState("runInTerror", new NodeRunInTerror(this));
+                AddState("hide", new NodeHide(this));
+                AddState("defendHome", new NodeDefendHome(this));
             }
         
             // Create Nodes
 
             public class NodeSchedule : SMNode
             {
-                public void RunState()
+                public TopLevelSM parentSM;
+
+                public NodeSchedule(TopLevelSM psm) 
                 {
-                    if (m_hmnpc.m_roleArtisan) {
-                        if (Game.ToD >= 0.2483 && Game.ToD < 0.3333) { topSM.ChangeState(sts.socialize); }
-                        else if (Game.ToD >= 0.3333 && Game.ToD < 0.7083) { topSM.ChangeState(sts.workDay); }
-                        else if (Game.ToD >= 0.7083 && Game.ToD < 0.909) { topSM.ChangeState(sts.socialize); }
-                        else if (Game.ToD >= 0.909 || Game.ToD < 0.2083) { topSM.ChangeState(sts.rest); }
-                        else if (Game.ToD >= 0.2083 && Game.ToD < 0.2483) { topSM.ChangeState(sts.selfCare); }
+                    parentSM = psm;
+                }
+
+                new public void RunState()
+                {
+                    float ToD = EnvMan.instance.m_smoothDayFraction;
+                    if (parentSM.hmNPC.m_roleArtisan) {
+                        if (ToD >= 0.2483 && ToD < 0.3333) { parentSM.ChangeState("socialize"); }
+                        else if (ToD >= 0.3333 && ToD < 0.7083) { parentSM.ChangeState("workDay"); }
+                        else if (ToD >= 0.7083 && ToD < 0.909) { parentSM.ChangeState("socialize"); }
+                        else if (ToD >= 0.909 || ToD < 0.2083) { parentSM.ChangeState("rest"); }
+                        else if (ToD >= 0.2083 && ToD < 0.2483) { parentSM.ChangeState("selfCare"); }
                     }
-                    if (m_hmnpc.m_roleWarrior && m_hmnpc.m_jobThegn)
+                    if (parentSM.hmNPC.m_roleWarrior && parentSM.hmNPC.m_jobThegn)
                     {
-                        if (m_hmnpc.m_thegnDayshift)
+                        if (parentSM.hmNPC.m_thegnDayshift)
                         {
-                            if (Game.ToD >= 0.2083 && Game.ToD < 0.2608) { topSM.ChangeState(sts.selfCare); }
-                            else if (Game.ToD >= 0.2608 && Game.ToD < 0.7083) { topSM.ChangeState(sts.patrol); }
-                            else if (Game.ToD >= 0.7083 && Game.ToD < 0.909) { topSM.ChangeState(sts.socialize); }
-                            else if (Game.ToD >= 0.909 || Game.ToD < 0.2083) { topSM.ChangeState(sts.rest); }
+                            if (ToD >= 0.2083 && ToD < 0.2608) { parentSM.ChangeState("selfCare"); }
+                            else if (ToD >= 0.2608 && ToD < 0.7083) { parentSM.ChangeState("patrol"); }
+                            else if (ToD >= 0.7083 && ToD < 0.909) { parentSM.ChangeState("socialize"); }
+                            else if (ToD >= 0.909 || ToD < 0.2083) { parentSM.ChangeState("rest"); }
                         }
                         else
                         {
-                            if (Game.ToD >= 0.6083 && Game.ToD < 0.6983) { topSM.ChangeState(sts.selfCare); }
-                            else if (Game.ToD >= 0.6983 || Game.ToD < 0.2708) { topSM.ChangeState(sts.patrol); }
-                            else if (Game.ToD >= 0.2708 && Game.ToD < 0.3333) { topSM.ChangeState(sts.socialize); }
-                            else if (Game.ToD >= 0.3333 && Game.ToD < 0.6083) { topSM.ChangeState(sts.rest); }
+                            if (ToD >= 0.6083 && ToD < 0.6983) { parentSM.ChangeState("selfCare"); }
+                            else if (ToD >= 0.6983 || ToD < 0.2708) { parentSM.ChangeState("patrol"); }
+                            else if (ToD >= 0.2708 && ToD < 0.3333) { parentSM.ChangeState("socialize"); }
+                            else if (ToD >= 0.3333 && ToD < 0.6083) { parentSM.ChangeState("rest"); }
                         }
                     }
-                    else if (m_hmnpc.m_roleWarrior && m_hmnpc.m_jobHimthiki)
+                    else if (parentSM.hmNPC.m_roleWarrior && parentSM.hmNPC.m_jobHimthiki)
                     {
-                        if (Game.ToD >= 0.2483 && Game.ToD < 0.909) { topSM.ChangeState(sts.socialize); }
-                        else if (Game.ToD >= 0.909 || Game.ToD < 0.2083) { topSM.ChangeState(sts.rest); }
-                        else if (Game.ToD >= 0.2083 && Game.ToD < 0.2483) { topSM.ChangeState(sts.selfCare); }
+                        if (ToD >= 0.2483 && ToD < 0.909) { parentSM.ChangeState("socialize"); }
+                        else if (ToD >= 0.909 || ToD < 0.2083) { parentSM.ChangeState("rest"); }
+                        else if (ToD >= 0.2083 && ToD < 0.2483) { parentSM.ChangeState("selfCare"); }
                     }
                 }
             }
 
             public class NodeSocialize : SMNode
             {
-                public SocializeSM socialStateMachine = new SocializeSM();
-                socialStateMachine.parentSM = topSM;
-                
-                public void EnterFrom(sts aState)
+                public SocializeSM socialStateMachine;
+                public TopLevelSM parentSM;
+
+                public NodeSocialize(TopLevelSM psm)
                 {
-                    if (aState == sts.schedule || aState == sts.workDay)
+                    parentSM = psm;
+                    socialStateMachine = new SocializeSM();
+                }
+
+
+                new public void EnterFrom(int aState)
+                {
+                    if (aState == parentSM.StateInt("schedule") || aState == parentSM.StateInt("workDay"))
                     {
-                        socialStateMachine.ChangeState(socialStateMachine.sts.findMeetPoint);
+                        socialStateMachine.ChangeState("findMeetPoint");
                     }
                 }
-                public void RunState()
+                new public void RunState()
                 {
-                    socialStateMachine.Evaluate()
-                    if (socialStateMachine.changeTopState)
+                    socialStateMachine.Evaluate();
+                    if (socialStateMachine.changeTopState.Length > 0)
                     {
-                        topSM.ChangeState(socialStateMachine.changeTopState);
-                        socialStateMachine.changeTopState = null;
+                        parentSM.ChangeState(socialStateMachine.changeTopState);
+                        socialStateMachine.changeTopState = "";
                     }
                 }
             }
             public class NodeWorkDay : SMNode
             {
-                public WorkDaySM workStateMachine = new WorkDaySM();
-                workStateMachine.parentSM = topSM;
+                public WorkDaySM workStateMachine;
+                public TopLevelSM parentSM;
 
-                public void EnterFrom(sts aState)
+                public NodeWorkDay(TopLevelSM psm)
                 {
-                    if (aState == sts.schedule || aState == sts.socialize)
+                    parentSM = psm;
+                    workStateMachine = new WorkDaySM();
+                }
+
+                new public void EnterFrom(int aState)
+                {
+                    if (aState == parentSM.StateInt("schedule") || aState == parentSM.StateInt("socialize"))
                     {
-                        workStateMachine.ChangeState(workStateMachine.workStates.resetArtJob);
+                        workStateMachine.ChangeState("resetArtJob");
                     }
                 }
-                public void RunState()
+                new public void RunState()
                 {
-                    workStateMachine.Evaluate()
-                    if (workStateMachine.changeTopState)
+                    workStateMachine.Evaluate();
+                    if (workStateMachine.changeTopState.Length > 0)
                     {
-                        topSM.ChangeState(workStateMachine.changeTopState);
-                        workStateMachine.changeTopState = null;
+                        parentSM.ChangeState(workStateMachine.changeTopState);
+                        workStateMachine.changeTopState = "";
                     }
                 }
             }
             public class NodeRest : SMNode
             {
-                public RestSM restStateMachine = new RestSM();
-                restStateMachine.parentSM = topSM;
+                public RestSM restStateMachine;
+                public TopLevelSM parentSM;
 
-                public void EnterFrom(sts aState)
+                public NodeRest(TopLevelSM psm)
                 {
-                    if (aState == sts.schedule || aState == sts.socialize || aState == sts.patrol)
+                    parentSM = psm;
+                    restStateMachine = new RestSM();
+                }
+
+                new public void EnterFrom(int aState)
+                {
+                    if (aState == parentSM.StateInt("schedule") || aState == parentSM.StateInt("socialize") || aState == parentSM.StateInt("patrol"))
                     {
-                        restStateMachine.ChangeState(restStateMachine.restStates.findBed);
+                        restStateMachine.ChangeState("findBed");
                     }
                 }
-                public void RunState()
+                new public void RunState()
                 {
-                    restStateMachine.Evaluate()
-                    if (restStateMachine.changeTopState)
+                    restStateMachine.Evaluate();
+                    if (restStateMachine.changeTopState.Length > 0)
                     {
-                        topSM.ChangeState(restStateMachine.changeTopState);
-                        restStateMachine.changeTopState = null;
+                        parentSM.ChangeState(restStateMachine.changeTopState);
+                        restStateMachine.changeTopState = "";
                     }
                 }
             }
             public class NodeSelfCare : SMNode
             {
-                public SelfCareSM selfCareStateMachine = new SelfCareSM(selfCareStates);
-                selfCareStateMachine.parentSM = topSM;
+                public SelfCareSM selfCareStateMachine;
+                public TopLevelSM parentSM;
 
-                public void EnterFrom(sts aState)
+                public NodeSelfCare(TopLevelSM psm)
                 {
-                    if (aState == sts.schedule || aState == sts.rest || aState == sts.depressed || aState == sts.hide)
+                    parentSM = psm;
+                    selfCareStateMachine = new SelfCareSM();
+                }
+
+                new public void EnterFrom(int aState)
+                {
+                    if (aState == parentSM.StateInt("schedule") || aState == parentSM.StateInt("rest") || aState == parentSM.StateInt("depressed") || aState == parentSM.StateInt("hide"))
                     {
-                        selfCareStateMachine.ChangeState(selfCareStateMachine.selfCareStates.findFood);
+                        selfCareStateMachine.ChangeState("findFood");
                     }
                 }
-                public void RunState()
+                new public void RunState()
                 {
-                    selfCareStateMachine.Evaluate()
-                    if (selfCareStateMachine.changeTopState)
+                    selfCareStateMachine.Evaluate();
+                    if (selfCareStateMachine.changeTopState.Length > 0)
                     {
-                        topSM.ChangeState(selfCareStateMachine.changeTopState);
-                        selfCareStateMachine.changeTopState = null;
+                        parentSM.ChangeState(selfCareStateMachine.changeTopState);
+                        selfCareStateMachine.changeTopState = "";
                     }
                 }
             }
             public class NodePatrol : SMNode
             {
-                public PatrolSM patrolStateMachine = new PatrolSM();
-                patrolStateMachine.parentSM = topSM;
+                public PatrolSM patrolStateMachine;
+                public TopLevelSM parentSM;
 
-                public void EnterFrom(sts aState)
+                public NodePatrol(TopLevelSM psm)
                 {
-                    if (aState == sts.schedule)
+                    parentSM = psm;
+                    patrolStateMachine = new PatrolSM();
+                }
+
+                new public void EnterFrom(int aState)
+                {
+                    if (aState == parentSM.StateInt("schedule"))
                     {
-                        patrolStateMachine.ChangeState(patrolStateMachine.patrolStates.setupPatrol);
+                        patrolStateMachine.ChangeState("setupPatrol");
                     }
                 }
-                public void RunState()
+                new public void RunState()
                 {
-                    patrolStateMachine.Evaluate()
-                    if (patrolStateMachine.changeTopState)
+                    patrolStateMachine.Evaluate();
+                    if (patrolStateMachine.changeTopState.Length > 0)
                     {
-                        topSM.ChangeState(patrolStateMachine.changeTopState);
-                        patrolStateMachine.changeTopState = null;
+                        parentSM.ChangeState(patrolStateMachine.changeTopState);
+                        patrolStateMachine.changeTopState = "";
                     }
                 }
             }
             public class NodeDepressed : SMNode
             {
-                public DepressedSM depressedStateMachine = new DepressedSM();
-                depressedStateMachine.parentSM = topSM;
+                public DepressedSM depressedStateMachine;
+                public TopLevelSM parentSM;
 
-                public void EnterFrom(sts aState)
+                public NodeDepressed(TopLevelSM psm)
                 {
-                    if (aState == sts.schedule)
+                    parentSM = psm;
+                    depressedStateMachine = new DepressedSM();
+                }
+
+                new public void EnterFrom(int aState)
+                {
+                    if (aState == parentSM.StateInt("schedule"))
                     {
-                        depressedStateMachine.ChangeState(depressedStateMachine.depressedStates.startDepressed);
+                        depressedStateMachine.ChangeState("startDepressed");
                     }
                 }
-                public void RunState()
+                new public void RunState()
                 {
-                    depressedStateMachine.Evaluate()
-                    if (depressedStateMachine.changeTopState)
+                    depressedStateMachine.Evaluate();
+                    if (depressedStateMachine.changeTopState.Length > 0)
                     {
-                        topSM.ChangeState(depressedStateMachine.changeTopState);
-                        depressedStateMachine.changeTopState = null;
+                        parentSM.ChangeState(depressedStateMachine.changeTopState);
+                        depressedStateMachine.changeTopState = "";
                     }
                 }
             }
             public class NodeRunInTerror : SMNode
             {
-                public RunInTerrorSM terrorStateMachine = new RunInTerrorSM();
-                terrorStateMachine.parentSM = topSM;
+                public RunInTerrorSM terrorStateMachine;
+                public TopLevelSM parentSM;
 
-                public void EnterFrom(sts aState)
+                public NodeRunInTerror(TopLevelSM psm)
                 {
-                    terrorStateMachine.ChangeState(terrorStateMachine.terrorStates.callForHelp);
+                    parentSM = psm;
+                    terrorStateMachine = new RunInTerrorSM();
                 }
-                public void RunState()
+
+                new public void EnterFrom(int aState)
                 {
-                    terrorStateMachine.Evaluate()
-                    if (terrorStateMachine.changeTopState)
+                    terrorStateMachine.ChangeState("callForHelp");
+                }
+                new public void RunState()
+                {
+                    terrorStateMachine.Evaluate();
+                    if (terrorStateMachine.changeTopState.Length > 0)
                     {
-                        topSM.ChangeState(terrorStateMachine.changeTopState);
-                        terrorStateMachine.changeTopState = null;
+                        parentSM.ChangeState(terrorStateMachine.changeTopState);
+                        terrorStateMachine.changeTopState = "";
                     }
                 }
             }
             public class NodeHide : SMNode
             {
-                public HideSM hideStateMachine = new HideSM();
-                hideStateMachine.parentSM = topSM;
+                public HideSM hideStateMachine;
+                public TopLevelSM parentSM;
 
-                public void EnterFrom(sts aState)
+                public NodeHide(TopLevelSM psm)
                 {
-                    hideStateMachine.ChangeState(hideStateMachine.hideStates.findSafe);
+                    parentSM = psm;
+                    hideStateMachine = new HideSM();
                 }
-                public void RunState()
+
+                new public void EnterFrom(int aState)
                 {
-                    hideStateMachine.Evaluate()
-                    if (hideStateMachine.changeTopState)
+                    hideStateMachine.ChangeState("findSafe");
+                }
+                new public void RunState()
+                {
+                    hideStateMachine.Evaluate();
+                    if (hideStateMachine.changeTopState.Length > 0)
                     {
-                        topSM.ChangeState(hideStateMachine.changeTopState);
-                        hideStateMachine.changeTopState = null;
+                        parentSM.ChangeState(hideStateMachine.changeTopState);
+                        hideStateMachine.changeTopState = "";
                     }
                 }
             }
             public class NodeDefendHome : SMNode
             {
-                public DefendHomeSM defendHomeStateMachine = new DefendHomeSM();
-                defendHomeStateMachine.parentSM = topSM;
+                public DefendHomeSM defendHomeStateMachine;
+                public TopLevelSM parentSM;
 
-                public void EnterFrom(sts aState)
+                public NodeDefendHome(TopLevelSM psm)
                 {
-                    if (m_hmMonsterAI.IsAlerted())
+                    parentSM = psm;
+                    defendHomeStateMachine = new DefendHomeSM();
+                }
+
+                new public void EnterFrom(int aState)
+                {
+                    if (parentSM.hmMonAI.IsAlerted())
                     {
-                        defendHomeStateMachine.ChangeState(defendHomeStateMachine.defendHomeStates.isAlerted);
+                        defendHomeStateMachine.ChangeState("isAlerted");
                     }
                     else
                     {
-                        defendHomeStateMachine.ChangeState(defendHomeStateMachine.defendHomeStates.findNeedsHelp);
+                        defendHomeStateMachine.ChangeState("findNeedsHelp");
                     }
                 }
-                public void RunState()
+                new public void RunState()
                 {
-                    defendHomeStateMachine.Evaluate()
-                    if (defendHomeStateMachine.changeTopState)
+                    defendHomeStateMachine.Evaluate();
+                    if (defendHomeStateMachine.changeTopState.Length > 0)
                     {
-                        topSM.ChangeState(defendHomeStateMachine.changeTopState);
-                        defendHomeStateMachine.changeTopState = null;
+                        parentSM.ChangeState(defendHomeStateMachine.changeTopState);
+                        defendHomeStateMachine.changeTopState = "";
                     }
                 }
             }
