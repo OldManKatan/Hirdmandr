@@ -120,6 +120,35 @@ namespace Hirdmandr
             return highest_skill_str;
         }
 
+        public List<string> GetEnabledSkillsHighestFirst()
+        {
+            List<string> enabledSkills = "";
+            foreach (SkillData skl in m_hmSkills)
+            {
+                if (skl.m_isEnabled)
+                {
+                    enabledSkills.Add(skl.m_name);
+                }
+            }
+
+            List<string> returnList = "";
+            
+            for (int i = 0; i < enabledSkills.Count; i++) {
+                float highest_skill_value = -1f;
+
+                foreach (SkillData skl in m_hmSkills)
+                {
+                    if (!(returnList.Contains(skl.m_name)) && skl.m_value > highest_skill_value)
+                    {
+                        highest_skill_str = skl.m_name;
+                        highest_skill_value = skl.m_value;
+                    }
+                }
+                returnList.Add(skl.m_name);
+            }
+            return returnList;
+        }
+
         public void LogSkills()
         {
             Jotunn.Logger.LogInfo("Hirdmandr NPC skill values:");
