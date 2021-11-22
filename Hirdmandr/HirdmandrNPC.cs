@@ -25,6 +25,7 @@ namespace Hirdmandr
         public Humanoid m_humanoid;
         public Character m_character;
         public MonsterAI m_monsterai;
+        public HirdmandrAI m_hirdmandrAI;
         public VisEquipment m_visequip;
         public HirdmandrGUI m_guiHirdmandr;
         public HirdmandrGUIRescue m_guirescuecomp;
@@ -77,6 +78,7 @@ namespace Hirdmandr
             m_humanoid = GetComponent<Humanoid>();
             m_character = GetComponent<Character>();
             m_monsterai = GetComponent<MonsterAI>();
+            m_hirdmandrAI = GetComponent<HirdmandrAI>();
             m_visequip = GetComponent<VisEquipment>();
             m_guiHirdmandr = GetComponent<HirdmandrGUI>();
             m_guirescuecomp = GetComponent<HirdmandrGUIRescue>();
@@ -85,6 +87,7 @@ namespace Hirdmandr
             {
                 Jotunn.Logger.LogInfo("m_znet is null!");
                 gameObject.AddComponent<ZNetView>();
+                m_znet = GetComponent<ZNetView>();
             }
             m_humanoid.m_nview = m_znet;
             m_character.m_nview = m_znet;
@@ -100,6 +103,8 @@ namespace Hirdmandr
             var npc_name = m_znet.GetZDO().GetString("hmnpc_name");
             if (npc_name == "")
             {
+                m_monsterai.enabled = false;
+
                 RandomizeAppearance();
 
                 m_skills.LoadSkills();
@@ -135,6 +140,7 @@ namespace Hirdmandr
             m_personality.LoadValues();
             m_skills.LoadSkills();
             ZDOLoadMental();
+            ZDOLoadGeneral();
 
             PopulateCombatProps();
             InvokeRepeating("HealIfHurt", 5f, 5f);
@@ -143,6 +149,15 @@ namespace Hirdmandr
             {
                 Sit();
                 InvokeRepeating("RescueTutorialCheck", 10f, 1f);
+            }
+
+            if (!m_isHirdmandr)
+            {
+                m_hirdmandrAI.enabled = false;
+            }
+            else
+            {
+                m_hirdmandrAI.enabled = true;
             }
 
             m_rescueEffect.m_effectPrefabs = new EffectList.EffectData[2];
@@ -246,50 +261,50 @@ namespace Hirdmandr
         {
             if (self.TryGetComponent<HirdmandrNPC>(out var HirdmandrComp))
             {
-                Hirdmandr_RPC_Damage(self, __1sender, __2hit);
+                Hirdmandr_RPC_Damage(self, __1sender, __2hit, HirdmandrComp);
             }
             orig(self, __1sender, __2hit);
         }
 
-        private void Hirdmandr_RPC_Damage(Character character, long sender, HitData hit)
+        private void Hirdmandr_RPC_Damage(Character character, long sender, HitData hit, HirdmandrNPC HirdmandrComp)
         {
-            if (m_character.IsDebugFlying() || !m_znet.IsOwner() || m_character.GetHealth() <= 0f || m_character.IsDead() || m_character.IsTeleporting() || m_character.InCutscene() || (hit.m_dodgeable && m_character.IsDodgeInvincible()))
+            if (character.IsDebugFlying() || !character.GetComponent<ZNetView>().IsOwner() || character.GetHealth() <= 0f || character.IsDead() || character.IsTeleporting() || character.InCutscene() || (hit.m_dodgeable && character.IsDodgeInvincible()))
             {
                 return;
             }
             Character attacker = hit.GetAttacker();
-            if ((hit.HaveAttacker() && attacker == null) || (m_character.IsPlayer() && !m_character.IsPVPEnabled() && attacker != null && attacker.IsPlayer()))
+            if ((hit.HaveAttacker() && attacker == null) || (character.IsPlayer() && !character.IsPVPEnabled() && attacker != null && attacker.IsPlayer()))
             {
                 return;
             }
             if (attacker != null && !attacker.IsPlayer())
             {
-                float difficultyDamageScalePlayer = Game.instance.GetDifficultyDamageScalePlayer(base.transform.position);
+                float difficultyDamageScalePlayer = Game.instance.GetDifficultyDamageScalePlayer(character.transform.position);
                 hit.ApplyModifier(difficultyDamageScalePlayer);
             }
-            m_character.m_seman.OnDamaged(hit, attacker);
-            if (m_character.m_baseAI != null && !m_character.m_baseAI.IsAlerted() && hit.m_backstabBonus > 1f && Time.time - m_character.m_backstabTime > 300f)
+            character.m_seman.OnDamaged(hit, attacker);
+            if (character.m_baseAI != null && !character.m_baseAI.IsAlerted() && hit.m_backstabBonus > 1f && Time.time - character.m_backstabTime > 300f)
             {
-                m_character.m_backstabTime = Time.time;
+                character.m_backstabTime = Time.time;
                 hit.ApplyModifier(hit.m_backstabBonus);
-                m_character.m_backstabHitEffects.Create(hit.m_point, Quaternion.identity, base.transform);
+                character.m_backstabHitEffects.Create(hit.m_point, Quaternion.identity, character.transform);
             }
-            if (m_character.IsStaggering() && !m_character.IsPlayer())
+            if (character.IsStaggering() && !character.IsPlayer())
             {
                 hit.ApplyModifier(2f);
-                m_character.m_critHitEffects.Create(hit.m_point, Quaternion.identity, base.transform);
+                character.m_critHitEffects.Create(hit.m_point, Quaternion.identity, character.transform);
             }
-            if (hit.m_blockable && m_character.IsBlocking())
+            if (hit.m_blockable && character.IsBlocking())
             {
-                m_character.BlockAttack(hit, attacker);
+                character.BlockAttack(hit, attacker);
             }
-            m_character.ApplyPushback(hit);
+            character.ApplyPushback(hit);
             if (!string.IsNullOrEmpty(hit.m_statusEffect))
             {
-                StatusEffect statusEffect = m_character.m_seman.GetStatusEffect(hit.m_statusEffect);
+                StatusEffect statusEffect = character.m_seman.GetStatusEffect(hit.m_statusEffect);
                 if (statusEffect == null)
                 {
-                    statusEffect = m_character.m_seman.AddStatusEffect(hit.m_statusEffect);
+                    statusEffect = character.m_seman.AddStatusEffect(hit.m_statusEffect);
                 }
                 else
                 {
@@ -300,7 +315,7 @@ namespace Hirdmandr
                     statusEffect.SetAttacker(attacker);
                 }
             }
-            HitData.DamageModifiers damageModifiers = m_character.GetDamageModifiers();
+            HitData.DamageModifiers damageModifiers = character.GetDamageModifiers();
             hit.ApplyResistance(damageModifiers, out var significantModifier);
 
             // Begin modifications
@@ -331,13 +346,14 @@ namespace Hirdmandr
             hit.m_damage.m_poison = 0f;
             hit.m_damage.m_fire = 0f;
             hit.m_damage.m_spirit = 0f;
-            m_character.ApplyDamage(hit, showDamageText: true, triggerEffects: true, significantModifier);
-            m_character.AddFireDamage(fire);
-            m_character.AddSpiritDamage(spirit);
-            m_character.AddPoisonDamage(poison);
-            m_character.AddFrostDamage(hit.m_damage.m_frost);
-            m_character.AddLightningDamage(hit.m_damage.m_lightning);
+            character.ApplyDamage(hit, showDamageText: true, triggerEffects: true, significantModifier);
+            character.AddFireDamage(fire);
+            character.AddSpiritDamage(spirit);
+            character.AddPoisonDamage(poison);
+            character.AddFrostDamage(hit.m_damage.m_frost);
+            character.AddLightningDamage(hit.m_damage.m_lightning);
         }
+        
         private static string OnGetHoverName(On.Character.orig_GetHoverName orig, Character self)
         {
             if (self.TryGetComponent<HirdmandrNPC>(out var HirdmandrComp))
@@ -441,7 +457,6 @@ namespace Hirdmandr
             m_znet.m_ghost = true;
 
             m_monsterai.m_idleSound = new EffectList();
-            m_monsterai.enabled = false;
             m_monsterai.m_attackPlayerObjects = false;
             m_monsterai.m_viewRange = 15;
             m_monsterai.m_hearRange = 15;
@@ -666,9 +681,6 @@ namespace Hirdmandr
                 m_humanoid.GiveDefaultItem(PrefabManager.Instance.GetPrefab(shield_string));
             }
 
-            m_isRescued = m_znet.GetZDO().GetBool("hmnpc_isrescued");
-            m_isHirdmandr = m_znet.GetZDO().GetBool("hmnpc_isHirdmandr");
-
         }
 
         public void ZDOLoadMental()
@@ -678,11 +690,53 @@ namespace Hirdmandr
             m_mentalstress = m_znet.GetZDO().GetFloat("hmnpc_mentalstress", 0f);
         }
 
-        public void ZDOSaveMental()
+    public void ZDOSaveMental()
         {
             // ZDOs
             m_znet.GetZDO().Set("hmnpc_mentalcontentment", m_mentalcontentment);
             m_znet.GetZDO().Set("hmnpc_mentalstress", m_mentalstress);
+        }
+
+        public void ZDOLoadGeneral()
+        {
+            m_isRescued = m_znet.GetZDO().GetBool("hmnpc_isrescued");
+            m_isHirdmandr = m_znet.GetZDO().GetBool("hmnpc_isHirdmandr");
+
+            m_jarlZOID = m_znet.GetZDO().GetLong("hmnpc_jarlZOID", 0);
+
+            m_roleArtisan = m_znet.GetZDO().GetBool("hmnpc_roleArtisan");
+            m_roleWarrior = m_znet.GetZDO().GetBool("hmnpc_roleWarrior");
+            m_jobThegn = m_znet.GetZDO().GetBool("hmnpc_jobThegn");
+            m_thegnDayshift = m_znet.GetZDO().GetBool("hmnpc_thegnDayshift");
+            m_jobHimthiki = m_znet.GetZDO().GetBool("hmnpc_jobHimthiki");
+
+            m_fightingStyleDefense = m_znet.GetZDO().GetBool("hmnpc_fightingStyleDefense");
+            m_fightingStyleOffense = m_znet.GetZDO().GetBool("hmnpc_fightingStyleOffense");
+            m_jobGatherer = m_znet.GetZDO().GetBool("hmnpc_jobGatherer");
+            m_fightingRangeClose = m_znet.GetZDO().GetBool("hmnpc_fightingRangeClose");
+            m_fightingRangeMid = m_znet.GetZDO().GetBool("hmnpc_fightingRangeMid");
+            m_fightingRangeFar = m_znet.GetZDO().GetBool("hmnpc_fightingRangeFar");
+        }
+
+        public void ZDOSaveGeneral()
+        {
+            m_znet.GetZDO().Set("hmnpc_isrescued", m_isRescued);
+            m_znet.GetZDO().Set("hmnpc_isHirdmandr", m_isHirdmandr);
+            
+            m_znet.GetZDO().Set("hmnpc_jarlZOID", m_jarlZOID);
+            
+            m_znet.GetZDO().Set("hmnpc_roleArtisan", m_roleArtisan);
+            m_znet.GetZDO().Set("hmnpc_roleWarrior", m_roleWarrior);
+            m_znet.GetZDO().Set("hmnpc_jobThegn", m_jobThegn);
+            m_znet.GetZDO().Set("hmnpc_thegnDayshift", m_thegnDayshift);
+            m_znet.GetZDO().Set("hmnpc_jobHimthiki", m_jobHimthiki);
+            
+            m_znet.GetZDO().Set("hmnpc_fightingStyleDefense", m_fightingStyleDefense);
+            m_znet.GetZDO().Set("hmnpc_fightingStyleOffense", m_fightingStyleOffense);
+            m_znet.GetZDO().Set("hmnpc_jobGatherer", m_jobGatherer);
+            m_znet.GetZDO().Set("hmnpc_fightingRangeClose", m_fightingRangeClose);
+            m_znet.GetZDO().Set("hmnpc_fightingRangeMid", m_fightingRangeMid);
+            m_znet.GetZDO().Set("hmnpc_fightingRangeFar", m_fightingRangeFar);
         }
 
         public void RandomTalkRescue()
@@ -691,6 +745,11 @@ namespace Hirdmandr
             {
                 Chat.instance.SetNpcText(base.gameObject, Vector3.up * 1.5f, 20f, 5f, "", GetRandomRescueTalk(), large: false);
             }
+        }
+
+        public void Say(string toSay)
+        {
+            Chat.instance.SetNpcText(base.gameObject, Vector3.up * 1.5f, 10f, 5f, "", toSay, large: false);
         }
 
         public string GetRandomRescueTalk()
@@ -732,6 +791,7 @@ namespace Hirdmandr
         public void PopulateCombatProps()
         {
             m_healTick = 2f + (m_skills.GetSkill("fighter") / 3);
+            m_humanoid.SetMaxHealth(60f + m_skills.GetSkill("fighter"));
             // m_humanoid.m_currentAttack.m_damageMultiplier = 1f + (m_skillmelee / 50);
         }
 
@@ -801,7 +861,10 @@ namespace Hirdmandr
             m_isRescued = true;
             m_znet.GetZDO().Set("hmnpc_isrescued", true);
             CancelInvoke("RandomTalkRescue");
+            m_character.m_faction = Character.Faction.Players;
+
         }
+        
         public void RescueWait()
         {
             Jotunn.Logger.LogInfo("RescueWait was hit on " + m_humanoid.m_name);
@@ -825,6 +888,7 @@ namespace Hirdmandr
                 }
                 Jotunn.Logger.LogInfo("WelcomeHome triggered an actual home, " + m_humanoid.m_name);
                 m_isHirdmandr = true;
+                m_hirdmandrAI.enabled = true;
                 m_znet.GetZDO().Set("hmnpc_isHirdmandr", m_isHirdmandr);
                 m_welcomeEffect.Create(base.transform.position, base.transform.rotation);
                 m_monsterai.SetFollowTarget(null);

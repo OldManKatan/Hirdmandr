@@ -873,6 +873,10 @@ namespace Hirdmandr
             {
                 g_talk.GetComponent<Text>().text = m_hirdmandrnpc.GetRescueText();
             }
+            else
+            {
+                m_hirdmandrnpc.ZDOSaveGeneral();
+            }
 
             // Set the active state of the panel
             GUIHirdmandr.SetActive(state);

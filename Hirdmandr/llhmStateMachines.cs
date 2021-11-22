@@ -19,8 +19,10 @@ namespace Hirdmandr
     {
         public string changeTopState = "";
 
-        public SocializeSM()
+        public SocializeSM(HirdmandrAI hmai)
         {
+            hmAI = hmai;
+
             AddState("findMeetPoint", new NodeFindMeetPoint(this));
             AddState("goMeetPoint", new NodeGoMeetPoint(this));
             AddState("goIdlePoint", new NodeGoIdlePoint(this));
@@ -31,88 +33,225 @@ namespace Hirdmandr
 
         public class NodeFindMeetPoint : SMNode
         {
-            public SocializeSM parentSM;
-
-            public NodeFindMeetPoint(SocializeSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeFindMeetPoint(SocializeSM psm) : base(psm) { }
 
             public string no_imp = "SocializeSM.NodeFindMeetPoint not implemented";
 
-            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void EnterFrom(int aState)
+            {
+                hmAI.socMeetPoint = Vector3.zero;
+                hmAI.moveToPos = Vector3.zero;
+                if (aState != 0 && aState != 1)
+                {
+                    Jotunn.Logger.LogWarning("Resetting socNoPathFires");
+                    hmAI.socNoPathFires = new List<ZDO>();
+                }
+            }
             override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
-            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
+            override public void RunState()
+            {
+                hmAI.socTargetFire = null;
+
+                List<ZDO> npc_campfires = hmAI.GetPrefabZDOsInRange("piece_npc_fire_pit", 100f);
+
+                if (npc_campfires.Count == 0)
+                {
+                    parentSM.ChangeState("goIdlePoint");
+                    return;
+                }
+
+                float closestSoFar = 999999f;
+                float thisDistance;
+
+                Jotunn.Logger.LogWarning("  Checking fires for valid moveTo target");
+                foreach (ZDO aZDO in npc_campfires)
+                {
+                    thisDistance = Vector3.Distance(aZDO.GetPosition(), hmAI.transform.position);
+                    if (thisDistance < closestSoFar && hmAI.socNoPathFires.IndexOf(aZDO) == -1)
+                    {
+                        closestSoFar = thisDistance;
+                        hmAI.socTargetFire = aZDO;
+                    }
+                }
+
+                if (!(hmAI.socTargetFire is null))
+                {
+                    Jotunn.Logger.LogWarning("  A valid fire was found");
+                }
+
+                if (!(hmAI.socTargetFire is null) && hmAI.socTargetFire.GetPosition() != Vector3.zero)
+                {
+                    Jotunn.Logger.LogWarning("  Setting hmAI.socMeetPoint to fire position");
+                    hmAI.socMeetPoint = hmAI.socTargetFire.GetPosition();
+                    parentSM.ChangeState("goMeetPoint");
+                    return;
+                }
+                else
+                {
+                    Jotunn.Logger.LogWarning("  No fire found, looking for Idle position");
+                    parentSM.ChangeState("goIdlePoint");
+                    return;
+                }
+            }
         }
         public class NodeGoMeetPoint : SMNode
         {
-            public SocializeSM parentSM;
-
-            public NodeGoMeetPoint(SocializeSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeGoMeetPoint(SocializeSM psm) : base(psm) { }
 
             public string no_imp = "SocializeSM.NodeGoMeetPoint not implemented";
 
-            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void EnterFrom(int aState)
+            {
+                hmAI.moveToPos = Vector3.zero;
+            }
             override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
-            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
+            override public void RunState()
+            {
+                if (hmAI.socMeetPoint != Vector3.zero)
+                {
+                    if (hmAI.moveToPos == Vector3.zero)
+                    {
+                        Jotunn.Logger.LogWarning("  Picking random position near hmAI.socMeetPoint");
+
+                        int minDistance = 4;
+                        int maxDistance = 10;
+
+                        for (var i = 0; i < 5; i++)
+                        {
+                            Jotunn.Logger.LogWarning("  Attempt number " + (i + 1));
+
+                            var goToPos = new Vector3(
+                                hmAI.socMeetPoint.x + UnityEngine.Random.Range(-10f, 10f),
+                                hmAI.socMeetPoint.y,
+                                hmAI.socMeetPoint.z + UnityEngine.Random.Range(-10f, 10f)
+                                );
+                            if (Vector3.Distance(hmAI.socMeetPoint, goToPos) > minDistance && Vector3.Distance(hmAI.socMeetPoint, goToPos) < maxDistance)
+                            {
+                                hmAI.moveToPos = goToPos;
+                                Jotunn.Logger.LogWarning("  Successfully set hmAI.moveToPos!");
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Jotunn.Logger.LogWarning("  Trying to find a path to hmAI.moveToPos");
+                        Jotunn.Logger.LogWarning("    hmAI.m_hmMonsterAI.FindPath(hmAI.moveToPos) = " + hmAI.m_hmMonsterAI.FindPath(hmAI.moveToPos));
+
+                        // hmAI.m_hmMonsterAI.SetPatrolPoint(hmAI.moveToPos);
+                        if (hmAI.m_hmMonsterAI.FindPath(hmAI.moveToPos))
+                        {
+                            Jotunn.Logger.LogWarning("  Trying hmAI.m_hmMonsterAI.MoveTo");
+
+                            hmAI.m_hmMonsterAI.MoveTo(0f, hmAI.moveToPos, 0, false);
+                            if (Vector3.Distance(hmAI.transform.position, hmAI.moveToPos) < 3)
+                            {
+                                Jotunn.Logger.LogWarning("  In range! Time to socialize!");
+
+                                parentSM.ChangeState("setupSocialize");
+                            }
+                        }
+                        else
+                        {
+                            Jotunn.Logger.LogWarning("  Could not find path to hmAI.moveToPos! hmAI.pathAttempts = " + hmAI.pathAttempts);
+
+                            hmAI.pathAttempts++;
+                            if (hmAI.pathAttempts > 4)
+                            {
+                                Jotunn.Logger.LogWarning("  Too many path attempts, trying to find another meet point");
+                                hmAI.moveToPos = Vector3.zero;
+                                hmAI.socNoPathFires.Add(hmAI.socTargetFire);
+                                hmAI.socTargetFire = null;
+                                parentSM.ChangeState("findMeetPoint");
+                            }
+                            else
+                            {
+                                Jotunn.Logger.LogWarning("  Retrying path attempt, using same meet point");
+                                hmAI.moveToPos = Vector3.zero;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    parentSM.ChangeState("findMeetPoint");
+                }
+            }
         }
+
         public class NodeGoIdlePoint : SMNode
         {
-            public SocializeSM parentSM;
+            public NodeGoIdlePoint(SocializeSM psm) : base(psm) { }
 
-            public NodeGoIdlePoint(SocializeSM psm)
-            {
-                parentSM = psm;
-            }
-            
             public string no_imp = "SocializeSM.NodeGoIdlePoint not implemented";
 
-            override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
+            override public void EnterFrom(int aState) 
+            {
+                if (aState == 0)
+                {
+                    hmAI.moveToPos = Vector3.zero;
+                }
+            }
             override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
-            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
+            override public void RunState() 
+            {
+                Jotunn.Logger.LogWarning("  Going to a random idle position, NO MEET POINT");
+                for (var i = 0; i < 5; i++)
+                {
+                    Jotunn.Logger.LogWarning("  Attempt number " + (i + 1));
+
+                    hmAI.moveToPos = new Vector3(
+                        hmAI.socMeetPoint.x + UnityEngine.Random.Range(-20f, 20f),
+                        hmAI.socMeetPoint.y,
+                        hmAI.socMeetPoint.z + UnityEngine.Random.Range(-20f, 20f)
+                        );
+                    if (hmAI.m_hmMonsterAI.FindPath(hmAI.moveToPos))
+                    {
+                        Jotunn.Logger.LogWarning("  Trying hmAI.m_hmMonsterAI.MoveTowards");
+
+                        hmAI.m_hmMonsterAI.MoveTowards(hmAI.moveToPos, true);
+                        if (Vector3.Distance(hmAI.transform.position, hmAI.moveToPos) < 3)
+                        {
+                            hmAI.m_hmMonsterAI.StopMoving();
+                            Jotunn.Logger.LogWarning("  In range! Time to Idle and Complain!");
+
+                            parentSM.ChangeState("atIdlePoint");
+                            break;
+                        }
+                    }
+                }
+            }
         }
         public class NodeAtIdlePoint : SMNode
         {
-            public SocializeSM parentSM;
+            public NodeAtIdlePoint(SocializeSM psm) : base(psm) { }
 
-            public NodeAtIdlePoint(SocializeSM psm)
-            {
-                parentSM = psm;
-            }
-            
             public string no_imp = "SocializeSM.NodeAtIdlePoint not implemented";
 
             override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
             override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
-            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
+            override public void RunState()
+            {
+                hmAI.m_hmnpc.Say("I am Idling!");
+            }
         }
         public class NodeSetupSocialize : SMNode
         {
-            public SocializeSM parentSM;
+            public NodeSetupSocialize(SocializeSM psm) : base(psm) { }
 
-            public NodeSetupSocialize(SocializeSM psm)
-            {
-                parentSM = psm;
-            }
-            
             public string no_imp = "SocializeSM.NodeSetupSocialize not implemented";
 
             override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
             override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
-            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
+            override public void RunState()
+            {
+                hmAI.m_hmnpc.Say("I am socializing!");
+            }
         }
         public class NodeStartSocialize : SMNode
         {
-            public SocializeSM parentSM;
+            public NodeStartSocialize(SocializeSM psm) : base(psm) { }
 
-            public NodeStartSocialize(SocializeSM psm)
-            {
-                parentSM = psm;
-            }
-            
             public string no_imp = "SocializeSM.NodeStartSocialize not implemented";
 
             override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
@@ -125,8 +264,10 @@ namespace Hirdmandr
     {
         public string changeTopState = "";
 
-        public WorkDaySM()
+        public WorkDaySM(HirdmandrAI hmai)
         {
+            hmAI = hmai;
+
             AddState("resetArtJob", new NodeResetArtJob(this));
             AddState("setupArtJob", new NodeSetupArtJob(this));
             AddState("goArtJob", new NodeGoArtJob(this));
@@ -135,42 +276,72 @@ namespace Hirdmandr
 
         public class NodeResetArtJob : SMNode
         {
-            public WorkDaySM parentSM;
-
-            public NodeResetArtJob(WorkDaySM psm)
-            {
-                parentSM = psm;
-            }
-
             public string no_imp = "WorkDaySM.NodeResetArtJob not implemented";
+
+            public Dictionary<string, string[]> artisanJobs = new Dictionary<string, string[]>();
+            public NodeResetArtJob(WorkDaySM psm) : base(psm)
+            {
+                artisanJobs.Add("woodburner", new string[] { "charcoal_kiln" });
+                artisanJobs.Add("furnaceoperator", new string[] { "smelter", "blastfurnace" });
+                artisanJobs.Add("cook", new string[] { "piece_cauldron" });
+                artisanJobs.Add("baker", new string[] { "piece_oven" });
+            }
 
             override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
             override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
-            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
+            override public void RunState()
+            {
+                hmAI.workJobs = new List<string>();
+                hmAI.workJobSite = Vector3.zero;
+
+                // if (hmAI.m_hmnpc.m_)
+                // 
+                // 
+                // 
+                // 
+                // hmAI.socTargetFire = null;
+                // 
+                // List<ZDO> npc_campfires = hmAI.GetPrefabZDOsInRange("piece_npc_fire_pit", 100f);
+                // 
+                // if (npc_campfires.Count == 0)
+                // {
+                //     parentSM.ChangeState("goIdlePoint");
+                //     return;
+                // }
+                // 
+                // float closestSoFar = 999999f;
+                // float thisDistance;
+                // 
+                // Jotunn.Logger.LogWarning("  Checking fires for valid moveTo target");
+                // foreach (ZDO aZDO in npc_campfires)
+                // {
+                //     thisDistance = Vector3.Distance(aZDO.GetPosition(), hmAI.transform.position);
+                //     if (thisDistance < closestSoFar && hmAI.socNoPathFires.IndexOf(aZDO) == -1)
+                //     {
+                //         closestSoFar = thisDistance;
+                //         hmAI.socTargetFire = aZDO;
+                //     }
+                // }
+
+                parentSM.ChangeState("setupArtJob");
+            }
         }
         public class NodeSetupArtJob : SMNode
         {
-            public WorkDaySM parentSM;
-
-            public NodeSetupArtJob(WorkDaySM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeSetupArtJob(WorkDaySM psm) : base(psm) { }
 
             public string no_imp = "WorkDaySM.NodeSetupArtJob not implemented";
 
             override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
             override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
-            override public void RunState() { Jotunn.Logger.LogInfo("RunState in " + no_imp); }
+            override public void RunState()
+            {
+
+            }
         }
         public class NodeGoArtJob : SMNode
         {
-            public WorkDaySM parentSM;
-
-            public NodeGoArtJob(WorkDaySM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeGoArtJob(WorkDaySM psm) : base(psm) { }
 
             public string no_imp = "WorkDaySM.NodeGoArtJob not implemented";
 
@@ -180,12 +351,7 @@ namespace Hirdmandr
         }
         public class NodeDoJob : SMNode
         {
-            public WorkDaySM parentSM;
-
-            public NodeDoJob(WorkDaySM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeDoJob(WorkDaySM psm) : base(psm) { }
 
             public string no_imp = "WorkDaySM.NodeDoJob not implemented";
 
@@ -199,8 +365,10 @@ namespace Hirdmandr
     {
         public string changeTopState = "";
 
-        public RestSM()
+        public RestSM(HirdmandrAI hmai)
         {
+            hmAI = hmai;
+
             AddState("findBed", new NodeFindBed(this));
             AddState("goBed", new NodeGoBed(this));
             AddState("atBed", new NodeAtBed(this));
@@ -208,12 +376,7 @@ namespace Hirdmandr
 
         public class NodeFindBed : SMNode
         {
-            public RestSM parentSM;
-
-            public NodeFindBed(RestSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeFindBed(RestSM psm) : base(psm) { }
 
             public string no_imp = "RestSM.NodeFindBed not implemented";
 
@@ -223,12 +386,7 @@ namespace Hirdmandr
         }
         public class NodeGoBed : SMNode
         {
-            public RestSM parentSM;
-
-            public NodeGoBed(RestSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeGoBed(RestSM psm) : base(psm) { }
 
             public string no_imp = "RestSM.NodeGoBed not implemented";
 
@@ -238,12 +396,7 @@ namespace Hirdmandr
         }
         public class NodeAtBed : SMNode
         {
-            public RestSM parentSM;
-
-            public NodeAtBed(RestSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeAtBed(RestSM psm) : base(psm) { }
 
             public string no_imp = "RestSM.NodeAtBed not implemented";
 
@@ -257,8 +410,10 @@ namespace Hirdmandr
     {
         public string changeTopState = "";
 
-        public SelfCareSM()
+        public SelfCareSM(HirdmandrAI hmai)
         {
+            hmAI = hmai;
+
             AddState("findFood", new NodeFindFood(this));
             AddState("goFood", new NodeGoFood(this));
             AddState("atFood", new NodeAtFood(this));
@@ -266,12 +421,7 @@ namespace Hirdmandr
 
         public class NodeFindFood : SMNode
         {
-            public SelfCareSM parentSM;
-
-            public NodeFindFood(SelfCareSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeFindFood(SelfCareSM psm) : base(psm) { }
 
             public string no_imp = "selfCareSM.NodeFindFood not implemented";
 
@@ -281,12 +431,7 @@ namespace Hirdmandr
         }
         public class NodeGoFood : SMNode
         {
-            public SelfCareSM parentSM;
-
-            public NodeGoFood(SelfCareSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeGoFood(SelfCareSM psm) : base(psm) { }
 
             public string no_imp = "selfCareSM.NodeGoFood not implemented";
 
@@ -296,12 +441,7 @@ namespace Hirdmandr
         }
         public class NodeAtFood : SMNode
         {
-            public SelfCareSM parentSM;
-
-            public NodeAtFood(SelfCareSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeAtFood(SelfCareSM psm) : base(psm) { }
 
             public string no_imp = "selfCareSM.NodeAtFood not implemented";
 
@@ -315,8 +455,10 @@ namespace Hirdmandr
     {
         public string changeTopState = "";
 
-        public PatrolSM()
+        public PatrolSM(HirdmandrAI hmai)
         {
+            hmAI = hmai;
+
             AddState("setupPatrol", new NodeSetupPatrol(this));
             AddState("goPost", new NodeGoPost(this));
             AddState("atPost", new NodeAtPost(this));
@@ -325,12 +467,7 @@ namespace Hirdmandr
 
         public class NodeSetupPatrol : SMNode
         {
-            public PatrolSM parentSM;
-
-            public NodeSetupPatrol(PatrolSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeSetupPatrol(PatrolSM psm) : base(psm) { }
 
             public string no_imp = "PatrolSM.NodeSetupPatrol not implemented";
 
@@ -340,12 +477,7 @@ namespace Hirdmandr
         }
         public class NodeGoPost : SMNode
         {
-            public PatrolSM parentSM;
-
-            public NodeGoPost(PatrolSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeGoPost(PatrolSM psm) : base(psm) { }
 
             public string no_imp = "PatrolSM.NodeGoPost not implemented";
 
@@ -355,12 +487,7 @@ namespace Hirdmandr
         }
         public class NodeAtPost : SMNode
         {
-            public PatrolSM parentSM;
-
-            public NodeAtPost(PatrolSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeAtPost(PatrolSM psm) : base(psm) { }
 
             public string no_imp = "PatrolSM.NodeAtPost not implemented";
 
@@ -370,12 +497,7 @@ namespace Hirdmandr
         }
         public class NodeIsAlerted : SMNode
         {
-            public PatrolSM parentSM;
-
-            public NodeIsAlerted(PatrolSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeIsAlerted(PatrolSM psm) : base(psm) { }
 
             public string no_imp = "PatrolSM.NodeIsAlerted not implemented";
 
@@ -389,8 +511,10 @@ namespace Hirdmandr
     {
         public string changeTopState = "";
 
-        public DepressedSM()
+        public DepressedSM(HirdmandrAI hmai)
         {
+            hmAI = hmai;
+
             AddState("startDepressed", new NodeStartDepressed(this));
             AddState("findComfort", new NodeFindComfort(this));
             AddState("goComfort", new NodeGoComfort(this));
@@ -399,12 +523,7 @@ namespace Hirdmandr
 
         public class NodeStartDepressed : SMNode
         {
-            public DepressedSM parentSM;
-
-            public NodeStartDepressed(DepressedSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeStartDepressed(DepressedSM psm) : base(psm) { }
 
             public string no_imp = "DepressedSM.NodeStartDepressed not implemented";
 
@@ -414,12 +533,7 @@ namespace Hirdmandr
         }
         public class NodeFindComfort : SMNode
         {
-            public DepressedSM parentSM;
-
-            public NodeFindComfort(DepressedSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeFindComfort(DepressedSM psm) : base(psm) { }
 
             public string no_imp = "DepressedSM.NodeFindComfort not implemented";
 
@@ -429,12 +543,7 @@ namespace Hirdmandr
         }
         public class NodeGoComfort : SMNode
         {
-            public DepressedSM parentSM;
-
-            public NodeGoComfort(DepressedSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeGoComfort(DepressedSM psm) : base(psm) { }
 
             public string no_imp = "DepressedSM.NodeGoComfort not implemented";
 
@@ -444,12 +553,7 @@ namespace Hirdmandr
         }
         public class NodeWhine : SMNode
         {
-            public DepressedSM parentSM;
-
-            public NodeWhine(DepressedSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeWhine(DepressedSM psm) : base(psm) { }
 
             public string no_imp = "DepressedSM.NodeWhine not implemented";
 
@@ -463,8 +567,10 @@ namespace Hirdmandr
     {
         public string changeTopState = "";
 
-        public RunInTerrorSM()
+        public RunInTerrorSM(HirdmandrAI hmai)
         {
+            hmAI = hmai;
+
             AddState("callForHelp", new NodeCallForHelp(this));
             AddState("escapeHelp", new NodeEscapeHelp(this));
             AddState("escapeAny", new NodeEscapeAny(this));
@@ -473,12 +579,7 @@ namespace Hirdmandr
 
         public class NodeCallForHelp : SMNode
         {
-            public RunInTerrorSM parentSM;
-
-            public NodeCallForHelp(RunInTerrorSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeCallForHelp(RunInTerrorSM psm) : base(psm) { }
 
             public string no_imp = "RunInTerrorSM.NodeCallForHelp not implemented";
 
@@ -488,12 +589,7 @@ namespace Hirdmandr
         }
         public class NodeEscapeHelp : SMNode
         {
-            public RunInTerrorSM parentSM;
-
-            public NodeEscapeHelp(RunInTerrorSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeEscapeHelp(RunInTerrorSM psm) : base(psm) { }
 
             public string no_imp = "RunInTerrorSM.NodeEscapeHelp not implemented";
 
@@ -503,12 +599,7 @@ namespace Hirdmandr
         }
         public class NodeEscapeAny : SMNode
         {
-            public RunInTerrorSM parentSM;
-
-            public NodeEscapeAny(RunInTerrorSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeEscapeAny(RunInTerrorSM psm) : base(psm) { }
 
             public string no_imp = "RunInTerrorSM.NodeEscapeAny not implemented";
 
@@ -518,12 +609,7 @@ namespace Hirdmandr
         }
         public class NodePanic : SMNode
         {
-            public RunInTerrorSM parentSM;
-
-            public NodePanic(RunInTerrorSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodePanic(RunInTerrorSM psm) : base(psm) { }
 
             public string no_imp = "RunInTerrorSM.NodePanic not implemented";
 
@@ -537,8 +623,10 @@ namespace Hirdmandr
     {
         public string changeTopState = "";
 
-        public HideSM()
+        public HideSM(HirdmandrAI hmai)
         {
+            hmAI = hmai;
+
             AddState("findSafe", new NodeFindSafe(this));
             AddState("goSafe", new NodeGoSafe(this));
             AddState("atSafe", new NodeAtSafe(this));
@@ -546,12 +634,7 @@ namespace Hirdmandr
 
         public class NodeFindSafe : SMNode
         {
-            public HideSM parentSM;
-
-            public NodeFindSafe(HideSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeFindSafe(HideSM psm) : base(psm) { }
 
             public string no_imp = "HideSM.NodeFindSafe not implemented";
 
@@ -561,12 +644,7 @@ namespace Hirdmandr
         }
         public class NodeGoSafe : SMNode
         {
-            public HideSM parentSM;
-
-            public NodeGoSafe(HideSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeGoSafe(HideSM psm) : base(psm) { }
 
             public string no_imp = "HideSM.NodeGoSafe not implemented";
 
@@ -576,12 +654,7 @@ namespace Hirdmandr
         }
         public class NodeAtSafe : SMNode
         {
-            public HideSM parentSM;
-
-            public NodeAtSafe(HideSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeAtSafe(HideSM psm) : base(psm) { }
 
             public string no_imp = "HideSM.NodeAtSafe not implemented";
 
@@ -595,8 +668,10 @@ namespace Hirdmandr
     {
         public string changeTopState = "";
 
-        public DefendHomeSM()
+        public DefendHomeSM(HirdmandrAI hmai)
         {
+            hmAI = hmai;
+
             AddState("isAlerted", new NodeIsAlerted(this));
             AddState("findNeedsHelp", new NodeFindNeedsHelp(this));
             AddState("goNeedsHelp", new NodeGoNeedsHelp(this));
@@ -607,12 +682,7 @@ namespace Hirdmandr
 
         public class NodeIsAlerted : SMNode
         {
-            public DefendHomeSM parentSM;
-
-            public NodeIsAlerted(DefendHomeSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeIsAlerted(DefendHomeSM psm) : base(psm) { }
 
             public string no_imp = "DefendHomeSM.NodeIsAlerted not implemented";
 
@@ -622,12 +692,7 @@ namespace Hirdmandr
         }
         public class NodeFindNeedsHelp : SMNode
         {
-            public DefendHomeSM parentSM;
-
-            public NodeFindNeedsHelp(DefendHomeSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeFindNeedsHelp(DefendHomeSM psm) : base(psm) { }
 
             public string no_imp = "DefendHomeSM.NodeFindNeedsHelp not implemented";
 
@@ -637,12 +702,7 @@ namespace Hirdmandr
         }
         public class NodeGoNeedsHelp : SMNode
         {
-            public DefendHomeSM parentSM;
-
-            public NodeGoNeedsHelp(DefendHomeSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeGoNeedsHelp(DefendHomeSM psm) : base(psm) { }
 
             public string no_imp = "DefendHomeSM.NodeGoNeedsHelp not implemented";
 
@@ -652,12 +712,7 @@ namespace Hirdmandr
         }
         public class NodeFindThreat : SMNode
         {
-            public DefendHomeSM parentSM;
-
-            public NodeFindThreat(DefendHomeSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeFindThreat(DefendHomeSM psm) : base(psm) { }
 
             public string no_imp = "DefendHomeSM.NodeFindThreat not implemented";
 
@@ -667,12 +722,7 @@ namespace Hirdmandr
         }
         public class NodeGoThreat : SMNode
         {
-            public DefendHomeSM parentSM;
-
-            public NodeGoThreat(DefendHomeSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeGoThreat(DefendHomeSM psm) : base(psm) { }
 
             public string no_imp = "DefendHomeSM.NodeGoThreat not implemented";
 
@@ -682,12 +732,7 @@ namespace Hirdmandr
         }
         public class NodeCaution : SMNode
         {
-            public DefendHomeSM parentSM;
-
-            public NodeCaution(DefendHomeSM psm)
-            {
-                parentSM = psm;
-            }
+            public NodeCaution(DefendHomeSM psm) : base(psm) { }
 
             public string no_imp = "DefendHomeSM.NodeCaution not implemented";
 

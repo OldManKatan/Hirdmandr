@@ -1,4 +1,5 @@
 using BepInEx;
+using Hirdmandr;
 using Jotunn.Configs;
 using Jotunn.Entities;
 using Jotunn.GUI;
@@ -22,7 +23,17 @@ namespace OldManSM
         public List<string> stateIndexes = new List<string>();
         public Dictionary<int, SMNode> states = new Dictionary<int, SMNode>();
         
-        public StateMachine parentSM = null;
+        public StateMachine parentSM;
+        public HirdmandrAI hmAI;
+
+        public StateMachine() 
+        {
+            parentSM = null;
+        }
+        public StateMachine(StateMachine psm) 
+        {
+            parentSM = psm;
+        }
 
         public void ChangeState(int stateInt)
         {
@@ -51,12 +62,20 @@ namespace OldManSM
 
         public void Evaluate()
         {
+            Jotunn.Logger.LogInfo("Evaluate() started");
             if (nextState != curState)  // State transition is queued
             {
+                Jotunn.Logger.LogInfo("  Detected state transition");
+
                 if (states.TryGetValue(curState, out SMNode curNode) && states.TryGetValue(nextState, out SMNode nextNode))
                 {
+                    Jotunn.Logger.LogInfo("    Calling current node ExitTo");
                     curNode.ExitTo(nextState);
+                    Jotunn.Logger.LogInfo("    Calling next node EnterFrom");
                     nextNode.EnterFrom(curState);
+
+                    lastState = curState;
+                    curState = nextState;
                 } 
                 else 
                 {
@@ -66,8 +85,10 @@ namespace OldManSM
             }
             else  // Normal state execution: RunState
             {
+                Jotunn.Logger.LogInfo("  Running state with non-transition evaluation");
                 if (states.TryGetValue(curState, out SMNode curNode))
                 {
+                    Jotunn.Logger.LogInfo("    Calling curNode.RunState() on " + stateIndexes[curState]);
                     curNode.RunState();
                 }
                 else 
@@ -118,7 +139,23 @@ namespace OldManSM
     public class SMNode
     {
         public string notImpPrefix = "Generic StateMachine : SMNode";
-            
+
+        public StateMachine parentSM;
+
+        public HirdmandrAI hmAI;
+        public HirdmandrNPC hmNPC;
+        public MonsterAI hmMAI;
+        public Humanoid hmHum;
+
+        public SMNode(StateMachine psm)
+        {
+            parentSM = psm;
+            hmAI = parentSM.hmAI;
+            hmNPC = hmAI.m_hmnpc;
+            hmMAI = hmAI.m_hmMonsterAI;
+            hmHum = hmAI.m_hmHumanoid;
+        }
+
         public virtual void EnterFrom(int aState)
         {
             Jotunn.Logger.LogError(notImpPrefix + " EnterFrom is not implemented");
