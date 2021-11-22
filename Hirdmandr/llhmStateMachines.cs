@@ -263,6 +263,9 @@ namespace Hirdmandr
     public class WorkDaySM : StateMachine 
     {
         public string changeTopState = "";
+        public Dictionary<string, string[]> artisanJobs = new Dictionary<string, string[]>();
+        public string curJob = "";
+        public List<string> curJobPrefabs = new List<string>();
 
         public WorkDaySM(HirdmandrAI hmai)
         {
@@ -272,27 +275,26 @@ namespace Hirdmandr
             AddState("setupArtJob", new NodeSetupArtJob(this));
             AddState("goArtJob", new NodeGoArtJob(this));
             AddState("doJob", new NodeDoJob(this));
+            
+            artisanJobs.Add("woodburner", new string[] { "charcoal_kiln" });
+            artisanJobs.Add("furnaceoperator", new string[] { "smelter", "blastfurnace" });
+            artisanJobs.Add("cook", new string[] { "piece_cauldron" });
+            artisanJobs.Add("baker", new string[] { "piece_oven" });
         }
 
         public class NodeResetArtJob : SMNode
         {
             public string no_imp = "WorkDaySM.NodeResetArtJob not implemented";
 
-            public Dictionary<string, string[]> artisanJobs = new Dictionary<string, string[]>();
-            public NodeResetArtJob(WorkDaySM psm) : base(psm)
-            {
-                artisanJobs.Add("woodburner", new string[] { "charcoal_kiln" });
-                artisanJobs.Add("furnaceoperator", new string[] { "smelter", "blastfurnace" });
-                artisanJobs.Add("cook", new string[] { "piece_cauldron" });
-                artisanJobs.Add("baker", new string[] { "piece_oven" });
-            }
+            public NodeResetArtJob(WorkDaySM psm) : base(psm) { }
 
             override public void EnterFrom(int aState) { Jotunn.Logger.LogInfo("EnterFrom in " + no_imp); }
             override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
             override public void RunState()
             {
-                hmAI.workJobs = new List<string>();
+                hmAI.workJobs = hmAI.m_hmnpc.m_skills.GetEnabledSkillsHighestFirst();
                 hmAI.workJobSite = Vector3.zero;
+                parentSM.curJob = "";
 
                 // if (hmAI.m_hmnpc.m_)
                 // 
@@ -336,7 +338,82 @@ namespace Hirdmandr
             override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
             override public void RunState()
             {
+                if (parentSM.curJob == "")
+                {
+                    if (parentSM.curJob.Count > 0)
+                    {
+                        parentSM.curJob = hmAI.workJobs[0];
+                        hmAI.workJobs.RemoveAt(0);
+                        parentSM.curJobPrefabs = new List<string>();
+                        foreach (string jobPrefab in parentSM.[parentSM.curJob])
+                        {
+                            parentSM.curJobPrefabs.Add(jobPrefab)
+                        }
+                    }
+                    else
+                    {
+                        Jotunn.Logger.LogError("  setupArtJob could NOT find a valid job and available site, IDLE AND WHINE NOT IMPLEMENTED");
+                    }
+                }
+                if (parentSM.curJobPrefabs.Count == 0)
+                {
+                    parentSM.curJob = "";
+                }
+                if (parentSM.curJob == "")
+                {
+                    return;
+                }
+                
+                string lookForPrefab = parentSM.curJobPrefabs[0];
+                parentSM.curJobPrefabs.RemoveAt(0);
+                
+                List<ZDO> foundNPCChests = new List<ZDO>();
+                List<ZDO> validWorkPrefab= new List<ZDO>();
+                List<ZDO> validWorksites = new List<ZDO>();
 
+                foreach (string npcChests in new List<string>() { "piece_npc_chest" } )
+                {
+                    foreach (ZDO thisZDO in hmAI.GetPrefabZDOsInRange(foundNPCChests, 100f))
+                    {
+                        foundNPCChests.Add(thisZDO);
+                    }
+                }
+                
+                foreach (ZDO anNPCChest in foundNPCChests)
+                {
+                    foreach (ZDO thisZDO in hmAI.GetPrefabZDOsInRange(lookForPrefab, 100f))
+                    {
+                        // && if anNPCChest.GetComponent<HirdmandrChest>().ownerZDOID == null ? Or something?
+                        if (Vector3.Distance(anNPCChest.GetPosition(), thisZDO.GetPosition()) < 15.0f)
+                        {
+                            if (!validWorkPrefab.Contains(foundNPCChests))
+                            {
+                                validWorkPrefab.Add(anNPCChest);
+                            }
+                        }
+                    }
+                }
+                
+                ZDO closestPrefab = null;
+                float closestDistance = 999999f;
+                if (validWorkPrefab.Count > 0)
+                {
+                    foreach (ZDO thisSiteZDO validWorkPrefab)
+                    {
+                        thisDist = Vector3.Distance(thisSiteZDO.GetPosition(), hmAI.transform.position);
+                        if (thisDist < closestDistance)
+                        {
+                            closestDistance = thisDist;
+                            closestPrefab = thisSiteZDO;
+                        }
+                    }
+                }
+                
+                if(!(closestPrefab is null))
+                {
+                    hmAI.workJobSite = closestPrefab;
+                    parentSM.ChangeState("goArtJob");
+                }
             }
         }
         public class NodeGoArtJob : SMNode
