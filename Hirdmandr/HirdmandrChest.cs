@@ -17,6 +17,8 @@ namespace Hirdmandr
     [Serializable]
     public class HirdmandrChest : MonoBehaviour
     {
+        public ZNetView m_znetv;
+        
         public List<ZDO> m_ZDOsInRange;
         public float lastZDOCheck;
         
@@ -26,6 +28,8 @@ namespace Hirdmandr
 
         protected virtual void Awake()
         {
+            m_znetv = GetComponent<ZNetView>();
+            
             artisanJobPrefabs.Add("woodburner", new string[] { "charcoal_kiln" });
             artisanJobPrefabs.Add("furnaceoperator", new string[] { "smelter", "blastfurnace" });
             artisanJobPrefabs.Add("farmer", new string[] 
@@ -61,12 +65,12 @@ namespace Hirdmandr
 
         public void GetValidWorksites()
         {
-            artisanJobPieces.Add("woodburner", new ZDO[] { } );
-            artisanJobPieces.Add("furnaceoperator", new ZDO[] { } );
-            artisanJobPieces.Add("farmer", new ZDO[] { } );
-            artisanJobPieces.Add("cook", new ZDO[] { } );
-            artisanJobPieces.Add("baker", new ZDO[] { } );
-
+            artisanJobPieces["woodburner"] = new ZDO[] { };
+            artisanJobPieces["furnaceoperator"] = new ZDO[] { };
+            artisanJobPieces["farmer"] = new ZDO[] { };
+            artisanJobPieces["cook"] = new ZDO[] { };
+            artisanJobPieces["baker"] = new ZDO[] { };
+            
             foreach (KeyValuePair<string, string[]> entry in artisanJobPrefabs)
             {
                 foreach (string thisPrefab in entry.Value)
@@ -80,6 +84,13 @@ namespace Hirdmandr
                         }
                     }
                 }
+                
+                bool jobAvail = false;
+                if (artisanJobPieces[entry.Key].Length)
+                {
+                    jobAvail = true;
+                }
+                m_znet.GetZDO().Set("hmnpc_isSite" + entry.Key, jobAvail);
             }
         }
         
