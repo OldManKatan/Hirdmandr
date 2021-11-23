@@ -50,6 +50,8 @@ namespace Hirdmandr
             override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
             override public void RunState()
             {
+                hmAI.m_hmMonsterAI.StopMoving();
+
                 hmAI.socTargetFire = null;
 
                 List<ZDO> npc_campfires = hmAI.GetPrefabZDOsInRange("piece_npc_fire_pit", 100f);
@@ -103,6 +105,8 @@ namespace Hirdmandr
             override public void EnterFrom(int aState)
             {
                 hmAI.moveToPos = Vector3.zero;
+                hmAI.m_hmMonsterAI.ResetPatrolPoint();
+                hmAI.m_hmBaseAI.ResetPatrolPoint();
             }
             override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
             override public void RunState()
@@ -122,9 +126,12 @@ namespace Hirdmandr
 
                             var goToPos = new Vector3(
                                 hmAI.socMeetPoint.x + UnityEngine.Random.Range(-10f, 10f),
-                                hmAI.socMeetPoint.y,
+                                hmAI.socMeetPoint.y + 1.5f,
                                 hmAI.socMeetPoint.z + UnityEngine.Random.Range(-10f, 10f)
                                 );
+
+                            goToPos.y = ZoneSystem.instance.GetSolidHeight(goToPos);
+
                             if (Vector3.Distance(hmAI.socMeetPoint, goToPos) > minDistance && Vector3.Distance(hmAI.socMeetPoint, goToPos) < maxDistance)
                             {
                                 hmAI.moveToPos = goToPos;
@@ -133,44 +140,80 @@ namespace Hirdmandr
                             }
                         }
                     }
-                    else
+
+                    if (Vector3.Distance(hmAI.transform.position, hmAI.moveToPos) < 3f)
                     {
-                        Jotunn.Logger.LogWarning("  Trying to find a path to hmAI.moveToPos");
-                        Jotunn.Logger.LogWarning("    hmAI.m_hmMonsterAI.FindPath(hmAI.moveToPos) = " + hmAI.m_hmMonsterAI.FindPath(hmAI.moveToPos));
+                        Jotunn.Logger.LogWarning("  In range! Time to socialize!");
+                        hmAI.moveToPos = Vector3.zero;
+                        hmAI.m_hmMonsterAI.SetPatrolPoint();
+                        hmAI.m_hmMonsterAI.StopMoving();
 
-                        // hmAI.m_hmMonsterAI.SetPatrolPoint(hmAI.moveToPos);
-                        if (hmAI.m_hmMonsterAI.FindPath(hmAI.moveToPos))
-                        {
-                            Jotunn.Logger.LogWarning("  Trying hmAI.m_hmMonsterAI.MoveTo");
-
-                            hmAI.m_hmMonsterAI.MoveTo(0f, hmAI.moveToPos, 0, false);
-                            if (Vector3.Distance(hmAI.transform.position, hmAI.moveToPos) < 3)
-                            {
-                                Jotunn.Logger.LogWarning("  In range! Time to socialize!");
-
-                                parentSM.ChangeState("setupSocialize");
-                            }
-                        }
-                        else
-                        {
-                            Jotunn.Logger.LogWarning("  Could not find path to hmAI.moveToPos! hmAI.pathAttempts = " + hmAI.pathAttempts);
-
-                            hmAI.pathAttempts++;
-                            if (hmAI.pathAttempts > 4)
-                            {
-                                Jotunn.Logger.LogWarning("  Too many path attempts, trying to find another meet point");
-                                hmAI.moveToPos = Vector3.zero;
-                                hmAI.socNoPathFires.Add(hmAI.socTargetFire);
-                                hmAI.socTargetFire = null;
-                                parentSM.ChangeState("findMeetPoint");
-                            }
-                            else
-                            {
-                                Jotunn.Logger.LogWarning("  Retrying path attempt, using same meet point");
-                                hmAI.moveToPos = Vector3.zero;
-                            }
-                        }
+                        parentSM.ChangeState("setupSocialize");
                     }
+
+                    // else
+                    // {
+                    //     // Jotunn.Logger.LogWarning("    hmAI.m_hmMonsterAI.FindPath(hmAI.moveToPos) = " + hmAI.m_hmMonsterAI.FindPath(hmAI.moveToPos));
+                    // 
+                    //     // hmAI.m_hmMonsterAI.SetPatrolPoint(hmAI.moveToPos);
+                    //     // Jotunn.Logger.LogWarning("  Trying hmAI.m_hmMonsterAI.MoveTo");
+                    //     // Jotunn.Logger.LogWarning("    hmAI.m_hmMonsterAI.MoveTo(3f, hmAI.moveToPos, 0f, false) = " + hmAI.m_hmMonsterAI.MoveTo(3f, hmAI.moveToPos, 0f, false));
+                    // 
+                    //     Jotunn.Logger.LogWarning("  Trying to find a path to hmAI.moveToPos");
+                    //     if (!hmAI.m_hmBaseAI.FindPath(hmAI.moveToPos))
+                    //     {
+                    //         Jotunn.Logger.LogWarning("  Did not find path, starting over...");
+                    //         parentSM.ChangeState("findMeetPoint");
+                    //     }
+                    //     else
+                    //     {
+                    //         Pathfinding.instance.GetPath(hmAI.transform.position, hmAI.moveToPos, hmAI.m_hmBaseAI.m_path, hmAI.m_hmBaseAI.m_pathAgentType);
+                    //         Jotunn.Logger.LogWarning("  Trying hmAI.m_hmMonsterAI.MoveTo");
+                    //         // bool arrived = hmAI.m_hmMonsterAI.MoveTo(3f, hmAI.m_hmMonsterAI.m_path[0], 0f, false);
+                    //         // Jotunn.Logger.LogWarning("  hmAI.m_hmMonsterAI.MoveTo = " + arrived);
+                    //         hmAI.m_hmBaseAI.SetPatrolPoint(hmAI.moveToPos);
+                    //         if (Vector3.Distance(hmAI.transform.position, hmAI.moveToPos) < 3f)
+                    //         {
+                    //             Jotunn.Logger.LogWarning("  In range! Time to socialize!");
+                    //             hmAI.m_hmBaseAI.StopMoving();
+                    // 
+                    //             parentSM.ChangeState("setupSocialize");
+                    //         }
+                    //     }
+                    // 
+                    // 
+                    //     // if (!hmAI.m_hmMonsterAI.HavePath(hmAI.moveToPos))
+                    //     // {
+                    //     //     Jotunn.Logger.LogWarning("  Did not have path, trying to find path");
+                    //     //     if (!hmAI.m_hmMonsterAI.FindPath(hmAI.moveToPos))
+                    //     //     {
+                    //     //         Jotunn.Logger.LogWarning("  Could not find path to hmAI.moveToPos! hmAI.pathAttempts = " + hmAI.pathAttempts);
+                    //     // 
+                    //     //         hmAI.pathAttempts++;
+                    //     //         if (hmAI.pathAttempts > 4)
+                    //     //         {
+                    //     //             Jotunn.Logger.LogWarning("  Too many path attempts, trying to find another meet point");
+                    //     //             hmAI.moveToPos = Vector3.zero;
+                    //     //             hmAI.socNoPathFires.Add(hmAI.socTargetFire);
+                    //     //             hmAI.socTargetFire = null;
+                    //     //             parentSM.ChangeState("findMeetPoint");
+                    //     //         }
+                    //     //         else
+                    //     //         {
+                    //     //             Jotunn.Logger.LogWarning("  Retrying path attempt, using same meet point");
+                    //     //             hmAI.moveToPos = Vector3.zero;
+                    //     //         }
+                    //     //     }
+                    //     // }
+                    //     // 
+                    //     // if (Vector3.Distance(hmAI.transform.position, hmAI.moveToPos) < 3)
+                    //     // {
+                    //     //     Jotunn.Logger.LogWarning("  In range! Time to socialize!");
+                    //     //     hmAI.m_hmMonsterAI.StopMoving();
+                    //     // 
+                    //     //     parentSM.ChangeState("setupSocialize");
+                    //     // }
+                    // }
                 }
                 else
                 {
@@ -263,9 +306,6 @@ namespace Hirdmandr
     public class WorkDaySM : StateMachine 
     {
         public string changeTopState = "";
-        public Dictionary<string, string[]> artisanJobs = new Dictionary<string, string[]>();
-        public string curJob = "";
-        public List<string> curJobPrefabs = new List<string>();
 
         public WorkDaySM(HirdmandrAI hmai)
         {
@@ -275,11 +315,6 @@ namespace Hirdmandr
             AddState("setupArtJob", new NodeSetupArtJob(this));
             AddState("goArtJob", new NodeGoArtJob(this));
             AddState("doJob", new NodeDoJob(this));
-            
-            artisanJobs.Add("woodburner", new string[] { "charcoal_kiln" });
-            artisanJobs.Add("furnaceoperator", new string[] { "smelter", "blastfurnace" });
-            artisanJobs.Add("cook", new string[] { "piece_cauldron" });
-            artisanJobs.Add("baker", new string[] { "piece_oven" });
         }
 
         public class NodeResetArtJob : SMNode
@@ -294,7 +329,7 @@ namespace Hirdmandr
             {
                 hmAI.workJobs = hmAI.m_hmnpc.m_skills.GetEnabledSkillsHighestFirst();
                 hmAI.workJobSite = Vector3.zero;
-                parentSM.curJob = "";
+                hmAI.curJob = "";
 
                 // if (hmAI.m_hmnpc.m_)
                 // 
@@ -338,16 +373,16 @@ namespace Hirdmandr
             override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
             override public void RunState()
             {
-                if (parentSM.curJob == "")
+                if (hmAI.curJob == "")
                 {
-                    if (parentSM.curJob.Count > 0)
+                    if (hmAI.workJobs.Count > 0)
                     {
-                        parentSM.curJob = hmAI.workJobs[0];
+                        hmAI.curJob = hmAI.workJobs[0];
                         hmAI.workJobs.RemoveAt(0);
-                        parentSM.curJobPrefabs = new List<string>();
-                        foreach (string jobPrefab in parentSM.[parentSM.curJob])
+                        hmAI.curJobPrefabs = new List<string>();
+                        foreach (string jobPrefab in hmAI.artisanJobs[hmAI.curJob])
                         {
-                            parentSM.curJobPrefabs.Add(jobPrefab)
+                            hmAI.curJobPrefabs.Add(jobPrefab);
                         }
                     }
                     else
@@ -355,25 +390,25 @@ namespace Hirdmandr
                         Jotunn.Logger.LogError("  setupArtJob could NOT find a valid job and available site, IDLE AND WHINE NOT IMPLEMENTED");
                     }
                 }
-                if (parentSM.curJobPrefabs.Count == 0)
+                if (hmAI.curJobPrefabs.Count == 0)
                 {
-                    parentSM.curJob = "";
+                    hmAI.curJob = "";
                 }
-                if (parentSM.curJob == "")
+                if (hmAI.curJob == "")
                 {
                     return;
                 }
                 
-                string lookForPrefab = parentSM.curJobPrefabs[0];
-                parentSM.curJobPrefabs.RemoveAt(0);
+                string lookForPrefab = hmAI.curJobPrefabs[0];
+                hmAI.curJobPrefabs.RemoveAt(0);
                 
                 List<ZDO> foundNPCChests = new List<ZDO>();
-                List<ZDO> validWorkPrefab= new List<ZDO>();
+                List<ZDO> validWorkPrefab = new List<ZDO>();
                 List<ZDO> validWorksites = new List<ZDO>();
 
                 foreach (string npcChests in new List<string>() { "piece_npc_chest" } )
                 {
-                    foreach (ZDO thisZDO in hmAI.GetPrefabZDOsInRange(foundNPCChests, 100f))
+                    foreach (ZDO thisZDO in hmAI.GetPrefabZDOsInRange(npcChests, 100f))
                     {
                         foundNPCChests.Add(thisZDO);
                     }
@@ -386,7 +421,7 @@ namespace Hirdmandr
                         // && if anNPCChest.GetComponent<HirdmandrChest>().ownerZDOID == null ? Or something?
                         if (Vector3.Distance(anNPCChest.GetPosition(), thisZDO.GetPosition()) < 15.0f)
                         {
-                            if (!validWorkPrefab.Contains(foundNPCChests))
+                            if (!validWorkPrefab.Contains(anNPCChest))
                             {
                                 validWorkPrefab.Add(anNPCChest);
                             }
@@ -398,9 +433,9 @@ namespace Hirdmandr
                 float closestDistance = 999999f;
                 if (validWorkPrefab.Count > 0)
                 {
-                    foreach (ZDO thisSiteZDO validWorkPrefab)
+                    foreach (ZDO thisSiteZDO in validWorkPrefab)
                     {
-                        thisDist = Vector3.Distance(thisSiteZDO.GetPosition(), hmAI.transform.position);
+                        var thisDist = Vector3.Distance(thisSiteZDO.GetPosition(), hmAI.transform.position);
                         if (thisDist < closestDistance)
                         {
                             closestDistance = thisDist;
@@ -411,7 +446,7 @@ namespace Hirdmandr
                 
                 if(!(closestPrefab is null))
                 {
-                    hmAI.workJobSite = closestPrefab;
+                    hmAI.workJobSite = closestPrefab.GetPosition();
                     parentSM.ChangeState("goArtJob");
                 }
             }

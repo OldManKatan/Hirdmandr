@@ -25,7 +25,9 @@ namespace Hirdmandr
     {
         public HirdmandrNPC m_hmnpc;
         public MonsterAI m_hmMonsterAI;
+        public BaseAI m_hmBaseAI;
         public Humanoid m_hmHumanoid;
+        public ZNetView m_znetv;
         public long m_nextDepressionUpdate = 0;
 
         public TopLevelSM topSM;
@@ -46,17 +48,26 @@ namespace Hirdmandr
         // WorkDay fields
         public List<string> workJobs = new List<string>();
         public Vector3 workJobSite = Vector3.zero;
+        public string curJob = "";
+        public List<string> curJobPrefabs = new List<string>();
+        public Dictionary<string, string[]> artisanJobs = new Dictionary<string, string[]>();
 
         protected virtual void Awake()
         {
             m_hmnpc = GetComponent<HirdmandrNPC>();
             m_hmMonsterAI = GetComponent<MonsterAI>();
+            m_hmBaseAI = GetComponent<BaseAI>();
             m_hmHumanoid = GetComponent<Humanoid>();
-
+            m_znetv = GetComponent<ZNetView>();
             topSM = new TopLevelSM(GetComponent<HirdmandrAI>());
 
             Invoke("CheckDepression", UnityEngine.Random.Range(60f, 300f));
             InvokeRepeating("EvaluateSM", UnityEngine.Random.Range(10f, 13f), 3f);
+
+            artisanJobs.Add("woodburner", new string[] { "charcoal_kiln" });
+            artisanJobs.Add("furnaceoperator", new string[] { "smelter", "blastfurnace" });
+            artisanJobs.Add("cook", new string[] { "piece_cauldron" });
+            artisanJobs.Add("baker", new string[] { "piece_oven" });
         }
 
         protected virtual void Update()
@@ -74,6 +85,15 @@ namespace Hirdmandr
             }
         }
 
+        protected virtual void FixedUpdate()
+        {
+            if (m_znetv.IsOwner() && moveToPos != Vector3.zero)
+            {
+                m_hmMonsterAI.MoveTo(m_hmMonsterAI.GetWorldTimeDelta(), moveToPos, 0f, false);
+                Jotunn.Logger.LogInfo("FixedUpdate FIRED!!!");
+            }
+        }
+
         public void CheckDepression()
         {
             if (m_hmnpc.m_mentalcontentment < -2500 || m_hmnpc.m_mentalcontentment < m_hmnpc.m_mentalstress)
@@ -88,8 +108,11 @@ namespace Hirdmandr
 
         public void EvaluateSM()
         {
-            Jotunn.Logger.LogInfo(m_hmHumanoid.m_name + " is evaluating their AI");
-            topSM.Evaluate();
+            if (m_znetv.IsOwner())
+            {
+                Jotunn.Logger.LogInfo(m_hmHumanoid.m_name + " is evaluating their AI");
+                topSM.Evaluate();
+            }
         }
 
         public List<ZDO> GetAllZDOsInRange(float range)

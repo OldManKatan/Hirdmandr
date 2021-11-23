@@ -122,7 +122,7 @@ namespace Hirdmandr
 
         public List<string> GetEnabledSkillsHighestFirst()
         {
-            List<string> enabledSkills = "";
+            List<string> enabledSkills = new List<string>();
             foreach (SkillData skl in m_hmSkills)
             {
                 if (skl.m_isEnabled)
@@ -131,10 +131,11 @@ namespace Hirdmandr
                 }
             }
 
-            List<string> returnList = "";
+            List<string> returnList = new List<string>();
             
             for (int i = 0; i < enabledSkills.Count; i++) {
                 float highest_skill_value = -1f;
+                string highest_skill_str = "";
 
                 foreach (SkillData skl in m_hmSkills)
                 {
@@ -144,7 +145,7 @@ namespace Hirdmandr
                         highest_skill_value = skl.m_value;
                     }
                 }
-                returnList.Add(skl.m_name);
+                returnList.Add(highest_skill_str);
             }
             return returnList;
         }
