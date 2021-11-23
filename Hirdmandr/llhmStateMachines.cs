@@ -106,7 +106,6 @@ namespace Hirdmandr
             {
                 hmAI.moveToPos = Vector3.zero;
                 hmAI.m_hmMonsterAI.ResetPatrolPoint();
-                hmAI.m_hmBaseAI.ResetPatrolPoint();
             }
             override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
             override public void RunState()
@@ -331,35 +330,6 @@ namespace Hirdmandr
                 hmAI.workJobSite = Vector3.zero;
                 hmAI.curJob = "";
 
-                // if (hmAI.m_hmnpc.m_)
-                // 
-                // 
-                // 
-                // 
-                // hmAI.socTargetFire = null;
-                // 
-                // List<ZDO> npc_campfires = hmAI.GetPrefabZDOsInRange("piece_npc_fire_pit", 100f);
-                // 
-                // if (npc_campfires.Count == 0)
-                // {
-                //     parentSM.ChangeState("goIdlePoint");
-                //     return;
-                // }
-                // 
-                // float closestSoFar = 999999f;
-                // float thisDistance;
-                // 
-                // Jotunn.Logger.LogWarning("  Checking fires for valid moveTo target");
-                // foreach (ZDO aZDO in npc_campfires)
-                // {
-                //     thisDistance = Vector3.Distance(aZDO.GetPosition(), hmAI.transform.position);
-                //     if (thisDistance < closestSoFar && hmAI.socNoPathFires.IndexOf(aZDO) == -1)
-                //     {
-                //         closestSoFar = thisDistance;
-                //         hmAI.socTargetFire = aZDO;
-                //     }
-                // }
-
                 parentSM.ChangeState("setupArtJob");
             }
         }
@@ -379,76 +349,46 @@ namespace Hirdmandr
                     {
                         hmAI.curJob = hmAI.workJobs[0];
                         hmAI.workJobs.RemoveAt(0);
-                        hmAI.curJobPrefabs = new List<string>();
-                        foreach (string jobPrefab in hmAI.artisanJobs[hmAI.curJob])
-                        {
-                            hmAI.curJobPrefabs.Add(jobPrefab);
-                        }
                     }
                     else
                     {
                         Jotunn.Logger.LogError("  setupArtJob could NOT find a valid job and available site, IDLE AND WHINE NOT IMPLEMENTED");
+                        return;
                     }
                 }
-                if (hmAI.curJobPrefabs.Count == 0)
+                
+                List<ZDO> foundWorkSites = new List<ZDO>();
+                
+                foreach (ZDO thisZDO in hmAI.GetPrefabZDOsInRange(npcChests, 100f))
                 {
-                    hmAI.curJob = "";
+                    if (thisZDO.GetBool("hmnpc_isSite" + hmAI.curJob))
+                    {
+                        foundWorkSites.Add(thisZDO)
+                    }
                 }
-                if (hmAI.curJob == "")
+                
+                ZDO closestSite = null;
+                float closestSiteDist = 999999;
+                
+                foreach (ZDO thisZDO in foundWorkSites)
                 {
+                    float thisDist = Vector3.Distance(hmAI.transform.position, thisZDO.GetPosition());
+                    if (thisDist < closestSiteDist)
+                    {
+                        closestSite = thisZDO;
+                        closestSiteDist = thisDist;
+                    }
+                }
+                
+                if (closestSite is null)
+                {
+                    Jotunn.Logger.LogInfo("    Could not locate valid job site for " + hmAI.curJob);
+                    hmAI.curJob = "";
                     return;
                 }
                 
-                string lookForPrefab = hmAI.curJobPrefabs[0];
-                hmAI.curJobPrefabs.RemoveAt(0);
+                // Do claim workstation?
                 
-                List<ZDO> foundNPCChests = new List<ZDO>();
-                List<ZDO> validWorkPrefab = new List<ZDO>();
-                List<ZDO> validWorksites = new List<ZDO>();
-
-                foreach (string npcChests in new List<string>() { "piece_npc_chest" } )
-                {
-                    foreach (ZDO thisZDO in hmAI.GetPrefabZDOsInRange(npcChests, 100f))
-                    {
-                        foundNPCChests.Add(thisZDO);
-                    }
-                }
-                
-                foreach (ZDO anNPCChest in foundNPCChests)
-                {
-                    foreach (ZDO thisZDO in hmAI.GetPrefabZDOsInRange(lookForPrefab, 100f))
-                    {
-                        // && if anNPCChest.GetComponent<HirdmandrChest>().ownerZDOID == null ? Or something?
-                        if (Vector3.Distance(anNPCChest.GetPosition(), thisZDO.GetPosition()) < 15.0f)
-                        {
-                            if (!validWorkPrefab.Contains(anNPCChest))
-                            {
-                                validWorkPrefab.Add(anNPCChest);
-                            }
-                        }
-                    }
-                }
-                
-                ZDO closestPrefab = null;
-                float closestDistance = 999999f;
-                if (validWorkPrefab.Count > 0)
-                {
-                    foreach (ZDO thisSiteZDO in validWorkPrefab)
-                    {
-                        var thisDist = Vector3.Distance(thisSiteZDO.GetPosition(), hmAI.transform.position);
-                        if (thisDist < closestDistance)
-                        {
-                            closestDistance = thisDist;
-                            closestPrefab = thisSiteZDO;
-                        }
-                    }
-                }
-                
-                if(!(closestPrefab is null))
-                {
-                    hmAI.workJobSite = closestPrefab.GetPosition();
-                    parentSM.ChangeState("goArtJob");
-                }
             }
         }
         public class NodeGoArtJob : SMNode
