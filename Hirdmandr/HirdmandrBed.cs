@@ -21,6 +21,7 @@ namespace Hirdmandr
         
         public int comfortAtBed;
         public int ownerZDOID = 0;
+        public bool wasOwner = false;
         
         protected virtual void Awake()
         {
@@ -31,6 +32,24 @@ namespace Hirdmandr
 
         protected virtual void FixedUpdate() { }
 
+        public bool checkOwnership()
+        {
+            if (m_znetv.IsOwner())
+            {
+                if (!wasOwner)
+                {
+                    ownerZDOID = m_znetv.GetZDO().GetInt("hmnpc_bedOwnerZDOID");
+                    wasOwner = true;
+                }
+                return true;
+            }
+            if (wasOwner)
+            {
+                wasOwner = false;
+            }
+            return false;
+        }
+        
         public int GetComfort()
         {
             comfortAtBed = m_znetv.GetComfort(transform.position);
@@ -39,45 +58,60 @@ namespace Hirdmandr
 
         public bool hasOwner()
         {
-            if (ownerZDOID == 0)
+            if (checkOwnership())
             {
-                return false;
-            }
-            else
-            {
-                return true
+                if (ownerZDOID == 0)
+                {
+                    return false;
+                }
+                else
+                {
+                    return true
+                }
             }
         }
         
         public bool Claim(ZDOID owner_id)
         {
-            if (ownerZDOID == 0)
+            if (checkOwnership())
             {
-                ownerZDOID = owner_id;
-                return true;
-            }
-            else
-            {
-                return false;
+                if (ownerZDOID == 0)
+                {
+                    ownerZDOID = owner_id;
+                    m_znetv.GetZDO().Set("hmnpc_bedOwnerZDOID", owner_id);
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
             }
         }
         
         public bool UnClaim(ZDOID owner_id)
         {
-            if (ownerZDOID == owner_id)
+            if (checkOwnership())
             {
-                ownerZDOID = 0;
-                return true;
-            }
-            else
-            {
-                return false;
+                if (ownerZDOID == owner_id)
+                {
+                    ownerZDOID = 0;
+                    m_znetv.GetZDO().Set("hmnpc_bedOwnerZDOID", 0);
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
             }
         }
         
         public void RemoveOwner(string artisanJob)
         {
-            ownerZDOID = 0;
+            if (checkOwnership())
+            {
+                ownerZDOID = 0;
+                m_znetv.GetZDO().Set("hmnpc_bedOwnerZDOID", 0);
+            }
         }
     }
 }
