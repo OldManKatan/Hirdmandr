@@ -21,6 +21,7 @@ namespace Hirdmandr
         
         public List<ZDO> m_ZDOsInRange;
         public float lastZDOCheck;
+        public bool wasOwner = false;
         
         public Dictionary<string, string[]> artisanJobPrefabs = new Dictionary<string, string[]>();
         public Dictionary<string, ZDO[]> artisanJobPieces = new Dictionary<string, ZDO[]>();
@@ -57,12 +58,33 @@ namespace Hirdmandr
             artisanJobOwner.Add("farmer", 0 );
             artisanJobOwner.Add("cook", 0 );
             artisanJobOwner.Add("baker", 0 );
+            
+            m_znetv.GetZDO().Serialize("hmnpc_chestOwners", artisanJobOwner);
         }
 
         protected virtual void Update() { }
-
+        
         protected virtual void FixedUpdate() { }
 
+        public bool checkOwnership()
+        {
+            if (m_znetv.IsOwner())
+            {
+                if (!wasOwner)
+                {
+                    artisanJobOwner = m_znetv.GetZDO().Deserialize("hmnpc_chestOwners");
+                    wasOwner = true;
+                }
+                return true;
+            }
+            if (wasOwner)
+            {
+                m_znetv.GetZDO().Serialize("hmnpc_chestOwners", artisanJobOwner);
+                wasOwner = false;
+            }
+            return false;
+        }
+        
         public void GetValidWorksites()
         {
             artisanJobPieces["woodburner"] = new ZDO[] { };
@@ -112,52 +134,67 @@ namespace Hirdmandr
         
         public bool IsInUse(string artisanJob)
         {
-            if (artisanJobOwner[artisanJob] == 0)
+            if (checkOwnership())
             {
-                return false;
-            }
-            else
-            {
-                return true;
+                if (artisanJobOwner[artisanJob] == 0)
+                {
+                    return false;
+                }
+                else
+                {
+                    return true;
+                }
             }
         }
         
         public bool Claim(string artisanJob, ZDOID owner_id)
         {
-            if (artisanJobOwner[artisanJob] == 0)
+            if (checkOwnership())
             {
-                artisanJobOwner[artisanJob] = owner_id;
-                return true;
-            }
-            else
-            {
-                return false;
+                if (artisanJobOwner[artisanJob] == 0)
+                {
+                    artisanJobOwner[artisanJob] = owner_id;
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
             }
         }
         
         public bool UnClaim(string artisanJob, ZDOID owner_id)
         {
-            if (artisanJobOwner[artisanJob] == owner_id)
+            if (checkOwnership())
             {
-                artisanJobOwner[artisanJob] = 0;
-                return true;
-            }
-            else
-            {
-                return false;
+                if (artisanJobOwner[artisanJob] == owner_id)
+                {
+                    artisanJobOwner[artisanJob] = 0;
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
             }
         }
         
         public void RemoveOwner(string artisanJob)
         {
-            artisanJobOwner[artisanJob] = 0;
+            if (checkOwnership())
+            {
+                artisanJobOwner[artisanJob] = 0;
+            }
         }
 
         public void RemoveAllOwners()
         {
-            foreach (KeyValuePair<string, int> entry in artisanJobOwner)
+        if (checkOwnership())
             {
-                artisanJobOwner[entry.Key] = 0;
+                foreach (KeyValuePair<string, int> entry in artisanJobOwner)
+                {
+                    artisanJobOwner[entry.Key] = 0;
+                }
             }
         }
 
