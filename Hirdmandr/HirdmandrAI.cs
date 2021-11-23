@@ -39,6 +39,7 @@ namespace Hirdmandr
         // General use fields
         public int pathAttempts = 0;
         public Vector3 moveToPos = Vector3.zero;
+        public bool moveToReached = false;
 
         // Socialize fields
         public ZDO socTargetFire = null;
@@ -49,8 +50,10 @@ namespace Hirdmandr
         public List<string> workJobs = new List<string>();
         public Vector3 workJobSite = Vector3.zero;
         public string curJob = "";
-        public List<string> curJobPrefabs = new List<string>();
-        public Dictionary<string, string[]> artisanJobs = new Dictionary<string, string[]>();
+
+        // Emergency fields
+        public Vector3 callHelpPos = Vector3.zero;
+        public float callHelpDuration = 0f;
 
         protected virtual void Awake()
         {
@@ -63,11 +66,6 @@ namespace Hirdmandr
 
             Invoke("CheckDepression", UnityEngine.Random.Range(60f, 300f));
             InvokeRepeating("EvaluateSM", UnityEngine.Random.Range(10f, 13f), 3f);
-
-            artisanJobs.Add("woodburner", new string[] { "charcoal_kiln" });
-            artisanJobs.Add("furnaceoperator", new string[] { "smelter", "blastfurnace" });
-            artisanJobs.Add("cook", new string[] { "piece_cauldron" });
-            artisanJobs.Add("baker", new string[] { "piece_oven" });
         }
 
         protected virtual void Update()
@@ -87,10 +85,27 @@ namespace Hirdmandr
 
         protected virtual void FixedUpdate()
         {
-            if (m_znetv.IsOwner() && moveToPos != Vector3.zero)
+            if (m_znetv.IsOwner())
             {
-                m_hmMonsterAI.MoveTo(m_hmMonsterAI.GetWorldTimeDelta(), moveToPos, 0f, false);
-                Jotunn.Logger.LogInfo("FixedUpdate FIRED!!!");
+                var timeDelta = m_hmMonsterAI.GetWorldTimeDelta();
+                if (moveToPos != Vector3.zero)
+                {
+                    moveToReached = m_hmMonsterAI.MoveTo(, moveToPos, 0f, false);
+                    if (moveToReached)
+                    {
+                        moveToPos = Vector3.zero;
+                        m_hmMonsterAI.StopMoving();
+                        m_hmMonsterAI.SetPatrolPoint();
+                    }
+                }
+                if (callHelpDuration > 0f)
+                {
+                    callHelpDuration -= timeDelta;
+                    if (callHelpDuration < 0f)
+                    {
+                        callHelpDuration = 0;
+                    }
+                }
             }
         }
 
@@ -111,6 +126,7 @@ namespace Hirdmandr
             if (m_znetv.IsOwner())
             {
                 Jotunn.Logger.LogInfo(m_hmHumanoid.m_name + " is evaluating their AI");
+                m_hmMonsterAI.ResetRandomMovement();
                 topSM.Evaluate();
             }
         }
