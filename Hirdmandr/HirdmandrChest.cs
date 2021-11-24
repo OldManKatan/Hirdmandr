@@ -21,7 +21,7 @@ namespace Hirdmandr
         
         public List<ZDO> m_ZDOsInRange;
         public float lastZDOCheck;
-        public bool wasOwner = false;
+        public bool wasOwner;
         
         public Dictionary<string, string[]> artisanJobPrefabs = new Dictionary<string, string[]>();
         public Dictionary<string, List<ZDO>> artisanJobPieces = new Dictionary<string, List<ZDO>>();
@@ -29,6 +29,8 @@ namespace Hirdmandr
 
         protected virtual void Awake()
         {
+            wasOwner = false;
+                
             m_znetv = GetComponent<ZNetView>();
             
             artisanJobPrefabs.Add("woodburner", new string[] { "charcoal_kiln" });

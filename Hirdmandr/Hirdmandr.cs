@@ -44,8 +44,8 @@ namespace Hirdmandr
             // To learn more about Jotunn's features, go to
             // https://valheim-modding.github.io/Jotunn/tutorials/overview.html
 
-            PrefabManager.OnVanillaPrefabsAvailable += CreateNPCPieces;
-            PrefabManager.OnVanillaPrefabsAvailable += CreateNPCPlayer;
+            PrefabManager.OnPrefabsRegistered += CreateNPCPieces;
+            PrefabManager.OnPrefabsRegistered += CreateNPCPlayer;
 
             On.Tutorial.Awake += OnTutorialAwake;
         }
@@ -197,10 +197,10 @@ namespace Hirdmandr
             if (!PrefabManager.Instance.GetPrefab("piece_npc_chest"))
             {
                 var NPCChestPrefab = PrefabManager.Instance.CreateClonedPrefab("piece_npc_chest", "piece_chest_wood");
-                NPCChestPrefab.AddComponent<Piece>();
-                NPCChestPrefab.AddComponent<HirdmandrChest>();
+
                 var NPCChestContainer = NPCChestPrefab.GetComponent<Container>();
                 NPCChestContainer.m_name = "NPC Chest";
+                NPCChestPrefab.AddComponent<HirdmandrChest>();
 
                 var NPCChestPiece = new CustomPiece(NPCChestPrefab, fixReference: false,
                     new PieceConfig
@@ -228,7 +228,6 @@ namespace Hirdmandr
             if (!PrefabManager.Instance.GetPrefab("piece_npc_fire_pit"))
             {
                 var NPCCampfirePrefab = PrefabManager.Instance.CreateClonedPrefab("piece_npc_fire_pit", "fire_pit");
-                NPCCampfirePrefab.AddComponent<Piece>();
                 var NPCCampfireContainer = NPCCampfirePrefab.GetComponent<Fireplace>();
                 NPCCampfireContainer.m_name = "NPC Campfire";
 
@@ -240,7 +239,7 @@ namespace Hirdmandr
                         PieceTable = "_HammerPieceTable",
                         Category = "Hirdmandr",
                         AllowedInDungeons = false,
-                        Icon = gm.GetSprite("Campfire"),
+                        Icon = gm.GetSprite("firepit"),
                         Requirements = new[]
                         {
                                  new RequirementConfig { Item = "Stone", Amount = 5, Recover = true },
@@ -260,7 +259,6 @@ namespace Hirdmandr
             {
 
                 var NPCHearthPrefab = PrefabManager.Instance.CreateClonedPrefab("piece_npc_hearth", "hearth");
-                NPCHearthPrefab.AddComponent<Piece>();
                 var NPCHearthContainer = NPCHearthPrefab.GetComponent<Fireplace>();
                 NPCHearthContainer.m_name = "NPC Hearth";
 
@@ -326,7 +324,7 @@ namespace Hirdmandr
                 var NPCBedPiece = new CustomPiece(NPCBedPrefab, fixReference: false,
                     new PieceConfig
                     {
-                        Name = "NPC Bed",
+                        Name = "NPC Dragon Bed",
                         Description = "Testing Descriptions",
                         PieceTable = "_HammerPieceTable",
                         Category = "Hirdmandr",

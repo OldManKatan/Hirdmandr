@@ -743,6 +743,8 @@ namespace Hirdmandr
             m_fightingRangeClose = m_znet.GetZDO().GetBool("hmnpc_fightingRangeClose");
             m_fightingRangeMid = m_znet.GetZDO().GetBool("hmnpc_fightingRangeMid");
             m_fightingRangeFar = m_znet.GetZDO().GetBool("hmnpc_fightingRangeFar");
+
+            ownedBedZDOID = m_znet.GetZDO().GetZDOID("hmnpc_ownedbed");
         }
 
         public void ZDOSaveGeneral()
@@ -976,6 +978,12 @@ namespace Hirdmandr
             m_humanoid.GiveDefaultItem(PrefabManager.Instance.GetPrefab("ArmorPaddedCuirass"));
             m_humanoid.GiveDefaultItem(PrefabManager.Instance.GetPrefab("ArmorPaddedGreaves"));
             m_humanoid.GiveDefaultItem(PrefabManager.Instance.GetPrefab("CapeLox"));
+        }
+
+        public void SetBed(ZDOID bedZDOID)
+        {
+            ownedBedZDOID = bedZDOID;
+            m_znet.GetZDO().Set("hmnpc_ownedbed", bedZDOID);
         }
     }
 }

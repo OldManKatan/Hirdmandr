@@ -39,9 +39,16 @@ namespace Hirdmandr
 
         // General use fields
         public int pathAttempts = 0;
+        public Vector3 moveToTarget = Vector3.zero;
         public Vector3 moveToPos = Vector3.zero;
-        public float moveToDist = 0f;
-        public bool moveToReached = false;
+        public bool moveToReached;
+        public bool moveToTrying;
+        public bool moveEnabled;
+        public float moveToTimeout;
+        public float moveMinDist;
+        public float moveMaxDist;
+        public float moveCloseEnough;
+        public bool moveRequireShelter;
 
         // Socialize fields
         public ZDO socTargetFire = null;
@@ -100,30 +107,128 @@ namespace Hirdmandr
             if (m_znetv.IsOwner())
             {
                 var timeDelta = m_hmMonsterAI.GetWorldTimeDelta();
-                if (moveToPos != Vector3.zero)
+                UpdateMoving(timeDelta);
+                UpdateTimers(timeDelta);
+            }
+        }
+
+        public void UpdateMoving(float timeDelta)
+        {
+            if (moveEnabled)
+            {
+                if (Time.time > moveToTimeout)
                 {
-                    if (!moveToReached)
+                    moveToReached = false;
+                    moveToTrying = false;
+                    moveEnabled = false;
+                }
+                else
+                {
+                    if (moveToPos == Vector3.zero)
                     {
-                        moveToReached = m_hmMonsterAI.MoveTo(timeDelta, moveToPos, moveToDist, false);
-                        if (moveToReached)
+                        List<Vector3> shelter_tries = new List<Vector3>();
+                        List<Vector3> any_tries = new List<Vector3>();
+
+                        float coverPercentage;
+                        bool underRoof;
+
+                        int[] flip = new int[2] { -1, 1 };
+
+                        for (var i = 0; i < 10; i++)
                         {
-                            m_hmMonsterAI.StopMoving();
-                            m_hmMonsterAI.SetPatrolPoint();
+                            Jotunn.Logger.LogWarning("    Numtries = " + (i + 1));
+
+                            Vector3 thisV3 = new Vector3(
+                                moveToTarget.x + (UnityEngine.Random.Range(moveMinDist, moveMaxDist) * flip[UnityEngine.Random.Range(0, 2)]),
+                                moveToTarget.y,
+                                moveToTarget.z + (UnityEngine.Random.Range(moveMinDist, moveMaxDist) * flip[UnityEngine.Random.Range(0, 2)])
+                            );
+
+                            Cover.GetCoverForPoint(thisV3, out coverPercentage, out underRoof);
+
+                            if (underRoof && coverPercentage >= 0.8f)
+                            {
+                                moveToPos = thisV3;
+                                Jotunn.Logger.LogWarning("Position with ROOF and COVER found.");
+                                return;
+                            }
+                            else if (underRoof)
+                            {
+                                shelter_tries.Add(thisV3);
+                                Jotunn.Logger.LogWarning("Position with ROOF found.");
+                            }
+                            else if (!moveRequireShelter)
+                            {
+                                any_tries.Add(thisV3);
+                                Jotunn.Logger.LogWarning("Position with OUTSIDE found.");
+                            }
+                        }
+
+                        if (shelter_tries.Count > 0)
+                        {
+                            moveToPos = shelter_tries[UnityEngine.Random.Range(0, shelter_tries.Count)];
+                        }
+                        else if (any_tries.Count > 0)
+                        {
+                            moveToPos = any_tries[UnityEngine.Random.Range(0, shelter_tries.Count)];
+                        }
+                        else
+                        {
                         }
                     }
-                }
-                if (callHelpDuration > 0f)
-                {
-                    callHelpDuration -= timeDelta;
-                    if (callHelpDuration < 0f)
+                    else if (moveToPos != Vector3.zero)
                     {
-                        callHelpDuration = 0;
+                        if (m_hmMonsterAI.FindPath(moveToPos))
+                        {
+                            m_hmMonsterAI.MoveTo(timeDelta, moveToPos, 0f, false);
+
+                            if (Vector3.Distance(m_hmnpc.transform.position, moveToPos) < 1.2f)
+                            {
+                                m_hmMonsterAI.StopMoving();
+                                m_hmMonsterAI.SetPatrolPoint();
+                                moveToPos = Vector3.zero;
+                                moveToReached = true;
+                                moveEnabled = false;
+                                moveToTrying = false;
+                            }
+                        }
+                        else
+                        {
+                            moveToPos = Vector3.zero;
+                            Jotunn.Logger.LogWarning("Move can't find path, trying again...");
+                        }
                     }
                 }
             }
         }
 
-        public void CheckDepression()
+        public void UpdateTimers(float timeDelta)
+        {
+            if (callHelpDuration > 0f)
+            {
+                callHelpDuration -= timeDelta;
+                if (callHelpDuration < 0f)
+                {
+                    callHelpDuration = 0;
+                }
+            }
+        }
+
+        public void TryToMove(Vector3 point, float targetRadius, float minDist, float maxDist, bool requireShelter, float timeout)
+        {
+            moveToPos = Vector3.zero;
+            moveToTarget = point;
+            moveCloseEnough = targetRadius;
+            moveMinDist = minDist;
+            moveMaxDist = maxDist;
+            moveToTimeout = Time.time + timeout;
+            moveRequireShelter = requireShelter;
+            moveEnabled = true;
+            moveToReached = false;
+            moveToTrying = true;
+        }
+
+    public void CheckDepression()
         {
             if (m_hmnpc.m_mentalcontentment < -2500 || m_hmnpc.m_mentalcontentment < m_hmnpc.m_mentalstress)
             {
@@ -611,6 +716,11 @@ namespace Hirdmandr
                     {
                         parentSM.ChangeState(defendHomeStateMachine.changeTopState);
                         defendHomeStateMachine.changeTopState = "";
+                    }
+
+                    if (!hmAI.m_hmMonsterAI.IsAlerted())
+                    {
+                        parentSM.ChangeState("schedule");
                     }
                 }
             }

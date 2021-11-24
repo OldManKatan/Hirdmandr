@@ -60,7 +60,6 @@ namespace Hirdmandr
             return orig(self);
         }
 
-
         public string GetHoverText()
         {
             string ownerName = m_bed.GetOwnerName();
