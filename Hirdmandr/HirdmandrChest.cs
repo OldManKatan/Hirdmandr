@@ -19,19 +19,32 @@ namespace Hirdmandr
     {
         public ZNetView m_znetv;
         
-        public List<ZDO> m_ZDOsInRange;
         public float lastZDOCheck;
         public bool wasOwner;
-        
+
+        public List<ZDO> m_ZDOsInRange;
+
         public Dictionary<string, string[]> artisanJobPrefabs;
         public Dictionary<string, List<ZDO>> artisanJobPieces;
         public Dictionary<string, ZDOID> artisanJobOwner;
+
+        public string[] allKeys;
 
         protected virtual void Awake()
         {
             wasOwner = false;
                 
             m_znetv = GetComponent<ZNetView>();
+
+            allKeys = new string[] 
+            {
+                "woodburner",
+                "furnaceoperator",
+                "farmer",
+                "cook",
+                "baker"
+            };
+
 
             artisanJobPrefabs = new Dictionary<string, string[]>();
             artisanJobPieces = new Dictionary<string, List<ZDO>>();
@@ -64,11 +77,6 @@ namespace Hirdmandr
             artisanJobOwner.Add("farmer", ZDOID.None);
             artisanJobOwner.Add("cook", ZDOID.None);
             artisanJobOwner.Add("baker", ZDOID.None);
-            
-            foreach (KeyValuePair<string, ZDOID> entry in artisanJobOwner)
-            {
-                m_znetv.GetZDO().Set("hmnpc_owner" + entry.Key, entry.Value);
-            }
         }
 
         protected virtual void Update() { }
@@ -81,9 +89,9 @@ namespace Hirdmandr
             {
                 if (!wasOwner)
                 {
-                    foreach (KeyValuePair<string, ZDOID> entry in artisanJobOwner)
+                    foreach (string aKey in allKeys)
                     {
-                        artisanJobOwner[entry.Key] = m_znetv.GetZDO().GetZDOID("hmnpc_owner" + entry.Key);
+                        artisanJobOwner[aKey] = m_znetv.GetZDO().GetZDOID("hmnpc_owner" + aKey);
                     }
                     wasOwner = true;
                 }
@@ -91,9 +99,9 @@ namespace Hirdmandr
             }
             if (wasOwner)
             {
-                foreach (KeyValuePair<string, ZDOID> entry in artisanJobOwner)
+                foreach (string aKey in allKeys)
                 {
-                    m_znetv.GetZDO().Set("hmnpc_owner" + entry.Key, entry.Value);
+                    m_znetv.GetZDO().Set("hmnpc_owner" + aKey, artisanJobOwner[aKey]);
                 }
                 wasOwner = false;
             }
@@ -102,31 +110,31 @@ namespace Hirdmandr
         
         public void GetValidWorksites()
         {
-            foreach (KeyValuePair<string, ZDOID> entry in artisanJobOwner)
+            foreach (string aKey in allKeys)
             {
-                artisanJobPieces[entry.Key] = new List<ZDO>();
+                artisanJobPieces[aKey] = new List<ZDO>();
             }
             
-            foreach (KeyValuePair<string, string[]> entry in artisanJobPrefabs)
+            foreach (string aKey in allKeys)
             {
-                foreach (string thisPrefab in entry.Value)
+                foreach (string thisPrefab in artisanJobPrefabs[aKey])
                 {
                     List<ZDO> nearZDOs = GetPrefabZDOsInRange(thisPrefab, 15f);
                     if (nearZDOs.Count > 0)
                     {
                         foreach (ZDO thisZDO in nearZDOs)
                         {
-                            artisanJobPieces[entry.Key].Add(thisZDO);
+                            artisanJobPieces[aKey].Add(thisZDO);
                         }
                     }
                 }
                 
                 bool jobAvail = false;
-                if (artisanJobPieces[entry.Key].Count > 0)
+                if (artisanJobPieces[aKey].Count > 0)
                 {
                     jobAvail = true;
                 }
-                m_znetv.GetZDO().Set("hmnpc_isSite" + entry.Key, jobAvail);
+                m_znetv.GetZDO().Set("hmnpc_isSite" + aKey, jobAvail);
             }
         }
         
@@ -209,9 +217,9 @@ namespace Hirdmandr
         {
         if (checkOwnership())
             {
-                foreach (KeyValuePair<string, ZDOID> entry in artisanJobOwner)
+                foreach (string aKey in allKeys)
                 {
-                    artisanJobOwner[entry.Key] = ZDOID.None;
+                    artisanJobOwner[aKey] = ZDOID.None;
                 }
             }
         }

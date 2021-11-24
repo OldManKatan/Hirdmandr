@@ -44,11 +44,26 @@ namespace Hirdmandr
             // To learn more about Jotunn's features, go to
             // https://valheim-modding.github.io/Jotunn/tutorials/overview.html
 
-            PrefabManager.OnPrefabsRegistered += CreateNPCPieces;
-            PrefabManager.OnPrefabsRegistered += CreateNPCPlayer;
+            PrefabManager.OnVanillaPrefabsAvailable += CreateNPCPlayer;
+            PrefabManager.OnVanillaPrefabsAvailable += CreateNPCChests;
+            PrefabManager.OnVanillaPrefabsAvailable += CreateNPCFires;
+            PrefabManager.OnVanillaPrefabsAvailable += CreateNPCBeds;
 
+            // On.Container.Awake += OnContainerAwake;
             On.Tutorial.Awake += OnTutorialAwake;
         }
+
+        // public void OnContainerAwake(On.Container.orig_Awake orig, Container self)
+        // {
+        //     orig(self);
+        //     if (!(self is null) && !(self.gameObject is null))
+        //     {
+        //         if (self.gameObject.name.Contains("piece_npc_chest"))
+        //         {
+        //             self.gameObject.AddComponent<HirdmandrChest>();
+        //         }
+        //     }
+        // }
 
         public void OnTutorialAwake(On.Tutorial.orig_Awake orig, Tutorial self)
         {
@@ -188,21 +203,18 @@ namespace Hirdmandr
         //    PieceManager.Instance.AddPieceTable(CPT);
         //}
 
-        private void CreateNPCPieces()
+        private void CreateNPCChests()
         {
-            // Create an instance of GUIManager to go get vanilla sprites
-            var gm = new GUIManager();
-
             // Create NPC Chest first
             if (!PrefabManager.Instance.GetPrefab("piece_npc_chest"))
             {
                 var NPCChestPrefab = PrefabManager.Instance.CreateClonedPrefab("piece_npc_chest", "piece_chest_wood");
+                NPCChestPrefab.AddComponent<HirdmandrChest>();
 
                 var NPCChestContainer = NPCChestPrefab.GetComponent<Container>();
                 NPCChestContainer.m_name = "NPC Chest";
-                NPCChestPrefab.AddComponent<HirdmandrChest>();
 
-                var NPCChestPiece = new CustomPiece(NPCChestPrefab, fixReference: false,
+                var NPCChestPiece = new CustomPiece(NPCChestPrefab, fixReference: true,
                     new PieceConfig
                     {
                         Name = "NPC Chest",
@@ -210,7 +222,7 @@ namespace Hirdmandr
                         PieceTable = "_HammerPieceTable",
                         Category = "Hirdmandr",
                         AllowedInDungeons = false,
-                        Icon = gm.GetSprite("chest_wood"),
+                        Icon = GUIManager.Instance.GetSprite("chest_wood"),
                         Requirements = new[]
                         {
                                  new RequirementConfig { Item = "Wood", Amount = 10, Recover = true }
@@ -223,7 +235,11 @@ namespace Hirdmandr
 
                 PieceManager.Instance.AddPiece(NPCChestPiece);
             }
+            Jotunn.Logger.LogInfo("CreateNPCChests completed successfully");
+        }
 
+        private void CreateNPCFires()
+        {
             // Add NPC Campfire
             if (!PrefabManager.Instance.GetPrefab("piece_npc_fire_pit"))
             {
@@ -239,7 +255,7 @@ namespace Hirdmandr
                         PieceTable = "_HammerPieceTable",
                         Category = "Hirdmandr",
                         AllowedInDungeons = false,
-                        Icon = gm.GetSprite("firepit"),
+                        Icon = GUIManager.Instance.GetSprite("firepit"),
                         Requirements = new[]
                         {
                                  new RequirementConfig { Item = "Stone", Amount = 5, Recover = true },
@@ -270,7 +286,7 @@ namespace Hirdmandr
                         PieceTable = "_HammerPieceTable",
                         Category = "Hirdmandr",
                         AllowedInDungeons = false,
-                        Icon = gm.GetSprite("hearth"),
+                        Icon = GUIManager.Instance.GetSprite("hearth"),
                         Requirements = new[]
                         {
                                  new RequirementConfig { Item = "Stone", Amount = 20, Recover = true },
@@ -284,7 +300,11 @@ namespace Hirdmandr
 
                 PieceManager.Instance.AddPiece(NPCHearthPiece);
             }
+            Jotunn.Logger.LogInfo("CreateNPCFires completed successfully");
+        }
 
+        private void CreateNPCBeds()
+        {
             // Add NPC Bed
             if (!PrefabManager.Instance.GetPrefab("piece_npc_bed"))
             {
@@ -300,7 +320,7 @@ namespace Hirdmandr
                         PieceTable = "_HammerPieceTable",
                         Category = "Hirdmandr",
                         AllowedInDungeons = false,
-                        Icon = gm.GetSprite("bed"),
+                        Icon = GUIManager.Instance.GetSprite("bed"),
                         Requirements = new[]
                         {
                             new RequirementConfig { Item = "Wood", Amount = 8, Recover = false }
@@ -318,10 +338,10 @@ namespace Hirdmandr
             if (!PrefabManager.Instance.GetPrefab("piece_npc_bed02"))
             {
 
-                var NPCBedPrefab = PrefabManager.Instance.CreateClonedPrefab("piece_npc_bed02", "piece_bed02");
-                NPCBedPrefab.AddComponent<HirdmandrBed>();
+                var NPCBed02Prefab = PrefabManager.Instance.CreateClonedPrefab("piece_npc_bed02", "piece_bed02");
+                NPCBed02Prefab.AddComponent<HirdmandrBed>();
 
-                var NPCBedPiece = new CustomPiece(NPCBedPrefab, fixReference: false,
+                var NPCBed02Piece = new CustomPiece(NPCBed02Prefab, fixReference: false,
                     new PieceConfig
                     {
                         Name = "NPC Dragon Bed",
@@ -329,7 +349,7 @@ namespace Hirdmandr
                         PieceTable = "_HammerPieceTable",
                         Category = "Hirdmandr",
                         AllowedInDungeons = false,
-                        Icon = gm.GetSprite("bed02"),
+                        Icon = GUIManager.Instance.GetSprite("bed02"),
                         Requirements = new[]
                         {
                                  new RequirementConfig { Item = "FineWood", Amount = 40, Recover = false },
@@ -340,12 +360,14 @@ namespace Hirdmandr
                         }
                     });
 
-                NPCBedPiece.Piece.m_canBeRemoved = true;
-                NPCBedPiece.Piece.m_enabled = true;
-                NPCBedPiece.Piece.m_randomTarget = true;
+                NPCBed02Piece.Piece.m_canBeRemoved = true;
+                NPCBed02Piece.Piece.m_enabled = true;
+                NPCBed02Piece.Piece.m_randomTarget = true;
 
-                PieceManager.Instance.AddPiece(NPCBedPiece);
+                PieceManager.Instance.AddPiece(NPCBed02Piece);
             }
+
+            Jotunn.Logger.LogInfo("CreateNPCBeds completed successfully");
         }
 
         private void CreateNPCPlayer()
@@ -454,12 +476,12 @@ namespace Hirdmandr
                 NPCPlayerPrefab.AddComponent<HirdmandrGUI>();
                 NPCPlayerPrefab.AddComponent<HirdmandrGUIRescue>();
 
-                // NPCPlayerPrefab.AddComponent<HMInteract>();
-
                 NPCPlayerPrefab.SetActive(true);
 
                 PrefabManager.Instance.AddPrefab(NPCPlayerPrefab);
+                Jotunn.Logger.LogInfo("CreateNPCPlayer Prefab Added");
             }
+            Jotunn.Logger.LogInfo("CreateNPCPlayer completed successfully");
         }
     }
 }

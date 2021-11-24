@@ -289,26 +289,34 @@ namespace Hirdmandr
 
         public void LoadZDO()
         {
-            ZDOtoAppearance();
-            m_personality.LoadValues();
-            m_skills.LoadSkills();
-            ZDOLoadMental();
-            ZDOLoadGeneral();
-            PopulateCombatProps();
-
-            if (!m_isRescued)
+            var npc_name = m_znet.GetZDO().GetString("hmnpc_name");
+            if (npc_name == "")
             {
-                Sit();
-                InvokeRepeating("RescueTutorialCheck", 10f, 1f);
-            }
-
-            if (!m_isHirdmandr)
-            {
-                m_hirdmandrAI.enabled = false;
+                Invoke("LoadZDO", 1f);
             }
             else
             {
-                m_hirdmandrAI.enabled = true;
+                ZDOtoAppearance();
+                m_personality.LoadValues();
+                m_skills.LoadSkills();
+                ZDOLoadMental();
+                ZDOLoadGeneral();
+                PopulateCombatProps();
+
+                if (!m_isRescued)
+                {
+                    Sit();
+                    InvokeRepeating("RescueTutorialCheck", 10f, 1f);
+                }
+
+                if (!m_isHirdmandr)
+                {
+                    m_hirdmandrAI.enabled = false;
+                }
+                else
+                {
+                    m_hirdmandrAI.enabled = true;
+                }
             }
         }
 

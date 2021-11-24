@@ -122,30 +122,67 @@ namespace Hirdmandr
 
         public List<string> GetEnabledSkillsHighestFirst()
         {
+            string[] artisanSkills = new string[]
+            {
+                "woodburner",
+                "furnaceoperator",
+                "farmer",
+                "cook",
+                "baker"
+            };
+
             List<string> enabledSkills = new List<string>();
             foreach (SkillData skl in m_hmSkills)
             {
                 if (skl.m_isEnabled)
                 {
                     enabledSkills.Add(skl.m_name);
+                    Jotunn.Logger.LogWarning("GetEnabledSkillsHighestFirst is adding " + skl.m_name + " to enabledSkills");
                 }
+            }
+
+            Jotunn.Logger.LogWarning("enabledSkills return list");
+            foreach (string aSkill in enabledSkills)
+            {
+                Jotunn.Logger.LogWarning("    " + aSkill);
             }
 
             List<string> returnList = new List<string>();
             
             for (int i = 0; i < enabledSkills.Count; i++) {
+                Jotunn.Logger.LogWarning("GetEnabledSkillsHighestFirst is evaluating skill #" + i);
+
                 float highest_skill_value = -1f;
                 string highest_skill_str = "";
 
                 foreach (SkillData skl in m_hmSkills)
                 {
-                    if (!(returnList.Contains(skl.m_name)) && skl.m_value > highest_skill_value)
+                    Jotunn.Logger.LogWarning("GetEnabledSkillsHighestFirst is looking at " + skl.m_name + " which is enabled = " + skl.m_isEnabled);
+
+                    if (returnList.Contains(skl.m_name))
+                    {
+                        continue;
+                    }
+                    if (Array.IndexOf(artisanSkills, skl.m_value) == -1)
+                    {
+                        continue;
+                    }
+                    if (skl.m_value > highest_skill_value)
                     {
                         highest_skill_str = skl.m_name;
                         highest_skill_value = skl.m_value;
                     }
                 }
-                returnList.Add(highest_skill_str);
+                if (highest_skill_str != "")
+                {
+                    Jotunn.Logger.LogWarning("GetEnabledSkillsHighestFirst is adding " + highest_skill_str + " to returnList");
+                    returnList.Add(highest_skill_str);
+                }
+            }
+            Jotunn.Logger.LogWarning("GetEnabledSkillsHighestFirst FINAL RETURN LIST");
+            foreach (string aStr in returnList)
+            {
+                Jotunn.Logger.LogWarning("    " + aStr);
             }
             return returnList;
         }

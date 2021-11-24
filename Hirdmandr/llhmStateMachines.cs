@@ -247,6 +247,12 @@ namespace Hirdmandr
             override public void ExitTo(int aState) { Jotunn.Logger.LogInfo("ExitTo in " + no_imp); }
             override public void RunState()
             {
+                Jotunn.Logger.LogWarning(hmAI.m_hmHumanoid.m_name + " is setting up Art Job");
+                Jotunn.Logger.LogWarning("  " + hmAI.m_hmHumanoid.m_name + " hmAI.curJob = " + hmAI.curJob);
+                foreach (string aJob in hmAI.workJobs)
+                {
+                    Jotunn.Logger.LogWarning("    " + hmAI.m_hmHumanoid.m_name + " enabled Job = " + hmAI.curJob);
+                }
                 if (hmAI.curJob == "")
                 {
                     if (hmAI.workJobs.Count > 0)
@@ -267,7 +273,9 @@ namespace Hirdmandr
                 {
                     foreach (ZDO thisZDO in hmAI.GetPrefabZDOsInRange(chestString, 100f))
                     {
-                        if (thisZDO.GetBool("hmnpc_isSite" + hmAI.curJob))
+                        ZNetView thisZNetV = ZNetScene.instance.FindInstance(thisZDO);
+
+                        if (thisZNetV.GetComponent<HirdmandrChest>().IsValidWorksite(hmAI.curJob))
                         {
                             foundWorkSites.Add(thisZDO);
                         }
