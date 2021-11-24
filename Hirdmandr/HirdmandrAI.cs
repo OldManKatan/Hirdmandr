@@ -28,6 +28,7 @@ namespace Hirdmandr
         public BaseAI m_hmBaseAI;
         public Humanoid m_hmHumanoid;
         public ZNetView m_znetv;
+        public ZNetScene m_znetscene;
         public long m_nextDepressionUpdate = 0;
 
         public TopLevelSM topSM;
@@ -39,6 +40,7 @@ namespace Hirdmandr
         // General use fields
         public int pathAttempts = 0;
         public Vector3 moveToPos = Vector3.zero;
+        public float moveToDist = 0f;
         public bool moveToReached = false;
 
         // Socialize fields
@@ -50,6 +52,16 @@ namespace Hirdmandr
         public List<string> workJobs = new List<string>();
         public Vector3 workJobSite = Vector3.zero;
         public string curJob = "";
+        public string[] npcChests = new string[3] 
+            {
+                "piece_npc_chest_blackmetal",
+                "piece_npc_chest_reinforced",
+                "piece_npc_chest"
+            };
+
+        // Rest
+        public ZDO restBedZDO = null;
+        public HirdmandrBed restBedHMBed = null;
 
         // Emergency fields
         public Vector3 callHelpPos = Vector3.zero;
@@ -90,12 +102,14 @@ namespace Hirdmandr
                 var timeDelta = m_hmMonsterAI.GetWorldTimeDelta();
                 if (moveToPos != Vector3.zero)
                 {
-                    moveToReached = m_hmMonsterAI.MoveTo(, moveToPos, 0f, false);
-                    if (moveToReached)
+                    if (!moveToReached)
                     {
-                        moveToPos = Vector3.zero;
-                        m_hmMonsterAI.StopMoving();
-                        m_hmMonsterAI.SetPatrolPoint();
+                        moveToReached = m_hmMonsterAI.MoveTo(timeDelta, moveToPos, moveToDist, false);
+                        if (moveToReached)
+                        {
+                            m_hmMonsterAI.StopMoving();
+                            m_hmMonsterAI.SetPatrolPoint();
+                        }
                     }
                 }
                 if (callHelpDuration > 0f)

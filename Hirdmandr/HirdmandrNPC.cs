@@ -30,6 +30,7 @@ namespace Hirdmandr
         public HirdmandrGUI m_guiHirdmandr;
         public HirdmandrGUIRescue m_guirescuecomp;
         public ZNetView m_znet;
+
         public Humanoid m_user;
 
         // Rescuing
@@ -70,6 +71,8 @@ namespace Hirdmandr
         public bool m_fightingRangeMid = false;
         public bool m_fightingRangeFar = false;
 
+        // Bed
+        public ZDOID ownedBedZDOID = ZDOID.None;
 
         protected virtual void Awake()
         {
@@ -99,66 +102,6 @@ namespace Hirdmandr
             On.Character.RPC_Damage += OnChar_RPC_Damage;
 
             SetupNPC();
-
-            var npc_name = m_znet.GetZDO().GetString("hmnpc_name");
-            if (npc_name == "")
-            {
-                m_monsterai.enabled = false;
-
-                RandomizeAppearance();
-
-                m_skills.LoadSkills();
-                var all_skill_str = new List<string> { };
-                foreach (HMSkills.SkillData skill_data in m_skills.m_hmSkills)
-                {
-                    all_skill_str.Add(skill_data.m_name);
-                }
-                var floats_to_assign = new List<float>
-                {
-                    10f,
-                    5f,
-                    5f
-                };
-                int skill_str_index;
-                for (var i = 0; i < floats_to_assign.Count; i++)
-                {
-                    skill_str_index = UnityEngine.Random.Range(0, all_skill_str.Count);
-                    m_skills.ModifySkill(all_skill_str[skill_str_index], floats_to_assign[i]);
-                    Jotunn.Logger.LogInfo(string.Format("RandomizeSkills assigned {0} to skill {1}", floats_to_assign[i], all_skill_str[skill_str_index]));
-                    all_skill_str.RemoveAt(skill_str_index);
-                }
-
-                m_isRescued = false;
-                m_isHirdmandr = false;
-                InvokeRepeating("RandomTalkRescue", 30f, 30f);
-            }
-            else
-            {
-                ZDOtoAppearance();
-            }
-
-            m_personality.LoadValues();
-            m_skills.LoadSkills();
-            ZDOLoadMental();
-            ZDOLoadGeneral();
-
-            PopulateCombatProps();
-            InvokeRepeating("HealIfHurt", 5f, 5f);
-
-            if (!m_isRescued)
-            {
-                Sit();
-                InvokeRepeating("RescueTutorialCheck", 10f, 1f);
-            }
-
-            if (!m_isHirdmandr)
-            {
-                m_hirdmandrAI.enabled = false;
-            }
-            else
-            {
-                m_hirdmandrAI.enabled = true;
-            }
 
             m_rescueEffect.m_effectPrefabs = new EffectList.EffectData[2];
             m_rescueEffect.m_effectPrefabs[0] = new EffectList.EffectData
@@ -204,11 +147,169 @@ namespace Hirdmandr
                 m_scale = true
             };
 
+            if (m_znet.IsOwner())
+            {
+                var npc_name = m_znet.GetZDO().GetString("hmnpc_name");
+                if (npc_name == "")
+                {
+                    m_monsterai.enabled = false;
+
+                    RandomizeAppearance();
+
+                    m_skills.LoadSkills();
+                    var all_skill_str = new List<string> { };
+                    foreach (HMSkills.SkillData skill_data in m_skills.m_hmSkills)
+                    {
+                        all_skill_str.Add(skill_data.m_name);
+                    }
+                    var floats_to_assign = new List<float>
+                    {
+                        10f,
+                        5f,
+                        5f
+                    };
+                    int skill_str_index;
+                    for (var i = 0; i < floats_to_assign.Count; i++)
+                    {
+                        skill_str_index = UnityEngine.Random.Range(0, all_skill_str.Count);
+                        m_skills.ModifySkill(all_skill_str[skill_str_index], floats_to_assign[i]);
+                        Jotunn.Logger.LogInfo(string.Format("RandomizeSkills assigned {0} to skill {1}", floats_to_assign[i], all_skill_str[skill_str_index]));
+                        all_skill_str.RemoveAt(skill_str_index);
+                    }
+
+                    m_isRescued = false;
+                    m_isHirdmandr = false;
+                    InvokeRepeating("RandomTalkRescue", 30f, 30f);
+                }
+                else
+                {
+                    ZDOtoAppearance();
+                }
+
+                m_personality.LoadValues();
+                m_skills.LoadSkills();
+                ZDOLoadMental();
+                ZDOLoadGeneral();
+
+                PopulateCombatProps();
+                InvokeRepeating("HealIfHurt", 5f, 5f);
+
+                if (!m_isRescued)
+                {
+                    Sit();
+                    InvokeRepeating("RescueTutorialCheck", 10f, 1f);
+                }
+
+                if (!m_isHirdmandr)
+                {
+                    m_hirdmandrAI.enabled = false;
+                }
+                else
+                {
+                    m_hirdmandrAI.enabled = true;
+                }
+            }
+            else
+            {
+                Invoke("LoadZDO", 1f);
+            }
+
+            m_znet.Register<string>("NPCTalkText", RPC_ReceiveTalkText);
         }
 
         public void Update()
         {
 
+        }
+
+        private void SetupNPC()
+        {
+
+            // component.m_backShield = NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/Spine/Spine1/BackShield_attach").GetComponent<Transform>();
+            // component.m_backMelee = NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/Spine/Spine1/BackOneHanded_attach").GetComponent<Transform>();
+            // component.m_backTwohandedMelee = NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/Spine/Spine1/BackTwohanded_attach").GetComponent<Transform>();
+            // component.m_backBow = NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/Spine/Spine1/BackBow_attach").GetComponent<Transform>();
+            // component.m_backTool = NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/BackTool_attach").GetComponent<Transform>();
+            // component.m_backAtgeir = NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/Spine/Spine1/BackAtgeir_attach").GetComponent<Transform>();
+
+            Humanoid NPCHumComp = GetComponent<Humanoid>();
+            NPCHumComp.m_eye = transform.Find("EyePos");
+            List<EffectList.EffectData> list = new List<EffectList.EffectData>
+            {
+                new EffectList.EffectData
+                {
+                    m_prefab = ZNetScene.instance.GetPrefab("vfx_player_death")
+                }
+            };
+            bool alreadyExisted = false;
+            EffectList.EffectData effectData = new EffectList.EffectData
+            {
+                m_prefab = PrefabManager.Instance.GetPrefab("Player_ragdoll")
+            };
+            list.Add(effectData);
+            if (!alreadyExisted)
+            {
+                Ragdoll NPCHumComp3 = effectData.m_prefab.GetComponent<Ragdoll>();
+                NPCHumComp3.m_ttl = 2f;
+                NPCHumComp3.m_removeEffect = Utils.CloneEffectList(ZNetScene.instance.GetPrefab("Greydwarf_ragdoll").GetComponent<Ragdoll>().m_removeEffect);
+                effectData.m_prefab.GetComponent<VisEquipment>().m_isPlayer = true;
+            }
+
+            var NPC_sfx_death = PrefabManager.Instance.GetPrefab("RRR_NPC_sfx_death");
+            if (!NPC_sfx_death)
+            {
+                NPC_sfx_death = Utils.DesignSfxDeepen("sfx_goblin_death", "RRR_NPC_sfx_death");
+            }
+            list.Add(new EffectList.EffectData
+            {
+                m_prefab = NPC_sfx_death
+            });
+            NPCHumComp.m_deathEffects = new EffectList
+            {
+                m_effectPrefabs = list.ToArray()
+            };
+
+            NPCHumComp.m_unarmedWeapon = PrefabManager.Instance.GetPrefab("PlayerUnarmed").GetComponent<ItemDrop>();
+
+            Character NPCCharComp = GetComponent<Character>();
+            NPCCharComp.m_animator.SetBool("Stand", value: false);
+
+            CharacterDrop NPCCharDropComp = GetComponent<CharacterDrop>();
+            NPCCharDropComp.m_drops = new List<CharacterDrop.Drop>();
+
+            m_znet.m_persistent = true;
+
+            m_monsterai.m_idleSound = new EffectList();
+            m_monsterai.m_attackPlayerObjects = false;
+            m_monsterai.m_viewRange = 15;
+            m_monsterai.m_hearRange = 15;
+            m_monsterai.m_maxChaseDistance = 10;
+
+        }
+
+        public void LoadZDO()
+        {
+            ZDOtoAppearance();
+            m_personality.LoadValues();
+            m_skills.LoadSkills();
+            ZDOLoadMental();
+            ZDOLoadGeneral();
+            PopulateCombatProps();
+
+            if (!m_isRescued)
+            {
+                Sit();
+                InvokeRepeating("RescueTutorialCheck", 10f, 1f);
+            }
+
+            if (!m_isHirdmandr)
+            {
+                m_hirdmandrAI.enabled = false;
+            }
+            else
+            {
+                m_hirdmandrAI.enabled = true;
+            }
         }
 
         public void RescueTutorialCheck()
@@ -217,14 +318,6 @@ namespace Hirdmandr
             {
                 Player.m_localPlayer?.ShowTutorial("hirdmandr_find_rescue");
             }
-            // Player closestPlayer = Player.GetClosestPlayer(transform.position, 15);
-            // if ((bool)closestPlayer)
-            // {
-            //     if (!m_isRescued && closestPlayer == Player.m_localPlayer)
-            //     {
-            //         Player.m_localPlayer?.ShowTutorial("hirdmandr_find_rescue");
-            //     }
-            // }
         }
 
         public void LookAt(Player closestPlayer)
@@ -255,6 +348,20 @@ namespace Hirdmandr
             {
                 return m_humanoid.m_name + "\n[<color=yellow><b>E</b></color>] Talk\n[<color=yellow><b>LShift+E</b></color>] Manage";
             }
+        }
+
+        private static string OnGetHoverName(On.Character.orig_GetHoverName orig, Character self)
+        {
+            if (self.TryGetComponent<HirdmandrNPC>(out var HirdmandrComp))
+            {
+                return HirdmandrComp.GetHoverName();
+            }
+            return orig(self);
+        }
+
+        public string GetHoverName()
+        {
+            return m_humanoid.m_name;
         }
 
         private void OnChar_RPC_Damage(On.Character.orig_RPC_Damage orig, Character self, long __1sender, HitData __2hit)
@@ -354,20 +461,6 @@ namespace Hirdmandr
             character.AddLightningDamage(hit.m_damage.m_lightning);
         }
         
-        private static string OnGetHoverName(On.Character.orig_GetHoverName orig, Character self)
-        {
-            if (self.TryGetComponent<HirdmandrNPC>(out var HirdmandrComp))
-            {
-                return HirdmandrComp.GetHoverName();
-            }
-            return orig(self);
-        }
-
-        public string GetHoverName()
-        {
-            return m_humanoid.m_name;
-        }
-
         public bool Interact(Humanoid user, bool hold, bool alt)
         {
             if (hold)
@@ -396,72 +489,6 @@ namespace Hirdmandr
         public bool UseItem(Humanoid user, ItemDrop.ItemData item)
         {
             return false;
-        }
-
-        private void SetupNPC()
-        {
-
-            // component.m_backShield = NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/Spine/Spine1/BackShield_attach").GetComponent<Transform>();
-            // component.m_backMelee = NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/Spine/Spine1/BackOneHanded_attach").GetComponent<Transform>();
-            // component.m_backTwohandedMelee = NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/Spine/Spine1/BackTwohanded_attach").GetComponent<Transform>();
-            // component.m_backBow = NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/Spine/Spine1/BackBow_attach").GetComponent<Transform>();
-            // component.m_backTool = NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/BackTool_attach").GetComponent<Transform>();
-            // component.m_backAtgeir = NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/Spine/Spine1/BackAtgeir_attach").GetComponent<Transform>();
-
-            Humanoid NPCHumComp = GetComponent<Humanoid>();
-            NPCHumComp.m_eye = transform.Find("EyePos");
-            List<EffectList.EffectData> list = new List<EffectList.EffectData>
-            {
-                new EffectList.EffectData
-                {
-                    m_prefab = ZNetScene.instance.GetPrefab("vfx_player_death")
-                }
-            };
-            bool alreadyExisted = false;
-            EffectList.EffectData effectData = new EffectList.EffectData
-            {
-                m_prefab = PrefabManager.Instance.GetPrefab("Player_ragdoll")
-            };
-            list.Add(effectData);
-            if (!alreadyExisted)
-            {
-                Ragdoll NPCHumComp3 = effectData.m_prefab.GetComponent<Ragdoll>();
-                NPCHumComp3.m_ttl = 2f;
-                NPCHumComp3.m_removeEffect = Utils.CloneEffectList(ZNetScene.instance.GetPrefab("Greydwarf_ragdoll").GetComponent<Ragdoll>().m_removeEffect);
-                effectData.m_prefab.GetComponent<VisEquipment>().m_isPlayer = true;
-            }
-
-            var NPC_sfx_death = PrefabManager.Instance.GetPrefab("RRR_NPC_sfx_death");
-            if (!NPC_sfx_death)
-            {
-                NPC_sfx_death = Utils.DesignSfxDeepen("sfx_goblin_death", "RRR_NPC_sfx_death");
-            }
-            list.Add(new EffectList.EffectData
-            {
-                m_prefab = NPC_sfx_death
-            });
-            NPCHumComp.m_deathEffects = new EffectList
-            {
-                m_effectPrefabs = list.ToArray()
-            };
-
-            NPCHumComp.m_unarmedWeapon = PrefabManager.Instance.GetPrefab("PlayerUnarmed").GetComponent<ItemDrop>();
-
-            Character NPCCharComp = GetComponent<Character>();
-            NPCCharComp.m_animator.SetBool("Stand", value: false);
-
-            CharacterDrop NPCCharDropComp = GetComponent<CharacterDrop>();
-            NPCCharDropComp.m_drops = new List<CharacterDrop.Drop>();
-
-            m_znet.m_persistent = true;
-            m_znet.m_ghost = true;
-
-            m_monsterai.m_idleSound = new EffectList();
-            m_monsterai.m_attackPlayerObjects = false;
-            m_monsterai.m_viewRange = 15;
-            m_monsterai.m_hearRange = 15;
-            m_monsterai.m_maxChaseDistance = 10;
-
         }
 
         private void RandomizeAppearance()
@@ -690,7 +717,7 @@ namespace Hirdmandr
             m_mentalstress = m_znet.GetZDO().GetFloat("hmnpc_mentalstress", 0f);
         }
 
-    public void ZDOSaveMental()
+        public void ZDOSaveMental()
         {
             // ZDOs
             m_znet.GetZDO().Set("hmnpc_mentalcontentment", m_mentalcontentment);
@@ -741,10 +768,19 @@ namespace Hirdmandr
 
         public void RandomTalkRescue()
         {
-            if (Player.IsPlayerInRange(base.transform.position, m_rescueRange))
+            if (m_znet.IsOwner())
             {
-                Chat.instance.SetNpcText(base.gameObject, Vector3.up * 1.5f, 20f, 5f, "", GetRandomRescueTalk(), large: false);
+                if (Player.IsPlayerInRange(base.transform.position, m_rescueRange))
+                {
+                    m_znet.InvokeRPC(Game.instance.GetPlayerProfile().GetPlayerID(), "NPCTalkText", GetRandomRescueTalk());
+                    // Chat.instance.SetNpcText(base.gameObject, Vector3.up * 1.5f, 20f, 5f, "", GetRandomRescueTalk(), large: false);
+                }
             }
+        }
+
+        public void RPC_ReceiveTalkText(long uid, string talkText)
+        {
+            Chat.instance.SetNpcText(base.gameObject, Vector3.up * 1.5f, 20f, 5f, "", talkText, large: false);
         }
 
         public void Say(string toSay)

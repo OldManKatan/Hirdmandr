@@ -85,6 +85,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="HirdmandrAI.cs" />
+    <Compile Include="HirdmandrBed.cs" />
+    <Compile Include="HirdmandrChest.cs" />
     <Compile Include="HirdmandrGUI.cs" />
     <Compile Include="HirdmandrGUIRescue.cs" />
     <Compile Include="HirdmandrNPC.cs" />

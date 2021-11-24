@@ -198,6 +198,7 @@ namespace Hirdmandr
             {
                 var NPCChestPrefab = PrefabManager.Instance.CreateClonedPrefab("piece_npc_chest", "piece_chest_wood");
                 NPCChestPrefab.AddComponent<Piece>();
+                NPCChestPrefab.AddComponent<HirdmandrChest>();
                 var NPCChestContainer = NPCChestPrefab.GetComponent<Container>();
                 NPCChestContainer.m_name = "NPC Chest";
 
@@ -286,6 +287,67 @@ namespace Hirdmandr
                 PieceManager.Instance.AddPiece(NPCHearthPiece);
             }
 
+            // Add NPC Bed
+            if (!PrefabManager.Instance.GetPrefab("piece_npc_bed"))
+            {
+
+                var NPCBedPrefab = PrefabManager.Instance.CreateClonedPrefab("piece_npc_bed", "bed");
+                NPCBedPrefab.AddComponent<HirdmandrBed>();
+
+                var NPCBedPiece = new CustomPiece(NPCBedPrefab, fixReference: false,
+                    new PieceConfig
+                    {
+                        Name = "NPC Bed",
+                        Description = "Testing Descriptions",
+                        PieceTable = "_HammerPieceTable",
+                        Category = "Hirdmandr",
+                        AllowedInDungeons = false,
+                        Icon = gm.GetSprite("bed"),
+                        Requirements = new[]
+                        {
+                            new RequirementConfig { Item = "Wood", Amount = 8, Recover = false }
+                        }
+                    });
+
+                NPCBedPiece.Piece.m_canBeRemoved = true;
+                NPCBedPiece.Piece.m_enabled = true;
+                NPCBedPiece.Piece.m_randomTarget = true;
+
+                PieceManager.Instance.AddPiece(NPCBedPiece);
+            }
+
+            // Add NPC Dragon Bed
+            if (!PrefabManager.Instance.GetPrefab("piece_npc_bed02"))
+            {
+
+                var NPCBedPrefab = PrefabManager.Instance.CreateClonedPrefab("piece_npc_bed02", "piece_bed02");
+                NPCBedPrefab.AddComponent<HirdmandrBed>();
+
+                var NPCBedPiece = new CustomPiece(NPCBedPrefab, fixReference: false,
+                    new PieceConfig
+                    {
+                        Name = "NPC Bed",
+                        Description = "Testing Descriptions",
+                        PieceTable = "_HammerPieceTable",
+                        Category = "Hirdmandr",
+                        AllowedInDungeons = false,
+                        Icon = gm.GetSprite("bed02"),
+                        Requirements = new[]
+                        {
+                                 new RequirementConfig { Item = "FineWood", Amount = 40, Recover = false },
+                                 new RequirementConfig { Item = "DeerHide", Amount = 7, Recover = false },
+                                 new RequirementConfig { Item = "WolfPelt", Amount = 4, Recover = false },
+                                 new RequirementConfig { Item = "Feathers", Amount = 10, Recover = false },
+                                 new RequirementConfig { Item = "IronNails", Amount = 15, Recover = false }
+                        }
+                    });
+
+                NPCBedPiece.Piece.m_canBeRemoved = true;
+                NPCBedPiece.Piece.m_enabled = true;
+                NPCBedPiece.Piece.m_randomTarget = true;
+
+                PieceManager.Instance.AddPiece(NPCBedPiece);
+            }
         }
 
         private void CreateNPCPlayer()
