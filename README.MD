@@ -1,97 +1,68 @@
-# JötunnModStub
+# Hirdmandr - NPC Villagers mod for Valheim
 
-A Valheim mod stub project using [Jötunn](https://github.com/Valheim-Modding/Jotunn) including build tools for debugging your code in Visual Studio and a basic Unity project stub. There is no actual plugin content included, just a bare minimum plugin class. 
+Hirdmandr is a mod created using the [Jötunn Valheim Library](https://github.com/Valheim-Modding/Jotunn). 
 
-# Quick Setup Guide
+Become a Jarl of Valheim! Recruit hirdmandr (House-men) to your banner, grow your villages, care for your subjects, and elevate your holdings to glory. Your hirdmandr can be assigned a variety of roles, from Farmer to Furnace Operator, from Town Guard to Elite Warrior. Hirdmandr also have skills across a range of combat and non-combat pursuits. Any hirdmandr can grow to be a master of any skill over time by using those skills. Each hirdmandr also has a unique personality that includes tasks and objects they value or disdain. Be a good leader by learning about your valuable allies, assign them duties based on their aptitudes, and watch them florish or falter based on your choices!
 
-These are quick setup steps with no context provided. Please see Jötunns [Github Pages](https://valheim-modding.github.io/Jotunn/guides/overview.html) for a more in depth guide and documentation.
+## Vision 
 
-## Development Environment Setup
+This mod introduces functional NPCs to the world of Valheim. These NPCs can be found while exploring the 10th world and rescued by players. Rescued NPCs are then brought to live in any area of the game world that the player has improved with at least a workbench and a fire. On the surface, the goals of adding these NPCs is: to make the world feel more alive, to justify the structures found around the world, and help the player to feel less isolated. 
 
-How to setup the development enviroment for this project.
+At a deeper level, introduction of NPCs add new mechanics to the game that encourages players to develop new intrinsic goals like, building more structures, increasing comfort in larger areas of their strongholds, and interacting with NPCs. The primary mechanic to drive these goals is using these NPCs to shift common or monotonous tasks away from direct player action to indirect player intervention. This trades tasks (like feeding kilns) away from the player, and trades in high level tasks
 
-1. Install [Visual Studio 2019](https://visualstudio.microsoft.com) and add the C# workload.
-2. Download this package: [BepInEx pack for Valheim](https://valheim.thunderstore.io/package/denikson/BepInExPack_Valheim/)
-3. Unpack into your Valheim root folder. You should now see a new folder called `<ValheimDir>\unstripped_corlib` and more additional stuff.
-6. Fork and clone this repository using git. That should create a new folder `JotunnModStub`. You can also [use the template function of github](https://github.com/Valheim-Modding/JotunnModStub/generate) to create a new, clean repo out of it and clone that.
-7. Create a new environment file `Environment.props` in the projects base path `<JotunnModStub>`. Paste this snippet and change the path according to your local Valheim installation.
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <PropertyGroup>
-    <!-- Needs to be your path to the base Valheim folder -->
-    <VALHEIM_INSTALL>F:\Steam\steamapps\common\Valheim</VALHEIM_INSTALL>
-  </PropertyGroup>
-</Project>
-```
-8. Edit `DoPrebuild.props` in the project base path and change `ExecutePrebuild` to `true` if you want Jötunn to automatically generate publicized and MMHook versions of the game dlls for you.
-9. Open the Solution file `<JotunnModStub>\JotunnModStub.sln`. Right-click on the project or solution in the Solution Explorer and select `Manage NuGet packages...`. It should prompt you a message at the top that some NuGet-Packages are missing. Click "Restore" and restart Visual Studio when finished.
-10. Rename the Solution/Project and everything related so that it resembles your own projects name. This includes the assembly information as well as the Unity project.
+### Goals
 
-### Post Build automations
+* Allow players to build towns populated by Vikings, who go about their daily business and add a sense of business and liveliness to player strongholds and outposts.
+* Give players interesting mechanics to engage with that prolong engagement without needless grinding.
+* Provide more reasons for players to use and experiment with Valheim’s extensive building system. 
+* Provide opportunities (especially on multiplayer servers) for players who spend less time exploring and adventuring to have an engaging experience being a Jarl, without a need to leave their base camp.
+* Provide a method to automate some of the time-consuming and monotonous activities within the game, without breaking the balance or progression systems, and respecting the atmosphere of vanilla Valheim.
 
-Included in this repo is a PowerShell script `publish.ps1`. The script is referenced in the project file as a post-build event. Depending on the chosen configuration in Visual Studio the script executes the following actions.
+### What does this mod add to the Valheim?
 
-### Building Debug
+* Adds the npc_entity to the game, this is a creature based on the Player prefab that can randomly appear with the entire span of Character Generation options including male or female models.
+* A deep behvior system for the NPC Hirdmandr that sees them working, socializing, sleeping, and more based on the time of day, their job, and more.
+* A mood and thought system that is strongly inspired by the depth and complexity of the personality system from the game [Dwarf Fortress](http://www.bay12games.com/dwarves/). Special thanks to Tarn and Zach Adams for their pioneering work!
+* Several new placeable pieces (Fires, Chests, Beds, etc.) that are visually identical to existing pieces but affect the behavior of the NPCs.
+* Hugin tutorials to help guide players.
 
-* The compiled dll file for this project is copied to `<ValheimDir>\BepInEx\plugins`.
-* A .mdb file is generated for the compiled project dll and copied to `<ValheimDir>\BepInEx\plugins`.
-* `<JotunnModStub>\libraries\Debug\mono-2.0-bdwgc.dll` is copied to `<ValheimDir>\MonoBleedingEdge\EmbedRuntime` replacing the original file (a backup is created before).
+# Mechanics Overview
 
-### Building Release
+The mod mechanics are designed to be nuianced enough to provide depth and interest for intrinsically motivated players. The surface mechanics try to be simple enough that players may ignore most of the nuiance and still have a satisfying (but less optimized) experience. Most mechanics are centered around improving the mood and raising the skills of your hirdmandr, which makes them more efficient at their assigned duties.
 
-* A compressed file with the binaries is created in `<JotunnModStub>\Packages`ready for upload to ThunderStore. Dont forget to include your information in the manifest.json and to change the project's readme file.
+## Find and Rescue
 
-## Developing Assets with Unity
+Hirdmandr are warriors that were previously brought to Valheim by Valkyries, but failed in the tasks set before them by Odin. Players can find them by exploring Valheim and investigating the structures they encounter. All NPCs found in the world spawn as part of a location, and are defended by Biome-appropriate creatures. Examples include the towers in the Black Forest that are surrounded by swarms of Grey Dwarves, or Fuling Villages. Players can rescue these NPCs to acquire a new hirdmandr, but they must escort that NPC back to a safe place before the NPC will become one of that player’s Hirdmandr.
 
-New Assets can be created with Unity and imported into Valheim using the mod. A Unity project is included in this repository under `<JotunnModStub>\JotunnModUnity`.
+Once an NPC is found, a player can talk to them which presents a GUI that gives limited information about the NPC's skills and personality. Whichever player clicks the "Follow Me" button in the GUI first becomes that NPC's Jarl (King or Warlord). The NPC will follow that player (unless told to wait) and attempt to defend themselves. The player will need to lead the NPC back to one of their camps or strongholds with (at least) a workbench and a fire before the NPC will truly become a Hirdmandr.
 
-### Unity Editor Setup
+## Hirdmandr
 
-1. [Download](https://public-cdn.cloud.unity3d.com/hub/prod/UnityHubSetup.exe) UnityHub directly from Unity or install it with the Visual Studio Installer via `Individual Components` -> `Visual Studio Tools for Unity`.
-2. You will need an Unity account to register your PC and get a free licence. Create the account, login with it in Unity Hub and get your licence via `Settings` -> `Licence Management`.
-3. Install Unity Editor version 2019.4.24f.
-4. Copy all `assembly_*.dll` from `<ValheimDir>\valheim_Data\Managed` into `<JotunnModStub>\JotunnModUnity\Assets\Assemblies`. **Do this directly in the filesystem - don't open Unity first or import the dlls directly in Unity**.
-5. **Warning:** These assembly files are copyrighted material and you can theoretically get into trouble when you distribute them in your github repository. To avoid that there is a .gitignore file in the Unity project folder. Keep that when you clone or copy this repository.
-6. Open Unity Hub and add the JotunnModUnity project.
-7. Open the project.
-7. Install the `AssetBundle Browser` package in the Unity Editor via `Window`-> `Package Manager` for easy bundle creation.
+Once rescued, NPCs truly become hirdmandr, and Players can access their management menu. This menu gives you a brief overview of their thoughts, mood, personality, and skills. This menu is also where players set duties. Hirdmandr can be assigned a role of either Artisan or Warrior and this can be changed at any time. Once their role is set, additional menu options are available to customize their duties within each role.
 
-## Debugging with dnSpy
+### Schedules
 
-Thanks to mono and unity-mono being open source, we patched and compiled our own mono runtime to enable actual live debugging of the game and the mod itself with dnSpy.
+Each hirdmandr follows a daily schedule. They will rest for a portion of the day, sleeping in an NPC Bed if one is provided. After waking, they will take care of themselves, eating if food is available before heading to a meeting area (defined by an NPC Fire) to socialize. Next, they start their work day which can take many forms, based on their assigned duties. At the end of the day, they spend a little time socializing again before heading back to rest.
 
-1. Download [dnSpy-net-win64](https://github.com/dnSpy/dnSpy/releases) and extract the exe.
-2. Load all assemblies from `<ValheimDir>\unstripped_corlib` into dnSpy (just drag&drop the folder onto it).
-3. Load all `assembly_*` from `<ValheimDir>\valheim_Data\Managed` into dnSpy (*do not load the publicized ones, they will not be loaded into the process and therefore can not be debugged*).
-4. Load `JotunnModStub.dll` from `<ValheimDir>\BepInEx\plugins` into dnSpy.
-5. Copy `<JotunnModStub>\libraries\Debug\mono-2.0-bdwgc.dll` into `<ValheimDir>\MonoBleedingEdge\EmbedRuntime` and overwrite the existing file.
-6. Now go to `Debug` -> `Start Debugging` and select Unity debug engine. Select your valheim.exe as the executable and hit OK.
-7. If you did set some breakpoints, the game will halt when it hits the breakpoint in memory and dnSpy will show you the objects in memory and much more useful stuff.
+### Artisans
 
-## Debugging with Visual Studio
+Artisans fulfill jobs including Wood Burner (work Kilns), Furnace Operator (work smelters), Farmer (tend crops), Cook (work cauldrons), and Baker (work ovens). A hirdmandr may be assigned to multiple duties and will attempt to find a worksite for each duty, starting with their highest skilled. Worksites are defined by NPC Chests being placed near to the related pieces (kilns, cauldrons, etc). When checking worksites, if no raw materials are available the worksite is not considered valid and the next job is checked.
 
-Your own code can be debugged in source with Visual Studio itself. You cannot debug game disassemblies as with dnSpy, though.
+### Warriors
 
-1. Install Visual Studio Tools for Unity (can be done in Visual Studio installer via `Individual Components` -> `Visual Studio Tools for Unity`)
-3. Build the project with target `Debug`. The publish.ps1 PowerShell script from this repo...
-   * copies the generated mod .dll and .pdb to \<ValheimDir>\BepInEx\plugins after a successful build
-   * automatically generates a JotunnModStub.dll.mdb file, which is needed for Unity/mono debugging. It should be in \<ValheimDir>\BepInEx\plugins, too.
-   * copies the patched mono-2.0-bdwgc.dll from .\libraries\Debug to \<ValheimDir>\MonoBleedingEdge\EmbedRuntime and makes a backup copy of the original.
-4. Start Valheim (either directly from Steam or hit F5 in Visual Studio when Steam is running)
-5. Go to `Debug` -> `Attach Unity debugger`
-6. Since the patched mono dll does not open the same port as Unity Dev builds, you have to click on `Input IP`. It should fill in your local IP automatically. you just have to change the port to `55555`and the debugger should connect.
+Warriors have two duties they can be assigned to: Thegen, which are town guards that defend your stronghold from wandering monsters and raids; and Himthiki, which are the elite warriors that accompany the player on their adventures. Both warrior duties may have the Gatherer job enabled, which allows them to collect pickable items from the ground whenever they pass near them (like stones, thistles, cloudberries, etc).
 
-## Actions after a game update
+## Personality and Moods
 
-When Valheim updates it is likely that parts of the assembly files change. If this is the case, the references to the assembly files must be renewed in Visual Studio and Unity.
+All hirdmandr have a personality based on three virtues and three domains. Hirdmandr either **Value** these virtues and domains, **don't care** about them, or **Disdain** them. When engaging in activities hirdmandr will generate a **thought** about the activity, which can be anything from improving a skill, talking to a friend, or fighting a monster. Their personality determines whether this thought will make their mood better or worse. Hirdmandr with a good (high) mood will work faster, attack faster, and generally be more effective. Almost all NPCs will have more **Values** than **Disdains**, but not always.
 
-### Visual Studio actions
+**Virtues**
+1. **Art**: This represents how the NPC feels about doing Artisan jobs and other non-combat activities.
+2. **Valor**: This represents how the NPC feels about doing Warrior jobs and being in or around combat.
+3. **Relationships**: This represents how important relationships with other NPCs and Players are to the NPC.
 
-1. There is a file called DoPrebuild.props included in the solution. When you set its only value to true, Jötunn will automatically generate publicized and MMHook assemblies for you. Otherwise you have to do this step manually.
+**Domains**
+1. **Learning**: This domain applies any time a thought is related to raising a skill, changing a relationship, or learning something.
+2. **Authority**: This domain applies any time a thought comes from interacting with their Jarl or doing assigned duties.
+3. **Comfort**: This domain applies whenever surroundings or environment relate to a thought.
 
-### Unity actions
-
-1. Copy all `assembly_*.dll` from `<ValheimDir>\valheim_Data\Managed` into `<JotunnModStub>\JotunnModUnity\Assets\Assemblies`. <br />
-  **Do this directly in the filesystem - don't import the dlls in Unity**.
-2. Go to Unity Editor and press `Ctrl+R`. This reloads all files from the filesystem and "re-imports" the copied dlls into the project.
