@@ -93,11 +93,18 @@
     <Compile Include="Hirdmandr.cs" />
     <Compile Include="HMPersonality.cs" />
     <Compile Include="HMSkills.cs" />
-    <Compile Include="llhmStateMachines.cs" />
     <Compile Include="OldManSM.cs" />
     <Compile Include="Properties\IgnoreAccessModifiers.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="TrimCloneTag.cs" />
+    <Compile Include="sub1SM-Depressed.cs" />
+    <Compile Include="sub1SM-Patrol.cs" />
+    <Compile Include="sub1SM-Rest.cs" />
+    <Compile Include="sub1SM-SelfCare.cs" />
+    <Compile Include="sub1SM-Socialize.cs" />
+    <Compile Include="sub1SM-Threatened.cs" />
+    <Compile Include="sub1SM-WorkDay.cs" />
+    <Compile Include="topSM.cs" />
+    <Compile Include="Utils.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />

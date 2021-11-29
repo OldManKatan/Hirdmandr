@@ -17,26 +17,20 @@ namespace Hirdmandr
     [Serializable]
     public class HirdmandrChest : MonoBehaviour
     {
+        public Container m_container;
         public ZNetView m_znetv;
-        
+
         public float lastZDOCheck;
         public bool wasOwner;
 
-        public List<ZDO> m_ZDOsInRange;
+        public List<ZDO> m_ZDOsInRange = new List<ZDO>();
+        public List<Inventory> linkedInventories = new List<Inventory>();
 
-        public Dictionary<string, string[]> artisanJobPrefabs;
-        public Dictionary<string, List<ZDO>> artisanJobPieces;
-        public Dictionary<string, ZDOID> artisanJobOwner;
+        public Dictionary<string, string[]> artisanJobPrefabs = new Dictionary<string, string[]>();
+        public Dictionary<string, List<ZDO>> artisanJobPieces = new Dictionary<string, List<ZDO>>();
+        public Dictionary<string, ZDOID> artisanJobOwner = new Dictionary<string, ZDOID>();
 
-        public string[] allKeys;
-
-        protected virtual void Awake()
-        {
-            wasOwner = false;
-                
-            m_znetv = GetComponent<ZNetView>();
-
-            allKeys = new string[] 
+        public string[] allKeys = new string[]
             {
                 "woodburner",
                 "furnaceoperator",
@@ -45,10 +39,12 @@ namespace Hirdmandr
                 "baker"
             };
 
+        protected virtual void Awake()
+        {
+            wasOwner = false;
 
-            artisanJobPrefabs = new Dictionary<string, string[]>();
-            artisanJobPieces = new Dictionary<string, List<ZDO>>();
-            artisanJobOwner = new Dictionary<string, ZDOID>();
+            m_container = GetComponent<Container>();
+            m_znetv = GetComponent<ZNetView>();
 
             artisanJobPrefabs.Add("woodburner", new string[] { "charcoal_kiln" });
             artisanJobPrefabs.Add("furnaceoperator", new string[] { "smelter", "blastfurnace" });
@@ -119,12 +115,23 @@ namespace Hirdmandr
             {
                 foreach (string thisPrefab in artisanJobPrefabs[aKey])
                 {
-                    List<ZDO> nearZDOs = GetPrefabZDOsInRange(thisPrefab, 15f);
+                    List<ZDO> nearZDOs = Utils.GetPrefabZDOsInRange(transform.position, 15f, thisPrefab);
                     if (nearZDOs.Count > 0)
                     {
                         foreach (ZDO thisZDO in nearZDOs)
                         {
-                            artisanJobPieces[aKey].Add(thisZDO);
+                            if (aKey == "woodburner")
+                            {
+                                if (ValidWoodburnerInventory()) { artisanJobPieces[aKey].Add(thisZDO); }
+                            }
+                            else if (aKey == "furnaceoperator")
+                            {
+                                if (ValidFurnaceoperatorInventory()) { artisanJobPieces[aKey].Add(thisZDO); }
+                            }
+                            else
+                            {
+                                artisanJobPieces[aKey].Add(thisZDO);
+                            }
                         }
                     }
                 }
@@ -178,10 +185,12 @@ namespace Hirdmandr
                 if (artisanJobOwner[artisanJob] == ZDOID.None)
                 {
                     artisanJobOwner[artisanJob] = owner_id;
+                    Jotunn.Logger.LogError("Worksite NPC Chest has been CLAIMED");
                     return true;
                 }
                 else
                 {
+                    Jotunn.Logger.LogError("Worksite NPC Chest COULD NOT be CLAIMED");
                     return false;
                 }
             }
@@ -194,11 +203,13 @@ namespace Hirdmandr
             {
                 if (artisanJobOwner[artisanJob] == owner_id)
                 {
+                    Jotunn.Logger.LogError("Worksite NPC Chest has been UNCLAIMED");
                     artisanJobOwner[artisanJob] = ZDOID.None;
                     return true;
                 }
                 else
                 {
+                    Jotunn.Logger.LogError("Worksite NPC Chest COULD NOT be UNCLAIMED");
                     return false;
                 }
             }
@@ -224,72 +235,98 @@ namespace Hirdmandr
             }
         }
 
-        public List<ZDO> GetAllZDOsInRange(float range)
+        public void LinkInventories()
         {
-            Vector3 center = transform.position;
-            int MinX = (int)(center.x - range);
-            int MinZ = (int)(center.z - range);
-            int MaxX = (int)(center.x + range);
-            int MaxZ = (int)(center.z + range);
+            linkedInventories = new List<Inventory>();
+            linkedInventories.Add(m_container.m_inventory);
 
-            // Get sectors to check
-            List<Vector2i> sectors;
-            sectors = GetSectors(MinX, MinZ, MaxX, MaxZ);
-
-            // Get zdos
-            var foundZDOs = new List<ZDO>();
-
-            foreach (var sector in sectors)
+            foreach (string chestType in new string[3] { "piece_npc_chest", "piece_npc_chest_reinforced", "piece_npc_chest_blackmetal" })
             {
-                ZDOMan.instance.FindObjects(sector, foundZDOs);
-            }
-
-            return foundZDOs;
-        }
-
-        public List<ZDO> GetPrefabZDOsInRange(string prefabName, float range)
-        {
-            int prefabStableHashCode = prefabName.GetStableHashCode();
-
-            var foundZDOs = GetAllZDOsInRange(range);
-
-            var matchedZDOs = new List<ZDO>();
-
-            foreach (ZDO aZDO in foundZDOs)
-            {
-                if (aZDO.GetPrefab() == prefabStableHashCode)
+                foreach (ZDO chestZDO in Utils.GetPrefabZDOsInRange(transform.position, 10f, "piece_npc_chest"))
                 {
-                    matchedZDOs.Add(aZDO);
+                    linkedInventories.Add(ZNetScene.instance.FindInstance(chestZDO).GetComponent<Container>().m_inventory);
                 }
             }
-
-            return matchedZDOs;
         }
 
-        private static List<Vector2i> GetSectors(int minX, int minZ, int maxX, int maxZ)
+        public bool LinkedHaveItem(string item)
         {
-            List<Vector2i> sectors = new List<Vector2i>();
-
-            int stepMinX = Zonify(minX);
-            int stepMaxX = Zonify(maxX);
-
-            int stepMinZ = Zonify(minZ);
-            int stepMaxZ = Zonify(maxZ);
-
-            for (int x = stepMinX; x <= stepMaxX; ++x)
+            foreach (Inventory linkedinv in linkedInventories)
             {
-                for (int z = stepMinZ; z <= stepMaxZ; ++z)
+                if (linkedinv.HaveItem(item))
                 {
-                    sectors.Add(new Vector2i(x, z));
+                    return true;
                 }
             }
+            return false;
+        }
 
-            return sectors;
-
-            int Zonify(int coordinate)
+        public bool LinkedRemoveOneItem(string item)
+        {
+            foreach (Inventory linkedinv in linkedInventories)
             {
-                return Mathf.FloorToInt((coordinate + 32) / 64f);
+                if (linkedinv.HaveItem(item))
+                {
+                    linkedinv.RemoveOneItem(linkedinv.GetItem(item));
+                    return true;
+                }
             }
+            return false;
+        }
+
+        public bool LinkedPutItem(ItemDrop.ItemData item)
+        {
+            foreach (Inventory linkedinv in linkedInventories)
+            {
+                if (linkedinv.HaveItem(item.m_shared.m_name))
+                {
+                    if (linkedinv.AddItem(item))
+                    {
+                        return true;
+                    }
+                }
+            }
+            if (m_container.m_inventory.AddItem(item))
+            {
+                return true;
+            }
+            return false;
+        }
+
+        public bool ValidWoodburnerInventory()
+        {
+            LinkInventories();
+
+            if (LinkedHaveItem("$item_wood"))
+            {
+                return true;
+            }
+            return false;
+        }
+
+        public bool ValidFurnaceoperatorInventory()
+        {
+            bool hasCoal = false;
+            bool hasOre = false;
+
+            if (LinkedHaveItem("$item_coal"))
+            {
+                hasCoal = true;
+            }
+
+            if (LinkedHaveItem("$item_copperore") ||
+                LinkedHaveItem("$item_tinore") ||
+                LinkedHaveItem("$item_ironscrap") ||
+                LinkedHaveItem("$item_silverore"))
+            {
+                hasOre = true;
+            }
+
+            if (hasCoal && hasOre)
+            {
+                return true;
+            }
+            return false;
         }
     }
 }

@@ -62,16 +62,16 @@ namespace OldManSM
 
         public void Evaluate()
         {
-            Jotunn.Logger.LogInfo("Evaluate() started");
+            // Jotunn.Logger.LogInfo("Evaluate() started");
             if (nextState != curState)  // State transition is queued
             {
-                Jotunn.Logger.LogInfo("  Detected state transition");
+                Jotunn.Logger.LogInfo("  Detected state transition from " + stateIndexes[curState] + " to " + stateIndexes[nextState]);
 
                 if (states.TryGetValue(curState, out SMNode curNode) && states.TryGetValue(nextState, out SMNode nextNode))
                 {
-                    Jotunn.Logger.LogInfo("    Calling current node ExitTo");
+                    // Jotunn.Logger.LogInfo("    Calling current node ExitTo");
                     curNode.ExitTo(nextState);
-                    Jotunn.Logger.LogInfo("    Calling next node EnterFrom");
+                    // Jotunn.Logger.LogInfo("    Calling next node EnterFrom");
                     nextNode.EnterFrom(curState);
 
                     lastState = curState;
@@ -85,10 +85,10 @@ namespace OldManSM
             }
             else  // Normal state execution: RunState
             {
-                Jotunn.Logger.LogInfo("  Running state with non-transition evaluation");
+                // Jotunn.Logger.LogInfo("  Running state with non-transition evaluation");
                 if (states.TryGetValue(curState, out SMNode curNode))
                 {
-                    Jotunn.Logger.LogInfo("    Calling curNode.RunState() on " + stateIndexes[curState]);
+                    // Jotunn.Logger.LogInfo("    Calling curNode.RunState() on " + stateIndexes[curState]);
                     curNode.RunState();
                 }
                 else 
@@ -158,15 +158,12 @@ namespace OldManSM
 
         public virtual void EnterFrom(int aState)
         {
-            Jotunn.Logger.LogError(notImpPrefix + " EnterFrom is not implemented");
         }
         public virtual void ExitTo(int aState)
         {
-            Jotunn.Logger.LogError(notImpPrefix + " ExitTo is not implemented");
         }
         public virtual void RunState()
         {
-            Jotunn.Logger.LogError(notImpPrefix + " RunState is not implemented");
         }
     }
 }

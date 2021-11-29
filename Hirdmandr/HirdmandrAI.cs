@@ -49,6 +49,9 @@ namespace Hirdmandr
         public float moveMaxDist;
         public float moveCloseEnough;
         public bool moveRequireShelter;
+        Dictionary<string, float> hazardTypes = new Dictionary<string, float>();
+        public List<Tuple<Vector3, float>> hazardZones = new List<Tuple<Vector3, float>>();
+        public float nextHazardCheck = 0;
 
         // Socialize fields
         public ZDO socTargetFire = null;
@@ -57,7 +60,9 @@ namespace Hirdmandr
 
         // WorkDay fields
         public List<string> workJobs = new List<string>();
-        public Vector3 workJobSite = Vector3.zero;
+        public GameObject workJobSite = null;
+        public HirdmandrChest workSiteHMChest = null;
+        public GameObject workSiteObject;
         public string curJob = "";
         public string[] npcChests = new string[3] 
             {
@@ -65,6 +70,7 @@ namespace Hirdmandr
                 "piece_npc_chest_reinforced",
                 "piece_npc_chest"
             };
+        public float nextJobTime;
 
         // Rest
         public ZDO restBedZDO = null;
@@ -83,6 +89,14 @@ namespace Hirdmandr
             m_znetv = GetComponent<ZNetView>();
             topSM = new TopLevelSM(GetComponent<HirdmandrAI>());
 
+            hazardTypes.Add("fire_pit", 1f);
+            hazardTypes.Add("hearth", 2f);
+            hazardTypes.Add("bonfire", 2f);
+            hazardTypes.Add("piece_npc_fire_pit", 1f);
+            hazardTypes.Add("piece_npc_hearth", 2f);
+            hazardTypes.Add("piece_npc_bonfire", 2f);
+            hazardTypes.Add("piece_sharpstakes", 1.5f);
+
             Invoke("CheckDepression", UnityEngine.Random.Range(60f, 300f));
             InvokeRepeating("EvaluateSM", UnityEngine.Random.Range(10f, 13f), 3f);
         }
@@ -93,11 +107,11 @@ namespace Hirdmandr
             {
                 if (m_hmnpc.m_roleWarrior)
                 {
-                    topSM.ChangeState(topSM.StateInt("defendHome"));
+                    topSM.ChangeState(topSM.StateInt("threatened"));
                 }
                 else
                 {
-                    topSM.ChangeState(topSM.StateInt("runInTerror"));
+                    topSM.ChangeState(topSM.StateInt("threatened"));
                 }
             }
         }
@@ -116,6 +130,21 @@ namespace Hirdmandr
         {
             if (moveEnabled)
             {
+                if (Time.time > nextHazardCheck)
+                {
+                    nextHazardCheck = Time.time + 60f;
+                    hazardZones = new List<Tuple<Vector3, float>>();
+
+                    foreach (KeyValuePair<string, float> entry in hazardTypes)
+                    {
+                        List<ZDO> hazards = Utils.GetPrefabZDOsInRange(transform.position, 100f, entry.Key);
+                        foreach (ZDO thisZDO in hazards)
+                        {
+                            hazardZones.Add(new Tuple<Vector3, float>(thisZDO.m_position, entry.Value) { });
+                        }
+                    }
+                }
+
                 if (Time.time > moveToTimeout)
                 {
                     moveToReached = false;
@@ -136,7 +165,7 @@ namespace Hirdmandr
 
                         for (var i = 0; i < 10; i++)
                         {
-                            Jotunn.Logger.LogWarning("    Numtries = " + (i + 1));
+                            // Jotunn.Logger.LogWarning("    Numtries = " + (i + 1));
 
                             Vector3 thisV3 = new Vector3(
                                 moveToTarget.x + (UnityEngine.Random.Range(moveMinDist, moveMaxDist) * flip[UnityEngine.Random.Range(0, 2)]),
@@ -149,18 +178,18 @@ namespace Hirdmandr
                             if (underRoof && coverPercentage >= 0.8f)
                             {
                                 moveToPos = thisV3;
-                                Jotunn.Logger.LogWarning("Position with ROOF and COVER found.");
+                                // Jotunn.Logger.LogWarning("Position with ROOF and COVER found.");
                                 return;
                             }
                             else if (underRoof)
                             {
                                 shelter_tries.Add(thisV3);
-                                Jotunn.Logger.LogWarning("Position with ROOF found.");
+                                // Jotunn.Logger.LogWarning("Position with ROOF found.");
                             }
                             else if (!moveRequireShelter)
                             {
                                 any_tries.Add(thisV3);
-                                Jotunn.Logger.LogWarning("Position with OUTSIDE found.");
+                                // Jotunn.Logger.LogWarning("Position with OUTSIDE found.");
                             }
                         }
 
@@ -174,6 +203,18 @@ namespace Hirdmandr
                         }
                         else
                         {
+                        }
+
+                        if (moveToPos != Vector3.zero)
+                        {
+                            foreach (Tuple<Vector3, float> hazard in hazardZones)
+                            {
+                                if (Vector3.Distance(moveToPos, hazard.Item1) < hazard.Item2)
+                                {
+                                    Jotunn.Logger.LogWarning("Collision with hazard detected, trying again...");
+                                    moveToPos = Vector3.zero;
+                                }
+                            }
                         }
                     }
                     else if (moveToPos != Vector3.zero)
@@ -195,7 +236,7 @@ namespace Hirdmandr
                         else
                         {
                             moveToPos = Vector3.zero;
-                            Jotunn.Logger.LogWarning("Move can't find path, trying again...");
+                            // Jotunn.Logger.LogWarning("Move can't find path, trying again...");
                         }
                     }
                 }
@@ -244,485 +285,8 @@ namespace Hirdmandr
         {
             if (m_znetv.IsOwner())
             {
-                Jotunn.Logger.LogInfo(m_hmHumanoid.m_name + " is evaluating their AI");
                 m_hmMonsterAI.ResetRandomMovement();
                 topSM.Evaluate();
-            }
-        }
-
-        public List<ZDO> GetAllZDOsInRange(float range)
-        {
-            Vector3 center = transform.position;
-            int MinX = (int)(center.x - range);
-            int MinZ = (int)(center.z - range);
-            int MaxX = (int)(center.x + range);
-            int MaxZ = (int)(center.z + range);
-
-            // Get sectors to check
-            List<Vector2i> sectors;
-            sectors = GetSectors(MinX, MinZ, MaxX, MaxZ);
-
-            // Get zdo's
-            var foundZDOs = new List<ZDO>();
-
-            foreach (var sector in sectors)
-            {
-                ZDOMan.instance.FindObjects(sector, foundZDOs);
-            }
-
-            return foundZDOs;
-        }
-
-        public List<ZDO> GetPrefabZDOsInRange(string prefabName, float range)
-        {
-            int prefabStableHashCode = prefabName.GetStableHashCode();
-
-            var foundZDOs = GetAllZDOsInRange(range);
-
-            var matchedZDOs = new List<ZDO>();
-
-            foreach (ZDO aZDO in foundZDOs)
-            {
-                if (aZDO.GetPrefab() == prefabStableHashCode)
-                {
-                    matchedZDOs.Add(aZDO);
-                }
-            }
-
-            return matchedZDOs;
-        }
-
-        private static List<Vector2i> GetSectors(int minX, int minZ, int maxX, int maxZ)
-        {
-            List<Vector2i> sectors = new List<Vector2i>();
-
-            int stepMinX = Zonify(minX);
-            int stepMaxX = Zonify(maxX);
-
-            int stepMinZ = Zonify(minZ);
-            int stepMaxZ = Zonify(maxZ);
-
-            for (int x = stepMinX; x <= stepMaxX; ++x)
-            {
-                for (int z = stepMinZ; z <= stepMaxZ; ++z)
-                {
-                    sectors.Add(new Vector2i(x, z));
-                }
-            }
-
-            return sectors;
-
-            int Zonify(int coordinate)
-            {
-                return Mathf.FloorToInt((coordinate + 32) / 64f);
-            }
-        }
-
-        public class TopLevelSM : StateMachine
-        {
-            public TopLevelSM(HirdmandrAI hmai)
-            {
-                hmAI = hmai;
-
-                var allStates = new List<string>()
-                {
-                    "schedule",
-                    "socialize",
-                    "workDay",
-                    "rest",
-                    "selfCare",
-                    "patrol",
-                    "depressed",
-                    "runInTerror",
-                    "hide",
-                    "defendHome"
-                };
-
-                AddState("schedule", new NodeSchedule(this));
-                AddState("socialize", new NodeSocialize(this));
-                AddState("workDay", new NodeWorkDay(this));
-                AddState("rest", new NodeRest(this));
-                AddState("selfCare", new NodeSelfCare(this));
-                AddState("patrol", new NodePatrol(this));
-                AddState("depressed", new NodeDepressed(this));
-                AddState("runInTerror", new NodeRunInTerror(this));
-                AddState("hide", new NodeHide(this));
-                AddState("defendHome", new NodeDefendHome(this));
-            }
-        
-            // Create Nodes
-
-            public class NodeSchedule : SMNode
-            {
-
-                public NodeSchedule(TopLevelSM psm) : base(psm) { }
-
-                public override void RunState()
-                {
-                    Jotunn.Logger.LogInfo("Starting NodeSchedule.RunState()");
-                    float ToD = EnvMan.instance.m_smoothDayFraction;
-                    Jotunn.Logger.LogInfo("  Got ToD");
-                    if (hmNPC.m_roleArtisan) {
-                        Jotunn.Logger.LogInfo("    If Artisan");
-
-                        if (ToD >= 0.2483 && ToD < 0.3333) { parentSM.ChangeState("socialize"); }
-                        else if (ToD >= 0.3333 && ToD < 0.7083) { parentSM.ChangeState("workDay"); }
-                        else if (ToD >= 0.7083 && ToD < 0.909) { parentSM.ChangeState("socialize"); }
-                        else if (ToD >= 0.909 || ToD < 0.2083) { parentSM.ChangeState("rest"); }
-                        else if (ToD >= 0.2083 && ToD < 0.2483) { parentSM.ChangeState("selfCare"); }
-                    }
-                    if (hmNPC.m_roleWarrior && hmNPC.m_jobThegn)
-                    {
-                        Jotunn.Logger.LogInfo("    If Warrior Thegn");
-                        if (hmNPC.m_thegnDayshift)
-                        {
-                            if (ToD >= 0.2083 && ToD < 0.2608) { parentSM.ChangeState("selfCare"); }
-                            else if (ToD >= 0.2608 && ToD < 0.7083) { parentSM.ChangeState("patrol"); }
-                            else if (ToD >= 0.7083 && ToD < 0.909) { parentSM.ChangeState("socialize"); }
-                            else if (ToD >= 0.909 || ToD < 0.2083) { parentSM.ChangeState("rest"); }
-                        }
-                        else
-                        {
-                            if (ToD >= 0.6083 && ToD < 0.6983) { parentSM.ChangeState("selfCare"); }
-                            else if (ToD >= 0.6983 || ToD < 0.2708) { parentSM.ChangeState("patrol"); }
-                            else if (ToD >= 0.2708 && ToD < 0.3333) { parentSM.ChangeState("socialize"); }
-                            else if (ToD >= 0.3333 && ToD < 0.6083) { parentSM.ChangeState("rest"); }
-                        }
-                    }
-                    else if (hmNPC.m_roleWarrior && hmNPC.m_jobHimthiki)
-                    {
-                        Jotunn.Logger.LogInfo("    If Warrior Himthiki");
-                        if (ToD >= 0.2483 && ToD < 0.909) { parentSM.ChangeState("socialize"); }
-                        else if (ToD >= 0.909 || ToD < 0.2083) { parentSM.ChangeState("rest"); }
-                        else if (ToD >= 0.2083 && ToD < 0.2483) { parentSM.ChangeState("selfCare"); }
-                    }
-                }
-            }
-
-            public class NodeSocialize : SMNode
-            {
-                public SocializeSM socialStateMachine;
-
-                public NodeSocialize(TopLevelSM psm) : base(psm)
-                {
-                    socialStateMachine = new SocializeSM(hmAI);
-                }
-
-                public override void EnterFrom(int aState)
-                {
-                    if (aState == parentSM.StateInt("schedule") || aState == parentSM.StateInt("workDay"))
-                    {
-                        socialStateMachine.ChangeState("findMeetPoint");
-                    }
-                }
-                public override void RunState()
-                {
-                    Jotunn.Logger.LogInfo(hmHum.m_name + " is evaluating their AI");
-
-                    socialStateMachine.Evaluate();
-                    if (socialStateMachine.changeTopState.Length > 0)
-                    {
-                        parentSM.ChangeState(socialStateMachine.changeTopState);
-                        socialStateMachine.changeTopState = "";
-                    }
-
-                    float ToD = EnvMan.instance.m_smoothDayFraction;
-                    if (hmNPC.m_roleArtisan)
-                    {
-                        if (ToD < 0.2483 && ToD >= 0.3333) { parentSM.ChangeState("schedule"); }
-                    }
-                    if (hmNPC.m_roleWarrior && hmNPC.m_jobThegn)
-                    {
-                        if (hmNPC.m_thegnDayshift)
-                        {
-                            if (ToD < 0.7083 || ToD >= 0.909) { parentSM.ChangeState("schedule"); }
-                        }
-                        else
-                        {
-                            if (ToD < 0.2708 || ToD >= 0.3333) { parentSM.ChangeState("schedule"); }
-                        }
-                    }
-                    else if (hmNPC.m_roleWarrior && hmNPC.m_jobHimthiki)
-                    {
-                        if (ToD < 0.2483 || ToD >= 0.909) { parentSM.ChangeState("schedule"); }
-                    }
-
-                }
-            }
-            public class NodeWorkDay : SMNode
-            {
-                public WorkDaySM workStateMachine;
-
-                public NodeWorkDay(TopLevelSM psm) : base(psm)
-                {
-                    workStateMachine = new WorkDaySM(hmAI);
-                }
-
-                public override void EnterFrom(int aState)
-                {
-                    if (aState == parentSM.StateInt("schedule") || aState == parentSM.StateInt("socialize"))
-                    {
-                        workStateMachine.ChangeState("resetArtJob");
-                    }
-                }
-                public override void RunState()
-                {
-                    workStateMachine.Evaluate();
-                    if (workStateMachine.changeTopState.Length > 0)
-                    {
-                        parentSM.ChangeState(workStateMachine.changeTopState);
-                        workStateMachine.changeTopState = "";
-                    }
-
-                    float ToD = EnvMan.instance.m_smoothDayFraction;
-                    if (hmNPC.m_roleArtisan)
-                    {
-                        if (ToD < 0.3333 || ToD >= 0.7083) { parentSM.ChangeState("schedule"); }
-                    }
-                }
-            }
-            public class NodeRest : SMNode
-            {
-                public RestSM restStateMachine;
-
-                public NodeRest(TopLevelSM psm) : base(psm)
-                {
-                    restStateMachine = new RestSM(hmAI);
-                }
-
-                public override void EnterFrom(int aState)
-                {
-                    if (aState == parentSM.StateInt("schedule") || aState == parentSM.StateInt("socialize") || aState == parentSM.StateInt("patrol"))
-                    {
-                        restStateMachine.ChangeState("findBed");
-                    }
-                }
-                public override void RunState()
-                {
-                    restStateMachine.Evaluate();
-                    if (restStateMachine.changeTopState.Length > 0)
-                    {
-                        parentSM.ChangeState(restStateMachine.changeTopState);
-                        restStateMachine.changeTopState = "";
-                    }
-
-                    float ToD = EnvMan.instance.m_smoothDayFraction;
-                    if (hmNPC.m_roleArtisan)
-                    {
-                        if (ToD < 0.909 && ToD >= 0.2083) { parentSM.ChangeState("schedule"); }
-                    }
-                    if (hmNPC.m_roleWarrior && hmNPC.m_jobThegn)
-                    {
-                        if (hmNPC.m_thegnDayshift)
-                        {
-                            if (ToD < 0.909 && ToD >= 0.2083) { parentSM.ChangeState("schedule"); }
-                        }
-                        else
-                        {
-                            if (ToD < 0.3333 || ToD >= 0.6083) { parentSM.ChangeState("schedule"); }
-                        }
-                    }
-                    else if (hmNPC.m_roleWarrior && hmNPC.m_jobHimthiki)
-                    {
-                        if (ToD < 0.909 && ToD >= 0.2083) { parentSM.ChangeState("schedule"); }
-                    }
-                }
-            }
-            public class NodeSelfCare : SMNode
-            {
-                public SelfCareSM selfCareStateMachine;
-
-                public NodeSelfCare(TopLevelSM psm) : base(psm)
-                {
-                    selfCareStateMachine = new SelfCareSM(hmAI);
-                }
-
-                public override void EnterFrom(int aState)
-                {
-                    if (aState == parentSM.StateInt("schedule") || aState == parentSM.StateInt("rest") || aState == parentSM.StateInt("depressed") || aState == parentSM.StateInt("hide"))
-                    {
-                        selfCareStateMachine.ChangeState("findFood");
-                    }
-                }
-                public override void RunState()
-                {
-                    selfCareStateMachine.Evaluate();
-                    if (selfCareStateMachine.changeTopState.Length > 0)
-                    {
-                        parentSM.ChangeState(selfCareStateMachine.changeTopState);
-                        selfCareStateMachine.changeTopState = "";
-                    }
-
-                    float ToD = EnvMan.instance.m_smoothDayFraction;
-                    if (hmNPC.m_roleArtisan)
-                    {
-                        if (ToD < 0.2083 || ToD >= 0.2483) { parentSM.ChangeState("schedule"); }
-                    }
-                    if (hmNPC.m_roleWarrior && hmNPC.m_jobThegn)
-                    {
-                        if (hmNPC.m_thegnDayshift)
-                        {
-                            if (ToD < 0.2083 || ToD >= 0.2608) { parentSM.ChangeState("schedule"); }
-
-                        }
-                        else
-                        {
-                            if (ToD < 0.6083 || ToD >= 0.6983) { parentSM.ChangeState("schedule"); }
-                        }
-                    }
-                    else if (hmNPC.m_roleWarrior && hmNPC.m_jobHimthiki)
-                    {
-                        if (ToD < 0.2083 || ToD >= 0.2483) { parentSM.ChangeState("schedule"); }
-                    }
-                }
-            }
-            public class NodePatrol : SMNode
-            {
-                public PatrolSM patrolStateMachine;
-
-                public NodePatrol(TopLevelSM psm) : base(psm)
-                {
-                    patrolStateMachine = new PatrolSM(hmAI);
-                }
-
-                public override void EnterFrom(int aState)
-                {
-                    if (aState == parentSM.StateInt("schedule"))
-                    {
-                        patrolStateMachine.ChangeState("setupPatrol");
-                    }
-                }
-                public override void RunState()
-                {
-                    patrolStateMachine.Evaluate();
-                    if (patrolStateMachine.changeTopState.Length > 0)
-                    {
-                        parentSM.ChangeState(patrolStateMachine.changeTopState);
-                        patrolStateMachine.changeTopState = "";
-                    }
-
-                    float ToD = EnvMan.instance.m_smoothDayFraction;
-                    if (hmNPC.m_roleWarrior && hmNPC.m_jobThegn)
-                    {
-                        if (hmNPC.m_thegnDayshift)
-                        {
-                            if (ToD < 0.2608 || ToD >= 0.7083) { parentSM.ChangeState("schedule"); }
-                        }
-                        else
-                        {
-                            if (ToD < 0.6983 && ToD >= 0.2708) { parentSM.ChangeState("schedule"); }
-                        }
-                    }
-                }
-            }
-            public class NodeDepressed : SMNode
-            {
-                public DepressedSM depressedStateMachine;
-
-                public NodeDepressed(TopLevelSM psm) : base(psm)
-                {
-                    depressedStateMachine = new DepressedSM(hmAI);
-                }
-
-                public override void EnterFrom(int aState)
-                {
-                    if (aState == parentSM.StateInt("schedule"))
-                    {
-                        depressedStateMachine.ChangeState("startDepressed");
-                    }
-                }
-                public override void RunState()
-                {
-                    depressedStateMachine.Evaluate();
-                    if (depressedStateMachine.changeTopState.Length > 0)
-                    {
-                        parentSM.ChangeState(depressedStateMachine.changeTopState);
-                        depressedStateMachine.changeTopState = "";
-                    }
-                }
-            }
-            public class NodeRunInTerror : SMNode
-            {
-                public RunInTerrorSM terrorStateMachine;
-                new public TopLevelSM parentSM;
-
-                public NodeRunInTerror(TopLevelSM psm) : base(psm)
-                {
-                    terrorStateMachine = new RunInTerrorSM(hmAI);
-                }
-
-                public override void EnterFrom(int aState)
-                {
-                    terrorStateMachine.ChangeState("callForHelp");
-                }
-                public override void RunState()
-                {
-                    terrorStateMachine.Evaluate();
-                    if (terrorStateMachine.changeTopState.Length > 0)
-                    {
-                        parentSM.ChangeState(terrorStateMachine.changeTopState);
-                        terrorStateMachine.changeTopState = "";
-                    }
-                }
-            }
-            public class NodeHide : SMNode
-            {
-                public HideSM hideStateMachine;
-                new public TopLevelSM parentSM;
-
-                public NodeHide(TopLevelSM psm) : base(psm)
-                {
-                    hideStateMachine = new HideSM(hmAI);
-                }
-
-                public override void EnterFrom(int aState)
-                {
-                    hideStateMachine.ChangeState("findSafe");
-                }
-                public override void RunState()
-                {
-                    hideStateMachine.Evaluate();
-                    if (hideStateMachine.changeTopState.Length > 0)
-                    {
-                        parentSM.ChangeState(hideStateMachine.changeTopState);
-                        hideStateMachine.changeTopState = "";
-                    }
-                }
-            }
-            public class NodeDefendHome : SMNode
-            {
-                public DefendHomeSM defendHomeStateMachine;
-
-                public NodeDefendHome(TopLevelSM psm) : base(psm)
-                {
-                    defendHomeStateMachine = new DefendHomeSM(hmAI);
-                }
-
-                public override void EnterFrom(int aState)
-                {
-                    if (hmMAI.IsAlerted())
-                    {
-                        defendHomeStateMachine.ChangeState("isAlerted");
-                    }
-                    else
-                    {
-                        defendHomeStateMachine.ChangeState("findNeedsHelp");
-                    }
-                }
-                public override void RunState()
-                {
-                    defendHomeStateMachine.Evaluate();
-                    if (defendHomeStateMachine.changeTopState.Length > 0)
-                    {
-                        parentSM.ChangeState(defendHomeStateMachine.changeTopState);
-                        defendHomeStateMachine.changeTopState = "";
-                    }
-
-                    if (!hmAI.m_hmMonsterAI.IsAlerted())
-                    {
-                        parentSM.ChangeState("schedule");
-                    }
-                }
             }
         }
     }

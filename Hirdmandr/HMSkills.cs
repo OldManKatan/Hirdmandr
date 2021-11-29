@@ -58,6 +58,7 @@ namespace Hirdmandr
                 }
 
                 m_hmSkills[i].m_value = m_znetv.GetZDO().GetFloat("hmnpc_skill" + m_hmSkillNames[i], 0f);
+                m_hmSkills[i].m_isEnabled = m_znetv.GetZDO().GetBool("hmnpc_skill" + m_hmSkillNames[i] + "enable", false);
             }
         }
 
@@ -66,6 +67,7 @@ namespace Hirdmandr
             for (var i = 0; i < m_hmSkillNames.Length; i++)
             {
                 m_znetv.GetZDO().Set("hmnpc_skill" + m_hmSkillNames[i], m_hmSkills[i].m_value);
+                m_znetv.GetZDO().Set("hmnpc_skill" + m_hmSkillNames[i] + "enable", m_hmSkills[i].m_isEnabled);
             }
         }
 
@@ -79,13 +81,22 @@ namespace Hirdmandr
             return 0f;
         }
 
-        public void ModifySkill(string skill_name, float change)
+        public void ModifySkill(string skill_name, float change, bool notLeveled=false)
         {
             skill_name = skill_name.Replace("skill", "");
             var skill_index = Array.IndexOf(m_hmSkillNames, skill_name);
             if (skill_index > -1)
             {
-                var new_value = m_hmSkills[skill_index].m_value + change;
+                var old_value = m_hmSkills[skill_index].m_value;
+                var new_value = 0f;
+                if (notLeveled)
+                {
+                    new_value = old_value + change;
+                }
+                else
+                {
+                    new_value = old_value + (change / (int)old_value);
+                }
                 if (new_value < 0)
                 {
                     new_value = 0;
@@ -93,6 +104,10 @@ namespace Hirdmandr
                 if (new_value > 100)
                 {
                     new_value = 100;
+                }
+                if (Math.Floor(new_value) > Math.Floor(old_value))
+                {
+                    Jotunn.Logger.LogWarning("SKILLUP OCCURRED for " + m_znetv.GetComponent<Humanoid>().m_name + " from " + old_value + " to " + new_value);
                 }
                 m_hmSkills[skill_index].m_value = new_value;
                 m_znetv.GetZDO().Set("hmnpc_skill" + skill_name, m_hmSkills[skill_index].m_value);
@@ -148,35 +163,28 @@ namespace Hirdmandr
             }
 
             List<string> returnList = new List<string>();
-            
-            for (int i = 0; i < enabledSkills.Count; i++) {
+            var numSkills = enabledSkills.Count;
+
+            for (int i = 0; i < numSkills; i++) {
                 Jotunn.Logger.LogWarning("GetEnabledSkillsHighestFirst is evaluating skill #" + i);
 
                 float highest_skill_value = -1f;
                 string highest_skill_str = "";
 
-                foreach (SkillData skl in m_hmSkills)
+                foreach (string aSkill in enabledSkills)
                 {
-                    Jotunn.Logger.LogWarning("GetEnabledSkillsHighestFirst is looking at " + skl.m_name + " which is enabled = " + skl.m_isEnabled);
-
-                    if (returnList.Contains(skl.m_name))
+                    if (GetSkill(aSkill) > highest_skill_value)
                     {
-                        continue;
+                        highest_skill_value = GetSkill(aSkill);
+                        highest_skill_str = aSkill;
                     }
-                    if (Array.IndexOf(artisanSkills, skl.m_value) == -1)
-                    {
-                        continue;
-                    }
-                    if (skl.m_value > highest_skill_value)
-                    {
-                        highest_skill_str = skl.m_name;
-                        highest_skill_value = skl.m_value;
-                    }
+                    Jotunn.Logger.LogWarning("GetEnabledSkillsHighestFirst is looking at " + aSkill);
                 }
                 if (highest_skill_str != "")
                 {
                     Jotunn.Logger.LogWarning("GetEnabledSkillsHighestFirst is adding " + highest_skill_str + " to returnList");
                     returnList.Add(highest_skill_str);
+                    enabledSkills.RemoveAt(enabledSkills.IndexOf(highest_skill_str));
                 }
             }
             Jotunn.Logger.LogWarning("GetEnabledSkillsHighestFirst FINAL RETURN LIST");
@@ -202,6 +210,7 @@ namespace Hirdmandr
             if (skill_index > -1)
             {
                 m_hmSkills[skill_index].m_isEnabled = enable_value;
+                m_znetv.GetZDO().Set("hmnpc_skill" + m_hmSkillNames[skill_index] + "enable", m_hmSkills[skill_index].m_isEnabled);
                 if (enable_value)
                 {
                     Jotunn.Logger.LogInfo("Skill " + skill_name + " was Enabled.");
