@@ -256,6 +256,12 @@ namespace Hirdmandr
                                     hmAI.workSiteHMChest.LinkedRemoveOneItem("$item_wood");
                                     Jotunn.Logger.LogWarning("One wood was added to kiln");
                                     kilnSmelter.QueueOre("Wood");
+                                    hmAI.m_hmnpc.m_skills.ModifySkill(hmAI.curJob, 0.5f);
+                                    // if (UnityEngine.Random.Range(0, 100) > 90)
+                                    // {
+                                    //     hmAI.m_hmnpc.m_thoughts.AddThought(HMThoughts.tType.craftSkillUp, 50f, "Wood Burning", Time.time + 3600f);
+                                    // }
+                                    hmAI.m_hmnpc.m_thoughts.AddThought(HMThoughts.tType.craftSkillUp, 50f, "Wood Burning", Time.time + 3600f);
                                 }
                                 else
                                 {
@@ -304,26 +310,42 @@ namespace Hirdmandr
                                 {
                                     hmAI.m_hmMonsterAI.LookAt(hmAI.workSiteObject.transform.position);
 
+                                    bool addedOre = false;
+
                                     Jotunn.Logger.LogWarning("Queue size less than 10");
                                     if (hmAI.workSiteHMChest.LinkedRemoveOneItem("$item_silverore"))
                                     {
                                         Jotunn.Logger.LogWarning("One SilverOre was added to Smelter");
                                         smelterSmelter.QueueOre("SilverOre");
+                                        addedOre = true;
                                     }
                                     else if (hmAI.workSiteHMChest.LinkedRemoveOneItem("$item_ironscrap"))
                                     {
                                         Jotunn.Logger.LogWarning("One IronOre was added to Smelter");
                                         smelterSmelter.QueueOre("IronScrap");
+                                        addedOre = true;
                                     }
                                     else if (hmAI.workSiteHMChest.LinkedRemoveOneItem("$item_copperore"))
                                     {
                                         Jotunn.Logger.LogWarning("One CopperOre was added to Smelter");
                                         smelterSmelter.QueueOre("CopperOre");
+                                        addedOre = true;
                                     }
                                     else if (hmAI.workSiteHMChest.LinkedRemoveOneItem("$item_tinore"))
                                     {
                                         Jotunn.Logger.LogWarning("One TinOre was added to Smelter");
                                         smelterSmelter.QueueOre("TinOre");
+                                        addedOre = true;
+                                    }
+
+                                    if (addedOre)
+                                    {
+                                        // hmAI.m_hmnpc.m_skills.ModifySkill(hmAI.curJob, 1f);
+                                        // if (UnityEngine.Random.Range(0, 100) > 90)
+                                        // {
+                                        //     hmAI.m_hmnpc.m_thoughts.AddThought(HMThoughts.tType.craftSkillUp, 100f, "Furnace Operating", Time.time + 3600f);
+                                        // }
+                                        hmAI.m_hmnpc.m_thoughts.AddThought(HMThoughts.tType.craftSkillUp, 100f, "Furnace Operating", Time.time + 3600f);
                                     }
                                 }
                                 else

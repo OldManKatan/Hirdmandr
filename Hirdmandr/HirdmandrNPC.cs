@@ -30,6 +30,7 @@ namespace Hirdmandr
         public HirdmandrGUI m_guiHirdmandr;
         public HirdmandrGUIRescue m_guirescuecomp;
         public ZNetView m_znet;
+        public Container m_container;
 
         public Humanoid m_user;
 
@@ -40,14 +41,15 @@ namespace Hirdmandr
         public long m_jarlZOID;
 
         // Mental State
-        public float m_mentalcontentment;
+        public float m_mood;
         public float m_mentalstress;
 
         // Personality
-        public HMPersonality m_personality = new HMPersonality();
+        public HMPersonality m_personality;
+        public HMThoughts m_thoughts;
 
         // Skills
-        public HMSkills m_skills = new HMSkills();
+        public HMSkills m_skills;
 
         // Visual
         public bool m_female;
@@ -64,6 +66,7 @@ namespace Hirdmandr
         public bool m_jobThegn = false;
         public bool m_thegnDayshift = true;
         public bool m_jobHimthiki = false;
+        public bool m_himthikiFollowing = false;
         public bool m_fightingStyleDefense = true;
         public bool m_fightingStyleOffense = false;
         public bool m_jobGatherer = false;
@@ -94,12 +97,21 @@ namespace Hirdmandr
             }
             m_humanoid.m_nview = m_znet;
             m_character.m_nview = m_znet;
-            m_skills.m_znetv = m_znet;
-            m_personality.m_znetv = m_znet;
+
+            ZDOLoadMental();
+            ZDOLoadGeneral();
+
+            m_container = gameObject.AddComponent<Container>();
+            m_container.m_width = 8;
+            m_container.m_height = 4;
+            m_container.m_name = "Hirdmandr NPC";
+            m_container.m_inventory = new Inventory(m_container.m_name, m_container.m_bkg, m_container.m_width, m_container.m_height);
+            m_container.Load();
 
             On.Character.GetHoverText += OnGetHoverText;
             On.Character.GetHoverName += OnGetHoverName;
             On.Character.RPC_Damage += OnChar_RPC_Damage;
+            // On.MonsterAI.SelectBestAttack += OnMAI_SelectBestAttack;
 
             SetupNPC();
 
@@ -147,6 +159,14 @@ namespace Hirdmandr
                 m_scale = true
             };
 
+            m_personality = new HMPersonality();
+            m_personality.m_znetv = m_znet;
+            m_personality.LoadValues();
+
+            m_thoughts = new HMThoughts(this, m_znet);
+
+            m_skills = new HMSkills(this, m_znet);
+
             if (m_znet.IsOwner())
             {
                 var npc_name = m_znet.GetZDO().GetString("hmnpc_name");
@@ -172,7 +192,7 @@ namespace Hirdmandr
                     for (var i = 0; i < floats_to_assign.Count; i++)
                     {
                         skill_str_index = UnityEngine.Random.Range(0, all_skill_str.Count);
-                        m_skills.ModifySkill(all_skill_str[skill_str_index], floats_to_assign[i]);
+                        m_skills.ModifySkill(all_skill_str[skill_str_index], floats_to_assign[i], leveled: false);
                         Jotunn.Logger.LogInfo(string.Format("RandomizeSkills assigned {0} to skill {1}", floats_to_assign[i], all_skill_str[skill_str_index]));
                         all_skill_str.RemoveAt(skill_str_index);
                     }
@@ -185,11 +205,6 @@ namespace Hirdmandr
                 {
                     ZDOtoAppearance();
                 }
-
-                m_personality.LoadValues();
-                m_skills.LoadSkills();
-                ZDOLoadMental();
-                ZDOLoadGeneral();
 
                 PopulateCombatProps();
                 InvokeRepeating("HealIfHurt", 5f, 5f);
@@ -207,12 +222,18 @@ namespace Hirdmandr
                 else
                 {
                     m_hirdmandrAI.enabled = true;
+                    m_hirdmandrAI.StartAI();
                 }
+                EquipBest();
             }
             else
             {
                 Invoke("LoadZDO", 1f);
             }
+
+            m_container.m_name = m_humanoid.m_name + "'s Inventory";
+
+            m_monsterai.SetPatrolPoint();
 
             m_znet.Register<string>("NPCTalkText", RPC_ReceiveTalkText);
         }
@@ -316,6 +337,7 @@ namespace Hirdmandr
                 else
                 {
                     m_hirdmandrAI.enabled = true;
+                    m_hirdmandrAI.StartAI();
                 }
             }
         }
@@ -622,12 +644,12 @@ namespace Hirdmandr
             int chestRand = UnityEngine.Random.Range(0, 4);
             if (chestRand == 1) { chest_string = "ArmorRagsChest"; }
             else if (chestRand > 2) { chest_string = "ArmorLeatherChest"; }
-
+            
             string legs_string = "";
             int legsRand = UnityEngine.Random.Range(0, 4);
             if (legsRand == 1) { legs_string = "ArmorRagsLegs"; }
             else if (legsRand > 2) { legs_string = "ArmorLeatherLegs"; }
-
+            
             string weapon_string = "";
             int wpnRand = UnityEngine.Random.Range(0, 5);
             bool GiveShield = true;
@@ -635,41 +657,34 @@ namespace Hirdmandr
             else if (wpnRand == 2) { weapon_string = "SpearFlint"; }
             else if (wpnRand == 3) { weapon_string = "KnifeFlint"; }
             else if (wpnRand == 4) { weapon_string = "AxeFlint"; }
-
+            
             string shield_string = "";
             if (GiveShield)
             {
                 shield_string = "ShieldWood";
             }
-
+            
             if (chest_string != "")
             {
-                m_humanoid.GiveDefaultItem(PrefabManager.Instance.GetPrefab(chest_string));
+                m_container.m_inventory.AddItem(UnityEngine.Object.Instantiate(ObjectDB.instance.GetItemPrefab(chest_string)).GetComponent<ItemDrop>().m_itemData);
             }
-            m_znet.GetZDO().Set("hmnpc_chest_string", chest_string);
 
             if (legs_string != "")
             {
-                m_humanoid.GiveDefaultItem(PrefabManager.Instance.GetPrefab(legs_string));
+                m_container.m_inventory.AddItem(UnityEngine.Object.Instantiate(ObjectDB.instance.GetItemPrefab(legs_string)).GetComponent<ItemDrop>().m_itemData);
             }
-            m_znet.GetZDO().Set("hmnpc_legs_string", legs_string);
 
             if (weapon_string != "")
             {
-                m_humanoid.GiveDefaultItem(PrefabManager.Instance.GetPrefab(weapon_string));
+                m_container.m_inventory.AddItem(UnityEngine.Object.Instantiate(ObjectDB.instance.GetItemPrefab(weapon_string)).GetComponent<ItemDrop>().m_itemData);
             }
-            m_znet.GetZDO().Set("hmnpc_weapon_string", weapon_string);
 
             if (shield_string != "")
             {
-                m_humanoid.GiveDefaultItem(PrefabManager.Instance.GetPrefab(shield_string));
+                m_container.m_inventory.AddItem(UnityEngine.Object.Instantiate(ObjectDB.instance.GetItemPrefab(shield_string)).GetComponent<ItemDrop>().m_itemData);
             }
-            m_znet.GetZDO().Set("hmnpc_shield_string", shield_string);
+            m_container.Save();
 
-
-            m_monsterai.SelectBestAttack(m_humanoid, 3.0f);
-            // m_humanoid.SetupEquipment();
-            // m_humanoid.SetupVisEquipment(m_visequip, false);
             m_znet.GetZDO().Set("hmnpc_isrescued", false);
         }
 
@@ -691,44 +706,19 @@ namespace Hirdmandr
             string ThisHair = m_znet.GetZDO().GetString("hmnpc_hair");
             m_humanoid.SetHair(ThisHair);
             m_visequip.SetHairItem(ThisHair);
-
-            string chest_string = m_znet.GetZDO().GetString("hmnpc_chest_string");
-            if (chest_string != "")
-            {
-                m_humanoid.GiveDefaultItem(PrefabManager.Instance.GetPrefab(chest_string));
-            }
-
-            string legs_string = m_znet.GetZDO().GetString("hmnpc_legs_string");
-            if (legs_string != "")
-            {
-                m_humanoid.GiveDefaultItem(PrefabManager.Instance.GetPrefab(legs_string));
-            }
-
-            string weapon_string = m_znet.GetZDO().GetString("hmnpc_weapon_string");
-            if (weapon_string != "")
-            {
-                m_humanoid.GiveDefaultItem(PrefabManager.Instance.GetPrefab(weapon_string));
-            }
-
-            string shield_string = m_znet.GetZDO().GetString("hmnpc_shield_string");
-            if (shield_string != "")
-            {
-                m_humanoid.GiveDefaultItem(PrefabManager.Instance.GetPrefab(shield_string));
-            }
-
         }
 
         public void ZDOLoadMental()
         {
             // ZDOs
-            m_mentalcontentment = m_znet.GetZDO().GetFloat("hmnpc_mentalcontentment", 0f);
+            m_mood = m_znet.GetZDO().GetFloat("hmnpc_mentalcontentment", 0f);
             m_mentalstress = m_znet.GetZDO().GetFloat("hmnpc_mentalstress", 0f);
         }
 
         public void ZDOSaveMental()
         {
             // ZDOs
-            m_znet.GetZDO().Set("hmnpc_mentalcontentment", m_mentalcontentment);
+            m_znet.GetZDO().Set("hmnpc_mentalcontentment", m_mood);
             m_znet.GetZDO().Set("hmnpc_mentalstress", m_mentalstress);
         }
 
@@ -905,7 +895,7 @@ namespace Hirdmandr
                 CancelInvoke("RescueTutorialCheck");
             }
             m_isRescued = true;
-            m_znet.GetZDO().Set("hmnpc_isrescued", true);
+            ZDOSaveGeneral();
             CancelInvoke("RandomTalkRescue");
             m_character.m_faction = Character.Faction.Players;
 
@@ -919,6 +909,7 @@ namespace Hirdmandr
             // m_monsterai.SetFollowTarget(null);
             // m_monsterai.m_spawnPoint = GetComponent<Transform>().position;
             m_guirescuecomp.TogglePanel();
+            ZDOSaveGeneral();
         }
 
         public void WelcomeHome()
@@ -935,6 +926,7 @@ namespace Hirdmandr
                 Jotunn.Logger.LogInfo("WelcomeHome triggered an actual home, " + m_humanoid.m_name);
                 m_isHirdmandr = true;
                 m_hirdmandrAI.enabled = true;
+                m_hirdmandrAI.StartAI();
                 m_znet.GetZDO().Set("hmnpc_isHirdmandr", m_isHirdmandr);
                 m_welcomeEffect.Create(base.transform.position, base.transform.rotation);
                 m_monsterai.SetFollowTarget(null);
@@ -951,6 +943,7 @@ namespace Hirdmandr
                 Jotunn.Logger.LogInfo("WelcomeHome triggered an error " + m_humanoid.m_name);
                 Player.m_localPlayer.Message(MessageHud.MessageType.Center, "Cannot welcome " + m_humanoid.m_name + "home.\nHirdmandr must be near a Workbench and a Fire.");
             }
+            ZDOSaveGeneral();
         }
 
         public bool CheckWelcomeRanges()
@@ -978,6 +971,26 @@ namespace Hirdmandr
             return false;
         }
 
+        public void HimthikiFollow()
+        {
+            if (m_jobHimthiki)
+            {
+                if (!m_himthikiFollowing)
+                {
+                    m_monsterai.ResetPatrolPoint();
+                    m_monsterai.SetFollowTarget(m_user.gameObject);
+                    m_guiHirdmandr.TogglePanel();
+                }
+                else
+                {
+                    m_monsterai.SetPatrolPoint();
+                    m_monsterai.SetFollowTarget(null);
+                    m_guiHirdmandr.TogglePanel();
+                }
+                m_himthikiFollowing = !m_himthikiFollowing;
+            }
+        }
+
         public void TestPowerUpGear()
         {
             m_humanoid.GiveDefaultItem(PrefabManager.Instance.GetPrefab("SwordBlackmetal"));
@@ -992,6 +1005,290 @@ namespace Hirdmandr
         {
             ownedBedZDOID = bedZDOID;
             m_znet.GetZDO().Set("hmnpc_ownedbed", bedZDOID);
+        }
+
+        public void OpenInventory(bool shouldOpen)
+        {
+            if (shouldOpen)
+            {
+                InventoryGui.instance.Show(m_container);
+            }
+            else
+            {
+                InventoryGui.instance.Hide();
+            }
+            m_container.Save();
+        }
+
+        public void EquipBest()
+        {
+            m_humanoid.m_inventory.RemoveAll();
+
+            ItemDrop.ItemData bestHelmet = null;
+            ItemDrop.ItemData bestChest = null;
+            ItemDrop.ItemData bestLegs = null;
+            ItemDrop.ItemData bestCape = null;
+            ItemDrop.ItemData bestShield = null;
+            ItemDrop.ItemData bestWeapon = null;
+            ItemDrop.ItemData bestArrows = null;
+
+            foreach (ItemDrop.ItemData item in m_container.m_inventory.GetAllItems())
+            {
+                if (item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Helmet)
+                {
+                    if (bestHelmet == null)
+                    {
+                        bestHelmet = item;
+                    }
+                    else
+                    {
+                        if (bestHelmet.m_shared.m_armor < item.m_shared.m_armor)
+                        {
+                            bestHelmet = item;
+                        }
+                    }
+                }
+                else if (item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Chest)
+                {
+                    if (bestChest == null)
+                    {
+                        bestChest = item;
+                    }
+                    else
+                    {
+                        if (bestChest.m_shared.m_armor < item.m_shared.m_armor)
+                        {
+                            bestChest = item;
+                        }
+                    }
+                }
+                else if (item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Legs)
+                {
+                    if (bestLegs == null)
+                    {
+                        bestLegs = item;
+                    }
+                    else
+                    {
+                        if (bestLegs.m_shared.m_armor < item.m_shared.m_armor)
+                        {
+                            bestLegs = item;
+                        }
+                    }
+                }
+                else if (item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Shoulder)
+                {
+                    if (bestCape == null)
+                    {
+                        bestCape = item;
+                    }
+                    else
+                    {
+                        if (bestCape.m_shared.m_armor < item.m_shared.m_armor)
+                        {
+                            bestCape = item;
+                        }
+                    }
+                }
+                else if (item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Shield)
+                {
+                    if (bestShield == null)
+                    {
+                        bestShield = item;
+                    }
+                    else
+                    {
+                        if (bestShield.m_shared.m_armor < item.m_shared.m_armor)
+                        {
+                            bestShield = item;
+                        }
+                    }
+                }
+                else if (item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.OneHandedWeapon 
+                    || item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.TwoHandedWeapon
+                    || item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Bow)
+                {
+                    if (bestWeapon == null)
+                    {
+                        bestWeapon = item;
+                    }
+                    else
+                    {
+                        if (bestWeapon.m_shared.m_damages.GetTotalDamage() < item.m_shared.m_damages.GetTotalDamage())
+                        {
+                            bestWeapon = item;
+                        }
+                    }
+                }
+                else if (item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Ammo)
+                {
+                    if (bestArrows == null)
+                    {
+                        bestArrows = item;
+                    }
+                    else
+                    {
+                        if (bestArrows.m_shared.m_damages.GetTotalDamage() < item.m_shared.m_damages.GetTotalDamage())
+                        {
+                            bestArrows = item;
+                        }
+                    }
+                }
+            }
+
+            m_humanoid.UnequipAllItems();
+            if (bestHelmet != null)
+            {
+                m_humanoid.m_inventory.AddItem(bestHelmet);
+                m_humanoid.EquipItem(bestHelmet);
+            }
+            if (bestChest != null)
+            {
+                m_humanoid.m_inventory.AddItem(bestChest);
+                m_humanoid.EquipItem(bestChest);
+            }
+            if (bestLegs != null)
+            {
+                m_humanoid.m_inventory.AddItem(bestLegs);
+                m_humanoid.EquipItem(bestLegs);
+            }
+            if (bestCape != null)
+            {
+                m_humanoid.m_inventory.AddItem(bestCape);
+                m_humanoid.EquipItem(bestCape);
+            }
+
+            bool equipShield = true;
+            if (bestWeapon != null)
+            {
+                // if (bestWeapon.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Bow)
+                // {
+                //     // Jotunn.Logger.LogWarning("Trying to instantiate an npc_crude_bow");
+                //     // var npcBow = UnityEngine.Object.Instantiate<GameObject>(PrefabManager.Instance.GetPrefab("npc_crude_bow"));
+                //     // Jotunn.Logger.LogWarning("Is this a thing? npcBow = " + npcBow.ToString());
+                //     // var npcBowItemData = npcBow.GetComponent<ItemDrop>().m_itemData;
+                //     // Jotunn.Logger.LogWarning("  What about the ItemData? npcBowItemData = " + npcBowItemData.ToString());
+                //     // m_humanoid.m_inventory.AddItem(npcBowItemData);
+                //     // m_humanoid.EquipItem(npcBowItemData);
+                // 
+                //     Jotunn.Logger.LogWarning("Trying to instantiate an npc_crude_bow");
+                //     var npcBow = UnityEngine.Object.Instantiate<GameObject>(ObjectDB.instance.GetItemPrefab("draugr_bow"));
+                //     Jotunn.Logger.LogWarning("Is this a thing? npcBow = " + npcBow.ToString());
+                //     var npcBowItemData = npcBow.GetComponent<ItemDrop>().m_itemData;
+                //     Jotunn.Logger.LogWarning("  What about the ItemData? npcBowItemData = " + npcBowItemData.ToString());
+                // 
+                //     m_monsterai.m_circulateWhileCharging = false;
+                //     m_monsterai.m_circleTargetInterval = 0f;
+                //     m_monsterai.m_maxChaseDistance = 0f;
+                // 
+                //     var shared = npcBowItemData.m_shared;
+                //     shared.m_aiAttackRange = 15f;
+                //     shared.m_aiAttackRangeMin = 0f;
+                //     shared.m_aiAttackMaxAngle = 5f;
+                //     shared.m_attack.m_speedFactor = 0f;
+                //     shared.m_attack.m_projectileVelMin = 50;
+                //     shared.m_attack.m_attackAngle = 0;
+                // 
+                //     m_humanoid.m_inventory.AddItem(npcBowItemData);
+                //     var npcArrows = UnityEngine.Object.Instantiate<GameObject>(ObjectDB.instance.GetItemPrefab("draugr_arrow")).GetComponent<ItemDrop>().m_itemData;
+                //     npcArrows.m_stack = npcArrows.m_shared.m_maxStackSize;
+                //     m_humanoid.m_inventory.AddItem(npcArrows);
+                //     m_humanoid.EquipItem(npcBowItemData);
+                //     m_humanoid.EquipItem(npcArrows);
+                // }
+                // else
+                // {
+                //     m_humanoid.m_inventory.AddItem(bestWeapon);
+                //     m_humanoid.EquipItem(bestWeapon);
+                // }
+
+                if (bestWeapon.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Bow)
+                {
+                    m_monsterai.m_circulateWhileCharging = false;
+                    m_monsterai.m_circleTargetInterval = 0f;
+                    m_monsterai.m_maxChaseDistance = 0f;
+                
+                    var shared = bestWeapon.m_shared;
+                    shared.m_aiAttackRange = 15f;
+                    shared.m_aiAttackRangeMin = 0f;
+                    shared.m_aiAttackMaxAngle = 5f;
+                    shared.m_attack.m_speedFactor = 0f;
+                    shared.m_attack.m_projectileVel = 30;
+                    shared.m_attack.m_projectileVelMin = 2;
+                    shared.m_attack.m_projectileAccuracy = 2f;
+                    shared.m_attack.m_projectileAccuracyMin = 10f;
+                    shared.m_attack.m_speedFactorRotation = 0.2f;
+                    shared.m_attack.m_attackAngle = 0;
+                    shared.m_holdDurationMin = 3.0f;
+                    shared.m_holdStaminaDrain = 0f;
+                    shared.m_holdAnimationState = "bow_aim";
+                    shared.m_attack.m_useCharacterFacing = false;
+                    shared.m_attack.m_useCharacterFacingYAim = true;
+                }
+
+                m_humanoid.m_inventory.AddItem(bestWeapon);
+                m_humanoid.EquipItem(bestWeapon);
+
+                if (bestWeapon.m_shared.m_itemType == ItemDrop.ItemData.ItemType.TwoHandedWeapon
+                    || bestWeapon.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Bow)
+                {
+                    equipShield = false;
+                }
+            }
+
+            if (equipShield)
+            {
+                if (bestShield != null)
+                {
+                    m_humanoid.m_inventory.AddItem(bestShield);
+                    m_humanoid.EquipItem(bestShield);
+                }
+            }
+
+            if (bestArrows != null)
+            {
+                m_humanoid.m_inventory.AddItem(bestArrows);
+                m_humanoid.EquipItem(bestArrows);
+            }
+
+            m_humanoid.SetupEquipment();
+        }
+
+        private ItemDrop.ItemData OnMAI_SelectBestAttack(On.MonsterAI.orig_SelectBestAttack orig, MonsterAI self, Humanoid hum, float dt)
+        {
+            if (self.TryGetComponent<HirdmandrNPC>(out HirdmandrNPC hmnpc))
+            {
+                return hmnpc.HM_SelectBestAttack();            }
+            else
+            {
+                return orig(self, hum, dt);
+            }
+        }
+
+        public ItemDrop.ItemData HM_SelectBestAttack()
+        {
+            ItemDrop.ItemData bestWeapon = null;
+
+            foreach (ItemDrop.ItemData item in m_container.m_inventory.GetAllItems())
+            {
+                if (item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.OneHandedWeapon
+                    || item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.TwoHandedWeapon
+                    || item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Bow)
+                {
+                    if (bestWeapon == null)
+                    {
+                        bestWeapon = item;
+                    }
+                    else
+                    {
+                        if (bestWeapon.m_shared.m_damages.GetTotalDamage() < item.m_shared.m_damages.GetTotalDamage())
+                        {
+                            bestWeapon = item;
+                        }
+                    }
+                }
+            }
+            return bestWeapon;
         }
     }
 }

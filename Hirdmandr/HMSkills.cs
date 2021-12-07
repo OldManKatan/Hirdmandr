@@ -45,6 +45,16 @@ namespace Hirdmandr
 
         public SkillData[] m_hmSkills = new SkillData[m_hmSkillNames.Length];
         public ZNetView m_znetv;
+        public HirdmandrNPC m_hmnpc;
+
+
+        public HMSkills(HirdmandrNPC npc, ZNetView znet)
+        {
+            m_hmnpc = npc;
+            m_znetv = znet;
+
+            LoadSkills();
+        }
 
         public void LoadSkills()
         {
@@ -81,22 +91,34 @@ namespace Hirdmandr
             return 0f;
         }
 
-        public void ModifySkill(string skill_name, float change, bool notLeveled=false)
+        public void ModifySkill(string skill_name, float change, bool leveled=true)
         {
             skill_name = skill_name.Replace("skill", "");
             var skill_index = Array.IndexOf(m_hmSkillNames, skill_name);
             if (skill_index > -1)
             {
                 var old_value = m_hmSkills[skill_index].m_value;
+                Jotunn.Logger.LogWarning("  MODIFY SKILL old_value = " + old_value);
+                Jotunn.Logger.LogWarning("  MODIFY SKILL change = " + change);
                 var new_value = 0f;
-                if (notLeveled)
+                Jotunn.Logger.LogWarning("  MODIFY SKILL new_value = " + new_value);
+                if (!leveled)
                 {
                     new_value = old_value + change;
                 }
                 else
                 {
-                    new_value = old_value + (change / (int)old_value);
+                    if (Math.Floor(old_value) > 0)
+                    {
+                        new_value = old_value + (float)(change / Math.Floor(old_value));
+                    }
+                    else
+                    {
+                        new_value = old_value + change;
+                    }
                 }
+                Jotunn.Logger.LogWarning("  MODIFY SKILL Pre-clamped new_value = " + new_value);
+
                 if (new_value < 0)
                 {
                     new_value = 0;
@@ -105,9 +127,15 @@ namespace Hirdmandr
                 {
                     new_value = 100;
                 }
-                if (Math.Floor(new_value) > Math.Floor(old_value))
+                Jotunn.Logger.LogWarning("  MODIFY SKILL Post-clamped new_value = " + new_value);
+
+                if (leveled)
                 {
-                    Jotunn.Logger.LogWarning("SKILLUP OCCURRED for " + m_znetv.GetComponent<Humanoid>().m_name + " from " + old_value + " to " + new_value);
+                    if (Math.Floor(new_value) > Math.Floor(old_value))
+                    {
+                        Jotunn.Logger.LogWarning("SKILLUP OCCURRED for " + m_znetv.GetComponent<Humanoid>().m_name + " from " + old_value + " to " + new_value);
+                        m_hmnpc.m_thoughts.AddThought(HMThoughts.tType.skillUp, (float)(Math.Floor(new_value) * 100), m_hmSkillReadables[skill_index], UnityEngine.Time.time + 18000);
+                    }
                 }
                 m_hmSkills[skill_index].m_value = new_value;
                 m_znetv.GetZDO().Set("hmnpc_skill" + skill_name, m_hmSkills[skill_index].m_value);

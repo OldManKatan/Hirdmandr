@@ -36,6 +36,7 @@ namespace Hirdmandr
         GameObject g_war_t_thegn;
         GameObject g_war_ch_himthiki;
         GameObject g_war_t_himthiki;
+        GameObject g_war_b_himthikiFollow;
         GameObject g_war_ch_gatherer;
         GameObject g_war_t_gatherer;
         GameObject g_war_t_styleHeader;
@@ -140,9 +141,9 @@ namespace Hirdmandr
                 // Create the panel object
                 GUIHirdmandr = GUIManager.Instance.CreateWoodpanel(
                     parent: GUIManager.CustomGUIFront.transform,
-                    anchorMin: new Vector2(0.5f, 0.5f),
-                    anchorMax: new Vector2(0.5f, 0.5f),
-                    position: new Vector2(0, 0),
+                    anchorMin: new Vector2(1f, 0.5f),
+                    anchorMax: new Vector2(1f, 0.5f),
+                    position: new Vector2(-550, 0),
                     width: 1000,
                     height: 500,
                     draggable: true);
@@ -579,6 +580,21 @@ namespace Hirdmandr
                     height: 40f,
                     addContentSizeFitter: false);
 
+                // Create the button object
+                g_war_b_himthikiFollow = GUIManager.Instance.CreateButton(
+                    text: "Follow",
+                    parent: GUIHirdmandr.transform,
+                    anchorMin: new Vector2(0.9f, 1f),
+                    anchorMax: new Vector2(0.9f, 1f),
+                    position: new Vector2(0f, -150f),
+                    width: 100f,
+                    height: 40f);
+                g_war_b_himthikiFollow.SetActive(true);
+
+                // Add a listener to the button to close the panel again
+                Button g_war_b_himthikiFollowComp = g_war_b_himthikiFollow.GetComponent<Button>();
+                g_war_b_himthikiFollowComp.onClick.AddListener(m_hirdmandrnpc.HimthikiFollow);
+                
                 g_war_ch_gatherer = GUIManager.Instance.CreateToggle(
                     parent: GUIHirdmandr.transform,
                     width: 30f,
@@ -871,6 +887,24 @@ namespace Hirdmandr
 
             if (state)
             {
+                string thoughtSnapshot = "";
+                int startTht = m_hirdmandrnpc.m_thoughts.m_thoughts.Count - 5;
+                if (startTht < 0)
+                {
+                    startTht = 0;
+                }
+                for (var i = startTht; i < m_hirdmandrnpc.m_thoughts.m_thoughts.Count; i++)
+                {
+                    string thtStr = "";
+                    HMThoughts.Thought atht = m_hirdmandrnpc.m_thoughts.m_thoughts[i];
+                    string thisStr = m_hirdmandrnpc.m_thoughts.m_thoughtStrings[atht.m_type]["thoughtStrings"][
+                        UnityEngine.Random.Range(0, m_hirdmandrnpc.m_thoughts.m_thoughtStrings[atht.m_type]["thoughtStrings"].Count)
+                        ];
+                    thtStr = thtStr.Replace("%feltAbout%", m_hirdmandrnpc.m_thoughts.StrengthToFeelStr(atht.m_calcStrength));
+                    thtStr = thtStr.Replace("%subject%", atht.m_subject);
+                    thoughtSnapshot = thoughtSnapshot + thtStr;
+                }
+                g_mood.GetComponent<Text>().text = m_hirdmandrnpc.m_mood.ToString() + "\n" + thoughtSnapshot;
                 g_talk.GetComponent<Text>().text = m_hirdmandrnpc.GetRescueText();
             }
             else
@@ -880,6 +914,8 @@ namespace Hirdmandr
 
             // Set the active state of the panel
             GUIHirdmandr.SetActive(state);
+            m_hirdmandrnpc.OpenInventory(state);
+            m_hirdmandrnpc.EquipBest();
 
             // Toggle input for the player and camera while displaying the GUI
             GUIManager.BlockInput(state);

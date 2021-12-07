@@ -48,6 +48,8 @@ namespace Hirdmandr
             PrefabManager.OnVanillaPrefabsAvailable += CreateNPCChests;
             PrefabManager.OnVanillaPrefabsAvailable += CreateNPCFires;
             PrefabManager.OnVanillaPrefabsAvailable += CreateNPCBeds;
+            PrefabManager.OnVanillaPrefabsAvailable += CreateNPCBows;
+            PrefabManager.OnVanillaPrefabsAvailable += DebugMons;
 
             // On.Container.Awake += OnContainerAwake;
             On.Tutorial.Awake += OnTutorialAwake;
@@ -235,6 +237,72 @@ namespace Hirdmandr
 
                 PieceManager.Instance.AddPiece(NPCChestPiece);
             }
+
+            // // Create NPC Reinforced Chest
+            // if (!PrefabManager.Instance.GetPrefab("piece_npc_chest_reinforced"))
+            // {
+            //     var NPCChestPrefab = PrefabManager.Instance.CreateClonedPrefab("piece_npc_chest_reinforced", "piece_chest");
+            //     NPCChestPrefab.AddComponent<HirdmandrChest>();
+            // 
+            //     var NPCChestContainer = NPCChestPrefab.GetComponent<Container>();
+            //     NPCChestContainer.m_name = "NPC Chest";
+            // 
+            //     var NPCChestPiece = new CustomPiece(NPCChestPrefab, fixReference: true,
+            //         new PieceConfig
+            //         {
+            //             Name = "NPC Reinforced Chest",
+            //             Description = "Testing Descriptions",
+            //             PieceTable = "_HammerPieceTable",
+            //             Category = "Hirdmandr",
+            //             AllowedInDungeons = false,
+            //             Icon = GUIManager.Instance.GetSprite("chest_iron"),
+            //             Requirements = new[]
+            //             {
+            //                      new RequirementConfig { Item = "FineWood", Amount = 10, Recover = true },
+            //                      new RequirementConfig { Item = "Iron", Amount = 2, Recover = true }
+            //             }
+            //         });
+            // 
+            //     NPCChestPiece.Piece.m_canBeRemoved = true;
+            //     NPCChestPiece.Piece.m_enabled = true;
+            //     NPCChestPiece.Piece.m_randomTarget = true;
+            // 
+            //     PieceManager.Instance.AddPiece(NPCChestPiece);
+            // }
+
+            // Create NPC Blackmetal Chest
+            if (!PrefabManager.Instance.GetPrefab("piece_npc_chest_blackmetal"))
+            {
+                var NPCChestPrefab = PrefabManager.Instance.CreateClonedPrefab("piece_npc_chest_blackmetal", "piece_chest_blackmetal");
+                NPCChestPrefab.AddComponent<HirdmandrChest>();
+
+                var NPCChestContainer = NPCChestPrefab.GetComponent<Container>();
+                NPCChestContainer.m_name = "NPC Chest";
+
+                var NPCChestPiece = new CustomPiece(NPCChestPrefab, fixReference: true,
+                    new PieceConfig
+                    {
+                        Name = "NPC Blackmetal Chest",
+                        Description = "Testing Descriptions",
+                        PieceTable = "_HammerPieceTable",
+                        Category = "Hirdmandr",
+                        AllowedInDungeons = false,
+                        Icon = GUIManager.Instance.GetSprite("chest_blackmetal"),
+                        Requirements = new[]
+                        {
+                                 new RequirementConfig { Item = "Wood", Amount = 10, Recover = true },
+                                 new RequirementConfig { Item = "Tar", Amount = 2, Recover = true },
+                                 new RequirementConfig { Item = "BlackMetal", Amount = 6, Recover = true }
+                        }
+                    });
+
+                NPCChestPiece.Piece.m_canBeRemoved = true;
+                NPCChestPiece.Piece.m_enabled = true;
+                NPCChestPiece.Piece.m_randomTarget = true;
+
+                PieceManager.Instance.AddPiece(NPCChestPiece);
+            }
+
             Jotunn.Logger.LogInfo("CreateNPCChests completed successfully");
         }
 
@@ -300,6 +368,40 @@ namespace Hirdmandr
 
                 PieceManager.Instance.AddPiece(NPCHearthPiece);
             }
+
+            // Add NPC Bonfire
+            if (!PrefabManager.Instance.GetPrefab("piece_npc_bonfire"))
+            {
+
+                var NPCHearthPrefab = PrefabManager.Instance.CreateClonedPrefab("piece_npc_bonfire", "bonfire");
+                var NPCHearthContainer = NPCHearthPrefab.GetComponent<Fireplace>();
+                NPCHearthContainer.m_name = "NPC Bonfire";
+
+                var NPCHearthPiece = new CustomPiece(NPCHearthPrefab, fixReference: false,
+                    new PieceConfig
+                    {
+                        Name = "NPC Bonfire",
+                        Description = "Testing Descriptions",
+                        PieceTable = "_HammerPieceTable",
+                        Category = "Hirdmandr",
+                        AllowedInDungeons = false,
+                        Icon = GUIManager.Instance.GetSprite("bonfire"),
+                        Requirements = new[]
+                        {
+                                 new RequirementConfig { Item = "SurtlingCore", Amount = 1, Recover = true },
+                                 new RequirementConfig { Item = "ElderBark", Amount = 5, Recover = true },
+                                 new RequirementConfig { Item = "RoundLog", Amount = 5, Recover = true },
+                                 new RequirementConfig { Item = "FineWood", Amount = 5, Recover = true },
+                        }
+                    });
+
+                NPCHearthPiece.Piece.m_canBeRemoved = true;
+                NPCHearthPiece.Piece.m_enabled = true;
+                NPCHearthPiece.Piece.m_randomTarget = true;
+
+                PieceManager.Instance.AddPiece(NPCHearthPiece);
+            }
+
             Jotunn.Logger.LogInfo("CreateNPCFires completed successfully");
         }
 
@@ -323,7 +425,7 @@ namespace Hirdmandr
                         Icon = GUIManager.Instance.GetSprite("bed"),
                         Requirements = new[]
                         {
-                            new RequirementConfig { Item = "Wood", Amount = 8, Recover = false }
+                            new RequirementConfig { Item = "Wood", Amount = 8, Recover = true }
                         }
                     });
 
@@ -352,11 +454,11 @@ namespace Hirdmandr
                         Icon = GUIManager.Instance.GetSprite("bed02"),
                         Requirements = new[]
                         {
-                                 new RequirementConfig { Item = "FineWood", Amount = 40, Recover = false },
-                                 new RequirementConfig { Item = "DeerHide", Amount = 7, Recover = false },
-                                 new RequirementConfig { Item = "WolfPelt", Amount = 4, Recover = false },
-                                 new RequirementConfig { Item = "Feathers", Amount = 10, Recover = false },
-                                 new RequirementConfig { Item = "IronNails", Amount = 15, Recover = false }
+                                 new RequirementConfig { Item = "FineWood", Amount = 40, Recover = true },
+                                 new RequirementConfig { Item = "DeerHide", Amount = 7, Recover = true },
+                                 new RequirementConfig { Item = "WolfPelt", Amount = 4, Recover = true },
+                                 new RequirementConfig { Item = "Feathers", Amount = 10, Recover = true },
+                                 new RequirementConfig { Item = "IronNails", Amount = 15, Recover = true }
                         }
                     });
 
@@ -368,6 +470,24 @@ namespace Hirdmandr
             }
 
             Jotunn.Logger.LogInfo("CreateNPCBeds completed successfully");
+        }
+
+        private void CreateNPCBows()
+        {
+            if (!PrefabManager.Instance.GetPrefab("npc_crude_bow"))
+            {
+                CustomItem crudeBowPrefab = new CustomItem("npc_crude_bow", "Bow");
+
+                // Replace vanilla properties of the custom item
+                var crudeBowItemDrop = crudeBowPrefab.ItemDrop;
+
+                var skeletonBow = PrefabManager.Instance.GetPrefab("skeleton_bow");
+                crudeBowItemDrop = skeletonBow.GetComponent<ItemDrop>();
+
+                ItemManager.Instance.AddItem(crudeBowPrefab);
+            }
+
+            Jotunn.Logger.LogInfo("CreateNPCBows completed successfully");
         }
 
         private void CreateNPCPlayer()
@@ -413,7 +533,7 @@ namespace Hirdmandr
                     NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/Spine/Spine1/Spine2/ClothCollider (4)").GetComponent<CapsuleCollider>()
                 };
                 visEquipComp.m_models = playerPrefab.GetComponent<VisEquipment>().m_models;
-                visEquipComp.m_isPlayer = true;
+                visEquipComp.m_isPlayer = false;
                 CapsuleCollider capCollider = NPCPlayerPrefab.GetComponent<CapsuleCollider>();
                 capCollider.center = (playerPrefab.GetComponent<CapsuleCollider>().center);
                 capCollider.radius = (playerPrefab.GetComponent<CapsuleCollider>().radius);
@@ -482,6 +602,26 @@ namespace Hirdmandr
                 Jotunn.Logger.LogInfo("CreateNPCPlayer Prefab Added");
             }
             Jotunn.Logger.LogInfo("CreateNPCPlayer completed successfully");
+        }
+
+        public void DebugMons()
+        {
+            var DebugMonPrefab1 = PrefabManager.Instance.CreateClonedPrefab("debugSkeleton", "Skeleton");
+            DebugMonPrefab1.AddComponent<DebugMAI>();
+            PrefabManager.Instance.AddPrefab(DebugMonPrefab1);
+
+            var DebugMonPrefab2 = PrefabManager.Instance.CreateClonedPrefab("debugDraugr", "Draugr_Ranged");
+            DebugMonPrefab2.AddComponent<DebugMAI>();
+            PrefabManager.Instance.AddPrefab(DebugMonPrefab2);
+
+            var DebugMonPrefab3 = PrefabManager.Instance.CreateClonedPrefab("debugGoblinArcher", "GoblinArcher");
+            DebugMonPrefab3.AddComponent<DebugMAI>();
+            PrefabManager.Instance.AddPrefab(DebugMonPrefab3);
+
+            var DebugMonPrefab4 = PrefabManager.Instance.CreateClonedPrefab("debugGoblin", "Goblin");
+            DebugMonPrefab4.AddComponent<DebugMAI>();
+            PrefabManager.Instance.AddPrefab(DebugMonPrefab4);
+
         }
     }
 }

@@ -87,12 +87,14 @@
     <Compile Include="HirdmandrAI.cs" />
     <Compile Include="HirdmandrBed.cs" />
     <Compile Include="HirdmandrChest.cs" />
+    <Compile Include="HirdmandrDebugMAI.cs" />
     <Compile Include="HirdmandrGUI.cs" />
     <Compile Include="HirdmandrGUIRescue.cs" />
     <Compile Include="HirdmandrNPC.cs" />
     <Compile Include="Hirdmandr.cs" />
     <Compile Include="HMPersonality.cs" />
     <Compile Include="HMSkills.cs" />
+    <Compile Include="HMThoughts.cs" />
     <Compile Include="OldManSM.cs" />
     <Compile Include="Properties\IgnoreAccessModifiers.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

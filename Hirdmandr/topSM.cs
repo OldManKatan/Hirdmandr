@@ -46,6 +46,7 @@ namespace Hirdmandr
             AddState("patrol", new NodePatrol(this));
             AddState("depressed", new NodeDepressed(this));
             AddState("threatened", new NodeThreatened(this));
+            AddState("himthikiFollow", new NodehimthikiFollow(this));
         }
 
         // Create Nodes
@@ -201,6 +202,18 @@ namespace Hirdmandr
                     restStateMachine.ChangeState("findBed");
                 }
             }
+
+            public override void ExitTo(int aState)
+            {
+                if (aState == parentSM.StateInt("schedule"))
+                {
+                    if (hmAI.restBedHMBed)
+                    {
+                        hmNPC.m_thoughts.AddThought(HMThoughts.tType.restedComfort, hmAI.restBedHMBed.GetComfortAtBed() * 50, "", Time.time + 3600);
+                    }
+                }
+            }
+
             public override void RunState()
             {
                 restStateMachine.Evaluate();
@@ -375,6 +388,25 @@ namespace Hirdmandr
                 }
 
                 if (!hmAI.m_hmMonsterAI.IsAlerted())
+                {
+                    parentSM.ChangeState("schedule");
+                }
+            }
+        }
+
+        public class NodehimthikiFollow : SMNode
+        {
+            public NodehimthikiFollow(TopLevelSM psm) : base(psm)
+            {
+            }
+
+            public override void EnterFrom(int aState)
+            {
+                hmAI.moveToTrying = false;
+            }
+            public override void RunState()
+            {
+                if (!hmAI.m_hmnpc.m_himthikiFollowing)
                 {
                     parentSM.ChangeState("schedule");
                 }

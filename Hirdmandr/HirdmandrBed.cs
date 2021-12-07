@@ -131,13 +131,18 @@ namespace Hirdmandr
         {
             if (checkOwnership())
             {
-                if (ownerZDOID == ZDOID.None)
+                if (ownerZDOID != ZDOID.None)
                 {
-                    return false;
-                }
-                else
-                {
-                    return true;
+                    var ownerChar = ZNetScene.instance.FindInstance(ZDOMan.instance.GetZDO(ownerZDOID)).GetComponent<Character>();
+                    if (ownerChar.GetHealth() <= 0f || ownerChar.IsDead())
+                    {
+                        ownerZDOID = ZDOID.None;
+                        return false;
+                    }
+                    else
+                    {
+                        return true;
+                    }
                 }
             }
             return false;

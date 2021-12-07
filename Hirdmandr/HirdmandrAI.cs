@@ -96,9 +96,6 @@ namespace Hirdmandr
             hazardTypes.Add("piece_npc_hearth", 2f);
             hazardTypes.Add("piece_npc_bonfire", 2f);
             hazardTypes.Add("piece_sharpstakes", 1.5f);
-
-            Invoke("CheckDepression", UnityEngine.Random.Range(60f, 300f));
-            InvokeRepeating("EvaluateSM", UnityEngine.Random.Range(10f, 13f), 3f);
         }
 
         protected virtual void Update()
@@ -114,6 +111,10 @@ namespace Hirdmandr
                     topSM.ChangeState(topSM.StateInt("threatened"));
                 }
             }
+            if (m_hmnpc.m_himthikiFollowing)
+            {
+                topSM.ChangeState(topSM.StateInt("himthikiFollow"));
+            }
         }
 
         protected virtual void FixedUpdate()
@@ -126,6 +127,14 @@ namespace Hirdmandr
             }
         }
 
+        public void StartAI()
+        {
+            CancelInvoke("CheckDepression");
+            CancelInvoke("EvaluateSM");
+            Invoke("CheckDepression", UnityEngine.Random.Range(60f, 300f));
+            InvokeRepeating("EvaluateSM", UnityEngine.Random.Range(10f, 13f), 3f);
+        }
+        
         public void UpdateMoving(float timeDelta)
         {
             if (moveEnabled)
@@ -271,7 +280,7 @@ namespace Hirdmandr
 
     public void CheckDepression()
         {
-            if (m_hmnpc.m_mentalcontentment < -2500 || m_hmnpc.m_mentalcontentment < m_hmnpc.m_mentalstress)
+            if (m_hmnpc.m_mood < -2500 || m_hmnpc.m_mood < m_hmnpc.m_mentalstress)
             {
                 if (topSM.curState != topSM.StateInt("depressed") && topSM.curState != topSM.StateInt("selfCare"))
                 {

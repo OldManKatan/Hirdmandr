@@ -66,9 +66,9 @@ namespace Hirdmandr
                 // Create the panel object
                 GUIRescue = GUIManager.Instance.CreateWoodpanel(
                     parent: GUIManager.CustomGUIFront.transform,
-                    anchorMin: new Vector2(0f, 0.5f),
-                    anchorMax: new Vector2(0f, 0.5f),
-                    position: new Vector2(300, 0),
+                    anchorMin: new Vector2(1f, 0.5f),
+                    anchorMax: new Vector2(1f, 0.5f),
+                    position: new Vector2(-200, 0),
                     width: 350,
                     height: 500,
                     draggable: true);
@@ -168,6 +168,8 @@ namespace Hirdmandr
 
             // Set the active state of the panel
             GUIRescue.SetActive(state);
+            m_hirdmandrnpc.OpenInventory(state);
+            m_hirdmandrnpc.EquipBest();
 
             // Toggle input for the player and camera while displaying the GUI
             GUIManager.BlockInput(state);
