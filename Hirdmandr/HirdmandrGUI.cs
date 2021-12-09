@@ -900,22 +900,26 @@ namespace Hirdmandr
                     string thisStr = m_hirdmandrnpc.m_thoughts.m_thoughtStrings[atht.m_type]["thoughtStrings"][
                         UnityEngine.Random.Range(0, m_hirdmandrnpc.m_thoughts.m_thoughtStrings[atht.m_type]["thoughtStrings"].Count)
                         ];
+                    Jotunn.Logger.LogWarning("  Selected thought string = '" + thisStr + "'");
                     thtStr = thtStr.Replace("%feltAbout%", m_hirdmandrnpc.m_thoughts.StrengthToFeelStr(atht.m_calcStrength));
                     thtStr = thtStr.Replace("%subject%", atht.m_subject);
+                    Jotunn.Logger.LogWarning("  Thought string AFTER REPLACE = '" + thisStr + "'");
                     thoughtSnapshot = thoughtSnapshot + thtStr;
                 }
+                Jotunn.Logger.LogWarning("  Filled out thoughtSnapshot = '" + thoughtSnapshot + "'");
                 g_mood.GetComponent<Text>().text = m_hirdmandrnpc.m_mood.ToString() + "\n" + thoughtSnapshot;
                 g_talk.GetComponent<Text>().text = m_hirdmandrnpc.GetRescueText();
             }
             else
             {
                 m_hirdmandrnpc.ZDOSaveGeneral();
+                m_hirdmandrnpc.EquipBest();
+                m_hirdmandrnpc.PopulateCombatProps();
             }
 
             // Set the active state of the panel
             GUIHirdmandr.SetActive(state);
             m_hirdmandrnpc.OpenInventory(state);
-            m_hirdmandrnpc.EquipBest();
 
             // Toggle input for the player and camera while displaying the GUI
             GUIManager.BlockInput(state);
