@@ -59,6 +59,9 @@ namespace Hirdmandr
 
         // Combat
         public float m_healTick = 2f;
+        public float m_combatRangeNormal = 10f;
+        public float m_combatRangeTooFar = 20f;
+        public bool m_combatRangeReturning = false;
 
         // Jobs
         public bool m_roleArtisan = true;
@@ -238,9 +241,29 @@ namespace Hirdmandr
             m_znet.Register<string>("NPCTalkText", RPC_ReceiveTalkText);
         }
 
-        public void Update()
+        protected virtual void Update()
         {
 
+        }
+
+        protected virtual void FixedUpdate()
+        {
+            if (m_himthikiFollowing)
+            {
+                if (!m_combatRangeReturning && (Vector3.distance(m_monsterai.m_followTarget, transform.position) > m_combatRangeTooFar))
+                {
+                    m_combatRangeReturning = true;
+                    m_monsterai.m_viewRange = 0;
+                    m_monsterai.m_hearRange = 0;
+                    m_monsterai.m_maxChaseDistance = 0;
+                }
+                else if (m_combatRangeReturning && (Vector3.distance(m_monsterai.m_followTarget, transform.position) < m_combatRangeNormal))
+                {
+                    m_monsterai.m_viewRange = 15;
+                    m_monsterai.m_hearRange = 15;
+                    m_monsterai.m_maxChaseDistance = 10;
+                }
+            }
         }
 
         private void SetupNPC()
@@ -829,7 +852,44 @@ namespace Hirdmandr
             m_healTick = 2f + (m_skills.GetSkill("fighter") / 3);
             m_humanoid.SetMaxHealth(60f + m_skills.GetSkill("fighter"));
             // m_humanoid.m_currentAttack.m_damageMultiplier = 1f + (m_skillmelee / 50);
+            
+            if (m_fightingRangeClose)
+            {
+                m_combatRangeNormal = 5f;
+                m_combatRangeTooFar = 10f;
+
+            }
+            else if (m_fightingRangeMid)
+            {
+                m_combatRangeNormal = 10f;
+                m_combatRangeTooFar = 20f;
+            }
+            else if (m_fightingRangeFar)
+            {
+                m_combatRangeNormal = 20f;
+                m_combatRangeTooFar = 40f;
+            }
+            
+            if (m_fightingStyleDefense)  // Defensive Melee Style
+            {
+                m_monsterai.m_circulateWhileCharging = true;
+                m_monsterai.m_circleTargetInterval = 8f;
+                m_monsterai.m_maxChaseDistance = m_combatRangeNormal;
+            }
+            else if (m_fightingStyleOffense)  // Offensive Melee Style
+            {
+                m_monsterai.m_circulateWhileCharging = true;
+                m_monsterai.m_circleTargetInterval = 0f;
+                m_monsterai.m_maxChaseDistance = m_combatRangeNormal;
+            }
+            else  // Bow Ranged Style
+            {
+                m_monsterai.m_circulateWhileCharging = false;
+                m_monsterai.m_circleTargetInterval = 0f;
+                m_monsterai.m_maxChaseDistance = 0f;
+            }
         }
+
 
         public void HealIfHurt()
         {
@@ -1202,13 +1262,22 @@ namespace Hirdmandr
                 //     m_humanoid.EquipItem(bestWeapon);
                 // }
 
-                if (bestWeapon.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Bow)
+                m_humanoid.m_inventory.AddItem(bestWeapon);
+                m_humanoid.EquipItem(bestWeapon);
+                
+                ItemDrop.ItemData equipWpn = m_humanoid.GetEquippedWeapon();
+                var shared = equipWpn.m_shared;
+
+                if (equipWpn.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Bow)
                 {
+                    foreach (Damage.m_damage dmg in shared.m_damages)
+                    {
+                        dmg = dmg * (m_skills.GetSkill("range") / 100f);
+                    }
                     m_monsterai.m_circulateWhileCharging = false;
                     m_monsterai.m_circleTargetInterval = 0f;
                     m_monsterai.m_maxChaseDistance = 0f;
                 
-                    var shared = bestWeapon.m_shared;
                     shared.m_aiAttackRange = 15f;
                     shared.m_aiAttackRangeMin = 0f;
                     shared.m_aiAttackMaxAngle = 5f;
@@ -1225,9 +1294,13 @@ namespace Hirdmandr
                     shared.m_attack.m_useCharacterFacing = false;
                     shared.m_attack.m_useCharacterFacingYAim = true;
                 }
-
-                m_humanoid.m_inventory.AddItem(bestWeapon);
-                m_humanoid.EquipItem(bestWeapon);
+                else
+                {
+                    foreach (Damage.m_damage dmg in shared.m_damages)
+                    {
+                        dmg = dmg * (m_skills.GetSkill("melee") / 100f);
+                    }
+                }
 
                 if (bestWeapon.m_shared.m_itemType == ItemDrop.ItemData.ItemType.TwoHandedWeapon
                     || bestWeapon.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Bow)
