@@ -26,7 +26,7 @@ namespace Hirdmandr
         public HirdmandrNPC m_hmnpc;
         public MonsterAI m_hmMonsterAI;
         public BaseAI m_hmBaseAI;
-        public Humanoid m_hmHumanoid;
+        public NPCPlayerClone m_hmHumanoid;
         public ZNetView m_znetv;
         public ZNetScene m_znetscene;
         public long m_nextDepressionUpdate = 0;
@@ -85,7 +85,7 @@ namespace Hirdmandr
             m_hmnpc = GetComponent<HirdmandrNPC>();
             m_hmMonsterAI = GetComponent<MonsterAI>();
             m_hmBaseAI = GetComponent<BaseAI>();
-            m_hmHumanoid = GetComponent<Humanoid>();
+            m_hmHumanoid = GetComponent<NPCPlayerClone>();
             m_znetv = GetComponent<ZNetView>();
             topSM = new TopLevelSM(GetComponent<HirdmandrAI>());
 

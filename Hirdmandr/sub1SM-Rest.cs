@@ -125,7 +125,12 @@ namespace Hirdmandr
             override public void EnterFrom(int aState) { }
             override public void ExitTo(int aState) { }
 
-            override public void RunState() { }
+            override public void RunState() 
+            {
+                Humanoid human = hmAI.GetComponent<Humanoid>();
+                GameObject bedObject = ZNetScene.instance.FindInstance(hmAI.m_hmnpc.ownedBedZDOID).gameObject;
+                human.AttachStart(bedObject.GetComponent<Bed>().m_spawnPoint, bedObject, true, true, false, "attach_bed", new Vector3(0f, 0.5f, 0f));
+            }
         }
     }
 }

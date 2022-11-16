@@ -22,8 +22,9 @@ namespace Hirdmandr
     [Serializable]
     public class HirdmandrNPC : MonoBehaviour, Interactable
     {
-        public Humanoid m_humanoid;
-        public Character m_character;
+        public NPCPlayerClone m_npcPlayerClone;
+        public NPCPlayerClone m_humanoid;
+        public NPCPlayerClone m_character;
         public MonsterAI m_monsterai;
         public HirdmandrAI m_hirdmandrAI;
         public VisEquipment m_visequip;
@@ -59,9 +60,6 @@ namespace Hirdmandr
 
         // Combat
         public float m_healTick = 2f;
-        public float m_combatRangeNormal = 10f;
-        public float m_combatRangeTooFar = 20f;
-        public bool m_combatRangeReturning = false;
 
         // Jobs
         public bool m_roleArtisan = true;
@@ -84,8 +82,9 @@ namespace Hirdmandr
         {
             Jotunn.Logger.LogInfo("An NPC Awoke");
 
-            m_humanoid = GetComponent<Humanoid>();
-            m_character = GetComponent<Character>();
+            m_npcPlayerClone = GetComponent<NPCPlayerClone>();
+            m_humanoid = GetComponent<NPCPlayerClone>();
+            m_character = GetComponent<NPCPlayerClone>();
             m_monsterai = GetComponent<MonsterAI>();
             m_hirdmandrAI = GetComponent<HirdmandrAI>();
             m_visequip = GetComponent<VisEquipment>();
@@ -98,8 +97,15 @@ namespace Hirdmandr
                 gameObject.AddComponent<ZNetView>();
                 m_znet = GetComponent<ZNetView>();
             }
+
+            m_npcPlayerClone.Awake();
+
             m_humanoid.m_nview = m_znet;
             m_character.m_nview = m_znet;
+
+            m_character.m_name = "Human";
+            m_character.m_health = 60f;
+            m_character.m_faction = Character.Faction.Players;
 
             ZDOLoadMental();
             ZDOLoadGeneral();
@@ -111,9 +117,6 @@ namespace Hirdmandr
             m_container.m_inventory = new Inventory(m_container.m_name, m_container.m_bkg, m_container.m_width, m_container.m_height);
             m_container.Load();
 
-            On.Character.GetHoverText += OnGetHoverText;
-            On.Character.GetHoverName += OnGetHoverName;
-            On.Character.RPC_Damage += OnChar_RPC_Damage;
             // On.MonsterAI.SelectBestAttack += OnMAI_SelectBestAttack;
 
             SetupNPC();
@@ -214,7 +217,7 @@ namespace Hirdmandr
 
                 if (!m_isRescued)
                 {
-                    Sit();
+                    m_npcPlayerClone.StartEmote("Sit", false);
                     InvokeRepeating("RescueTutorialCheck", 10f, 1f);
                 }
 
@@ -241,29 +244,9 @@ namespace Hirdmandr
             m_znet.Register<string>("NPCTalkText", RPC_ReceiveTalkText);
         }
 
-        protected virtual void Update()
+        public void Update()
         {
 
-        }
-
-        protected virtual void FixedUpdate()
-        {
-            if (m_himthikiFollowing)
-            {
-                if (!m_combatRangeReturning && (Vector3.distance(m_monsterai.m_followTarget, transform.position) > m_combatRangeTooFar))
-                {
-                    m_combatRangeReturning = true;
-                    m_monsterai.m_viewRange = 0;
-                    m_monsterai.m_hearRange = 0;
-                    m_monsterai.m_maxChaseDistance = 0;
-                }
-                else if (m_combatRangeReturning && (Vector3.distance(m_monsterai.m_followTarget, transform.position) < m_combatRangeNormal))
-                {
-                    m_monsterai.m_viewRange = 15;
-                    m_monsterai.m_hearRange = 15;
-                    m_monsterai.m_maxChaseDistance = 10;
-                }
-            }
         }
 
         private void SetupNPC()
@@ -378,56 +361,33 @@ namespace Hirdmandr
             m_character.m_eye.LookAt(closestPlayer.GetHeadPoint());
         }
 
-        private static string OnGetHoverText(On.Character.orig_GetHoverText orig, Character self)
-        {
-            if (self.TryGetComponent<HirdmandrNPC>(out var HirdmandrComp))
-            {
-                return HirdmandrComp.GetHoverText();
-            }
-            return orig(self);
-        }
+        //public string GetHoverText()
+        //{
+        //    if (!m_isHirdmandr && !m_isRescued)
+        //    {
+        //        return m_humanoid.m_name + "\n[<color=yellow><b>E</b></color>] Rescue";
+        //    }
+        //    else if (!m_isHirdmandr && m_isRescued)
+        //    {
+        //        return m_humanoid.m_name + "\n[<color=yellow><b>E</b></color>] Talk";
+        //    }
+        //    else
+        //    {
+        //        return m_humanoid.m_name + "\n[<color=yellow><b>E</b></color>] Talk\n[<color=yellow><b>LShift+E</b></color>] Manage";
+        //    }
+        //}
 
-        public string GetHoverText()
-        {
-            if (!m_isHirdmandr && !m_isRescued)
-            {
-                return m_humanoid.m_name + "\n[<color=yellow><b>E</b></color>] Rescue";
-            }
-            else if (!m_isHirdmandr && m_isRescued)
-            {
-                return m_humanoid.m_name + "\n[<color=yellow><b>E</b></color>] Talk";
-            }
-            else
-            {
-                return m_humanoid.m_name + "\n[<color=yellow><b>E</b></color>] Talk\n[<color=yellow><b>LShift+E</b></color>] Manage";
-            }
-        }
+        //public string GetHoverName()
+        //{
+        //    return m_humanoid.m_name;
+        //}
 
-        private static string OnGetHoverName(On.Character.orig_GetHoverName orig, Character self)
+        public void Hirdmandr_RPC_Damage(Character character, long sender, HitData hit, HirdmandrNPC HirdmandrComp)
         {
-            if (self.TryGetComponent<HirdmandrNPC>(out var HirdmandrComp))
+            if (!HirdmandrComp.m_isRescued)
             {
-                return HirdmandrComp.GetHoverName();
+                return;
             }
-            return orig(self);
-        }
-
-        public string GetHoverName()
-        {
-            return m_humanoid.m_name;
-        }
-
-        private void OnChar_RPC_Damage(On.Character.orig_RPC_Damage orig, Character self, long __1sender, HitData __2hit)
-        {
-            if (self.TryGetComponent<HirdmandrNPC>(out var HirdmandrComp))
-            {
-                Hirdmandr_RPC_Damage(self, __1sender, __2hit, HirdmandrComp);
-            }
-            orig(self, __1sender, __2hit);
-        }
-
-        private void Hirdmandr_RPC_Damage(Character character, long sender, HitData hit, HirdmandrNPC HirdmandrComp)
-        {
             if (character.IsDebugFlying() || !character.GetComponent<ZNetView>().IsOwner() || character.GetHealth() <= 0f || character.IsDead() || character.IsTeleporting() || character.InCutscene() || (hit.m_dodgeable && character.IsDodgeInvincible()))
             {
                 return;
@@ -550,13 +510,13 @@ namespace Hirdmandr
             if (randSex == 1)
             {
                 m_female = true;
-                m_znet.GetZDO().Set("hmnpc_female", true);
             }
             else
             {
                 m_female = false;
-                m_znet.GetZDO().Set("hmnpc_female", false);
             }
+
+            m_znet.GetZDO().Set("hmnpc_female", m_female);
 
             if (!m_female)
             {
@@ -709,11 +669,24 @@ namespace Hirdmandr
             m_container.Save();
 
             m_znet.GetZDO().Set("hmnpc_isrescued", false);
+
+            m_visequip.UpdateBaseModel();
+            m_visequip.UpdateColors();
+            m_visequip.UpdateEquipmentVisuals();
+            m_visequip.UpdateVisuals();
         }
 
         public void ZDOtoAppearance()
         {
             m_female = m_znet.GetZDO().GetBool("hmnpc_female");
+            if (m_female) 
+            {
+                m_visequip.SetModel(1);
+            }
+            else
+            {
+                m_visequip.SetModel(0);
+            }
             m_humanoid.m_name = m_znet.GetZDO().GetString("hmnpc_name");
 
             Vector3 hairColorVec3 = m_znet.GetZDO().GetVec3("hmnpc_haircolor", new Vector3(1f, 1f, 1f));
@@ -729,6 +702,9 @@ namespace Hirdmandr
             string ThisHair = m_znet.GetZDO().GetString("hmnpc_hair");
             m_humanoid.SetHair(ThisHair);
             m_visequip.SetHairItem(ThisHair);
+
+            m_visequip.UpdateBaseModel();
+            m_visequip.UpdateColors();
         }
 
         public void ZDOLoadMental()
@@ -852,44 +828,7 @@ namespace Hirdmandr
             m_healTick = 2f + (m_skills.GetSkill("fighter") / 3);
             m_humanoid.SetMaxHealth(60f + m_skills.GetSkill("fighter"));
             // m_humanoid.m_currentAttack.m_damageMultiplier = 1f + (m_skillmelee / 50);
-            
-            if (m_fightingRangeClose)
-            {
-                m_combatRangeNormal = 5f;
-                m_combatRangeTooFar = 10f;
-
-            }
-            else if (m_fightingRangeMid)
-            {
-                m_combatRangeNormal = 10f;
-                m_combatRangeTooFar = 20f;
-            }
-            else if (m_fightingRangeFar)
-            {
-                m_combatRangeNormal = 20f;
-                m_combatRangeTooFar = 40f;
-            }
-            
-            if (m_fightingStyleDefense)  // Defensive Melee Style
-            {
-                m_monsterai.m_circulateWhileCharging = true;
-                m_monsterai.m_circleTargetInterval = 8f;
-                m_monsterai.m_maxChaseDistance = m_combatRangeNormal;
-            }
-            else if (m_fightingStyleOffense)  // Offensive Melee Style
-            {
-                m_monsterai.m_circulateWhileCharging = true;
-                m_monsterai.m_circleTargetInterval = 0f;
-                m_monsterai.m_maxChaseDistance = m_combatRangeNormal;
-            }
-            else  // Bow Ranged Style
-            {
-                m_monsterai.m_circulateWhileCharging = false;
-                m_monsterai.m_circleTargetInterval = 0f;
-                m_monsterai.m_maxChaseDistance = 0f;
-            }
         }
-
 
         public void HealIfHurt()
         {
@@ -1078,6 +1017,7 @@ namespace Hirdmandr
                 InventoryGui.instance.Hide();
             }
             m_container.Save();
+            m_visequip.UpdateEquipmentVisuals();
         }
 
         public void EquipBest()
@@ -1262,22 +1202,13 @@ namespace Hirdmandr
                 //     m_humanoid.EquipItem(bestWeapon);
                 // }
 
-                m_humanoid.m_inventory.AddItem(bestWeapon);
-                m_humanoid.EquipItem(bestWeapon);
-                
-                ItemDrop.ItemData equipWpn = m_humanoid.GetEquippedWeapon();
-                var shared = equipWpn.m_shared;
-
-                if (equipWpn.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Bow)
+                if (bestWeapon.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Bow)
                 {
-                    foreach (Damage.m_damage dmg in shared.m_damages)
-                    {
-                        dmg = dmg * (m_skills.GetSkill("range") / 100f);
-                    }
                     m_monsterai.m_circulateWhileCharging = false;
                     m_monsterai.m_circleTargetInterval = 0f;
                     m_monsterai.m_maxChaseDistance = 0f;
                 
+                    var shared = bestWeapon.m_shared;
                     shared.m_aiAttackRange = 15f;
                     shared.m_aiAttackRangeMin = 0f;
                     shared.m_aiAttackMaxAngle = 5f;
@@ -1294,13 +1225,9 @@ namespace Hirdmandr
                     shared.m_attack.m_useCharacterFacing = false;
                     shared.m_attack.m_useCharacterFacingYAim = true;
                 }
-                else
-                {
-                    foreach (Damage.m_damage dmg in shared.m_damages)
-                    {
-                        dmg = dmg * (m_skills.GetSkill("melee") / 100f);
-                    }
-                }
+
+                m_humanoid.m_inventory.AddItem(bestWeapon);
+                m_humanoid.EquipItem(bestWeapon);
 
                 if (bestWeapon.m_shared.m_itemType == ItemDrop.ItemData.ItemType.TwoHandedWeapon
                     || bestWeapon.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Bow)
@@ -1325,17 +1252,9 @@ namespace Hirdmandr
             }
 
             m_humanoid.SetupEquipment();
-        }
 
-        private ItemDrop.ItemData OnMAI_SelectBestAttack(On.MonsterAI.orig_SelectBestAttack orig, MonsterAI self, Humanoid hum, float dt)
-        {
-            if (self.TryGetComponent<HirdmandrNPC>(out HirdmandrNPC hmnpc))
-            {
-                return hmnpc.HM_SelectBestAttack();            }
-            else
-            {
-                return orig(self, hum, dt);
-            }
+            m_visequip.UpdateEquipmentVisuals();
+
         }
 
         public ItemDrop.ItemData HM_SelectBestAttack()

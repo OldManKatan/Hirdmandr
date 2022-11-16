@@ -1,5 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="..\packages\JotunnLib.2.9.0\build\JotunnLib.props" Condition="Exists('..\packages\JotunnLib.2.9.0\build\JotunnLib.props')" />
   <Import Project="..\packages\JotunnLib.2.3.10\build\JotunnLib.props" Condition="Exists('..\packages\JotunnLib.2.3.10\build\JotunnLib.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -41,49 +42,139 @@
   <PropertyGroup>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="0Harmony, Version=2.5.5.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\HarmonyX.2.5.5\lib\net45\0Harmony.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="0Harmony20">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\BepInEx\core\0Harmony20.dll</HintPath>
+    </Reference>
+    <Reference Include="assembly_googleanalytics_publicized">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\valheim_Data\Managed\publicized_assemblies\assembly_googleanalytics_publicized.dll</HintPath>
+    </Reference>
+    <Reference Include="assembly_googleanalytics_publicized">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\valheim_Data\Managed\publicized_assemblies\assembly_googleanalytics_publicized.dll</HintPath>
+    </Reference>
+    <Reference Include="assembly_guiutils_publicized">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\valheim_Data\Managed\publicized_assemblies\assembly_guiutils_publicized.dll</HintPath>
+    </Reference>
+    <Reference Include="assembly_guiutils_publicized">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\valheim_Data\Managed\publicized_assemblies\assembly_guiutils_publicized.dll</HintPath>
+    </Reference>
+    <Reference Include="assembly_lux_publicized">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\valheim_Data\Managed\publicized_assemblies\assembly_lux_publicized.dll</HintPath>
+    </Reference>
+    <Reference Include="assembly_lux_publicized">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\valheim_Data\Managed\publicized_assemblies\assembly_lux_publicized.dll</HintPath>
+    </Reference>
+    <Reference Include="assembly_postprocessing_publicized">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\valheim_Data\Managed\publicized_assemblies\assembly_postprocessing_publicized.dll</HintPath>
+    </Reference>
+    <Reference Include="assembly_postprocessing_publicized">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\valheim_Data\Managed\publicized_assemblies\assembly_postprocessing_publicized.dll</HintPath>
+    </Reference>
+    <Reference Include="assembly_simplemeshcombine_publicized">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\valheim_Data\Managed\publicized_assemblies\assembly_simplemeshcombine_publicized.dll</HintPath>
+    </Reference>
+    <Reference Include="assembly_simplemeshcombine_publicized">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\valheim_Data\Managed\publicized_assemblies\assembly_simplemeshcombine_publicized.dll</HintPath>
+    </Reference>
+    <Reference Include="assembly_steamworks_publicized">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\valheim_Data\Managed\publicized_assemblies\assembly_steamworks_publicized.dll</HintPath>
+    </Reference>
+    <Reference Include="assembly_steamworks_publicized">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\valheim_Data\Managed\publicized_assemblies\assembly_steamworks_publicized.dll</HintPath>
+    </Reference>
+    <Reference Include="assembly_sunshafts_publicized">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\valheim_Data\Managed\publicized_assemblies\assembly_sunshafts_publicized.dll</HintPath>
+    </Reference>
+    <Reference Include="assembly_sunshafts_publicized">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\valheim_Data\Managed\publicized_assemblies\assembly_sunshafts_publicized.dll</HintPath>
+    </Reference>
+    <Reference Include="assembly_utils_publicized">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\valheim_Data\Managed\publicized_assemblies\assembly_utils_publicized.dll</HintPath>
+    </Reference>
+    <Reference Include="assembly_utils_publicized">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\valheim_Data\Managed\publicized_assemblies\assembly_utils_publicized.dll</HintPath>
+    </Reference>
+    <Reference Include="assembly_valheim_publicized">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\valheim_Data\Managed\publicized_assemblies\assembly_valheim_publicized.dll</HintPath>
     </Reference>
     <Reference Include="BepInEx">
-      <HintPath>..\..\..\..\Documents\valheim_modded\Valheim\BepInEx\core\BepInEx.dll</HintPath>
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\BepInEx\core\BepInEx.dll</HintPath>
     </Reference>
-    <Reference Include="Jotunn, Version=2.3.10.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\JotunnLib.2.3.10\lib\net462\Jotunn.dll</HintPath>
+    <Reference Include="BepInEx">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\BepInEx\core\BepInEx.dll</HintPath>
     </Reference>
-    <Reference Include="Mono.Cecil, Version=0.11.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e, processorArchitecture=MSIL">
-      <HintPath>..\packages\Mono.Cecil.0.11.4\lib\net40\Mono.Cecil.dll</HintPath>
+    <Reference Include="BepInEx.Harmony">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\BepInEx\core\BepInEx.Harmony.dll</HintPath>
     </Reference>
-    <Reference Include="Mono.Cecil.Mdb, Version=0.11.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e, processorArchitecture=MSIL">
-      <HintPath>..\packages\Mono.Cecil.0.11.4\lib\net40\Mono.Cecil.Mdb.dll</HintPath>
+    <Reference Include="BepInEx.Harmony">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\BepInEx\core\BepInEx.Harmony.dll</HintPath>
     </Reference>
-    <Reference Include="Mono.Cecil.Pdb, Version=0.11.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e, processorArchitecture=MSIL">
-      <HintPath>..\packages\Mono.Cecil.0.11.4\lib\net40\Mono.Cecil.Pdb.dll</HintPath>
+    <Reference Include="BepInEx.Preloader">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\BepInEx\core\BepInEx.Preloader.dll</HintPath>
     </Reference>
-    <Reference Include="Mono.Cecil.Rocks, Version=0.11.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e, processorArchitecture=MSIL">
-      <HintPath>..\packages\Mono.Cecil.0.11.4\lib\net40\Mono.Cecil.Rocks.dll</HintPath>
+    <Reference Include="BepInEx.Preloader">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\BepInEx\core\BepInEx.Preloader.dll</HintPath>
     </Reference>
-    <Reference Include="MonoMod, Version=21.9.19.1, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\MonoMod.21.9.19.1\lib\net40\MonoMod.exe</HintPath>
-      <Private>True</Private>
+    <Reference Include="HarmonyXInterop">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\BepInEx\core\HarmonyXInterop.dll</HintPath>
     </Reference>
-    <Reference Include="MonoMod.RuntimeDetour, Version=21.10.10.1, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\MonoMod.RuntimeDetour.21.10.10.1\lib\net40\MonoMod.RuntimeDetour.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="HarmonyXInterop">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\BepInEx\core\HarmonyXInterop.dll</HintPath>
     </Reference>
-    <Reference Include="MonoMod.Utils, Version=21.10.10.1, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\MonoMod.Utils.21.10.10.1\lib\net40\MonoMod.Utils.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="Jotunn, Version=2.9.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\JotunnLib.2.9.0\lib\net462\Jotunn.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="MonoMod, Version=22.5.1.1, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\MonoMod.22.5.1.1\lib\net452\MonoMod.exe</HintPath>
+    </Reference>
+    <Reference Include="MonoMod.RuntimeDetour, Version=22.5.1.1, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\MonoMod.RuntimeDetour.22.5.1.1\lib\net452\MonoMod.RuntimeDetour.dll</HintPath>
+    </Reference>
+    <Reference Include="MonoMod.Utils, Version=22.5.1.1, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\MonoMod.Utils.22.5.1.1\lib\net452\MonoMod.Utils.dll</HintPath>
     </Reference>
     <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
+    <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="UnityEngine">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\unstripped_corlib\UnityEngine.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.AnimationModule">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\unstripped_corlib\UnityEngine.AnimationModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.AssetBundleModule">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\unstripped_corlib\UnityEngine.AssetBundleModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\unstripped_corlib\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\unstripped_corlib\UnityEngine.IMGUIModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.JSONSerializeModule">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\unstripped_corlib\UnityEngine.JSONSerializeModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\unstripped_corlib\UnityEngine.PhysicsModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\unstripped_corlib\UnityEngine.TextRenderingModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\unstripped_corlib\UnityEngine.UI.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UIModule">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\unstripped_corlib\UnityEngine.UIModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UNETModule">
+      <HintPath>..\..\..\..\Documents\hirdmandr_valheim_instance\Valheim\unstripped_corlib\UnityEngine.UNETModule.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BedPatch.cs" />
+    <Compile Include="CharacterPatch.cs" />
     <Compile Include="HirdmandrAI.cs" />
     <Compile Include="HirdmandrBed.cs" />
     <Compile Include="HirdmandrChest.cs" />
@@ -95,6 +186,8 @@
     <Compile Include="HMPersonality.cs" />
     <Compile Include="HMSkills.cs" />
     <Compile Include="HMThoughts.cs" />
+    <Compile Include="MonsterAIPatch.cs" />
+    <Compile Include="NPCPlayerClone.cs" />
     <Compile Include="OldManSM.cs" />
     <Compile Include="Properties\IgnoreAccessModifiers.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -106,6 +199,7 @@
     <Compile Include="sub1SM-Threatened.cs" />
     <Compile Include="sub1SM-WorkDay.cs" />
     <Compile Include="topSM.cs" />
+    <Compile Include="TutorialPatch.cs" />
     <Compile Include="Utils.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -142,6 +236,6 @@
     <PropertyGroup>
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
-    <Error Condition="!Exists('..\packages\JotunnLib.2.3.10\build\JotunnLib.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\JotunnLib.2.3.10\build\JotunnLib.props'))" />
+    <Error Condition="!Exists('..\packages\JotunnLib.2.9.0\build\JotunnLib.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\JotunnLib.2.9.0\build\JotunnLib.props'))" />
   </Target>
 </Project>

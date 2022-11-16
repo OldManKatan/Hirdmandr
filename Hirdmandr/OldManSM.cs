@@ -145,7 +145,7 @@ namespace OldManSM
         public HirdmandrAI hmAI;
         public HirdmandrNPC hmNPC;
         public MonsterAI hmMAI;
-        public Humanoid hmHum;
+        public NPCPlayerClone hmHum;
 
         public SMNode(StateMachine psm)
         {

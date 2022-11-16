@@ -133,7 +133,7 @@ namespace Hirdmandr
                 {
                     if (Math.Floor(new_value) > Math.Floor(old_value))
                     {
-                        Jotunn.Logger.LogWarning("SKILLUP OCCURRED for " + m_znetv.GetComponent<Humanoid>().m_name + " from " + old_value + " to " + new_value);
+                        Jotunn.Logger.LogWarning("SKILLUP OCCURRED for " + m_znetv.GetComponent<NPCPlayerClone>().m_name + " from " + old_value + " to " + new_value);
                         m_hmnpc.m_thoughts.AddThought(HMThoughts.tType.skillUp, (float)(Math.Floor(new_value) * 100), m_hmSkillReadables[skill_index], UnityEngine.Time.time + 18000);
                     }
                 }

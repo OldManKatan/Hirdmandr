@@ -27,7 +27,7 @@ namespace Hirdmandr
                             ZInput.GetButtonDown("Inventory") ||
                             ZInput.GetButtonDown("JoyButtonB") ||
                             ZInput.GetButtonDown("JoyButtonY") ||
-                            Input.GetKeyDown(KeyCode.Escape) ||
+                            // Input.GetKeyDown(KeyCode.Escape) ||
                             ZInput.GetButtonDown("Use")
                         )
                     )

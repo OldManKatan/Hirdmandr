@@ -33,32 +33,11 @@ namespace Hirdmandr
 
             ownerZDOID = ZDOID.None;
             wasOwner = false;
-
-            On.Bed.GetHoverText += OnGetHoverText;
-            On.Bed.GetHoverName += OnGetHoverName;
         }
 
         protected virtual void Update() { }
 
         protected virtual void FixedUpdate() { }
-
-        private static string OnGetHoverText(On.Bed.orig_GetHoverText orig, Bed self)
-        {
-            if (self.TryGetComponent<HirdmandrBed>(out var HirdmandrComp))
-            {
-                return HirdmandrComp.GetHoverText();
-            }
-            return orig(self);
-        }
-
-        private static string OnGetHoverName(On.Bed.orig_GetHoverName orig, Bed self)
-        {
-            if (self.TryGetComponent<HirdmandrBed>(out var HirdmandrComp))
-            {
-                return HirdmandrComp.GetHoverName();
-            }
-            return orig(self);
-        }
 
         public string GetHoverText()
         {

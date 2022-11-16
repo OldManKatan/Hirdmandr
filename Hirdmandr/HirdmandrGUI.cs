@@ -10,8 +10,9 @@ namespace Hirdmandr
     public class HirdmandrGUI : MonoBehaviour
     {
         GameObject GUIHirdmandr;
-        Humanoid m_humanoid;
+        NPCPlayerClone m_humanoid;
         HirdmandrNPC m_hirdmandrnpc;
+        bool state = false;
         GameObject g_name;
         GameObject g_talk;
         GameObject g_mood;
@@ -67,7 +68,7 @@ namespace Hirdmandr
                             ZInput.GetButtonDown("Inventory") ||
                             ZInput.GetButtonDown("JoyButtonB") ||
                             ZInput.GetButtonDown("JoyButtonY") ||
-                            Input.GetKeyDown(KeyCode.Escape) ||
+                            // Input.GetKeyDown(KeyCode.Escape) ||
                             ZInput.GetButtonDown("Use")
                         )
                     )
@@ -99,7 +100,7 @@ namespace Hirdmandr
                     return;
                 }
 
-                m_humanoid = GetComponent<Humanoid>();
+                m_humanoid = GetComponent<NPCPlayerClone>();
                 m_hirdmandrnpc = GetComponent<HirdmandrNPC>();
 
                 var valuestring = "";
@@ -883,7 +884,8 @@ namespace Hirdmandr
             }
 
             // Switch the current state
-            bool state = !GUIHirdmandr.activeSelf;
+            // bool state = !GUIHirdmandr.activeSelf;
+            state = !state;
 
             if (state)
             {
@@ -900,26 +902,23 @@ namespace Hirdmandr
                     string thisStr = m_hirdmandrnpc.m_thoughts.m_thoughtStrings[atht.m_type]["thoughtStrings"][
                         UnityEngine.Random.Range(0, m_hirdmandrnpc.m_thoughts.m_thoughtStrings[atht.m_type]["thoughtStrings"].Count)
                         ];
-                    Jotunn.Logger.LogWarning("  Selected thought string = '" + thisStr + "'");
                     thtStr = thtStr.Replace("%feltAbout%", m_hirdmandrnpc.m_thoughts.StrengthToFeelStr(atht.m_calcStrength));
                     thtStr = thtStr.Replace("%subject%", atht.m_subject);
-                    Jotunn.Logger.LogWarning("  Thought string AFTER REPLACE = '" + thisStr + "'");
                     thoughtSnapshot = thoughtSnapshot + thtStr;
                 }
-                Jotunn.Logger.LogWarning("  Filled out thoughtSnapshot = '" + thoughtSnapshot + "'");
                 g_mood.GetComponent<Text>().text = m_hirdmandrnpc.m_mood.ToString() + "\n" + thoughtSnapshot;
                 g_talk.GetComponent<Text>().text = m_hirdmandrnpc.GetRescueText();
             }
             else
             {
                 m_hirdmandrnpc.ZDOSaveGeneral();
-                m_hirdmandrnpc.EquipBest();
-                m_hirdmandrnpc.PopulateCombatProps();
             }
 
+            update_skills();
             // Set the active state of the panel
             GUIHirdmandr.SetActive(state);
             m_hirdmandrnpc.OpenInventory(state);
+            m_hirdmandrnpc.EquipBest();
 
             // Toggle input for the player and camera while displaying the GUI
             GUIManager.BlockInput(state);
@@ -1069,6 +1068,27 @@ namespace Hirdmandr
                     Jotunn.Logger.LogInfo("Warrior fighting range changed to Far");
                 }
             }
+        }
+        public void update_skills()
+        {
+            var first_line = true;
+
+            var skillnames = "";
+            var skillvalues = "";
+            foreach (HMSkills.SkillData each_skill in m_hirdmandrnpc.m_skills.m_hmSkills)
+            {
+                if (!first_line)
+                {
+                    skillnames += "\n";
+                    skillvalues += "\n";
+                }
+                skillnames += each_skill.m_readable;
+                skillvalues += (int)each_skill.m_value;
+
+                first_line = false;
+            }
+            g_skillnames.GetComponent<Text>().text = skillnames;
+            g_skillvalues.GetComponent<Text>().text = skillvalues;
         }
     }
 }
