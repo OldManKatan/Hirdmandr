@@ -1,0 +1,39 @@
+MMHook version
+
+namespace Hirdmandr
+{
+    [Serializable]
+    public class HirdmandrBed : MonoBehaviour {
+            On.Bed.GetHoverText += OnGetHoverText;
+        }
+
+        private static string OnGetHoverText(On.Bed.orig_GetHoverText orig, Bed self)
+        {
+            if (self.TryGetComponent<HirdmandrBed>(out var HirdmandrComp))
+            {
+                return HirdmandrComp.GetHoverText();
+            }
+            return orig(self);
+        }
+	}
+}
+
+
+Harmony Version
+
+namespace Hirdmandr
+{
+    [HarmonyPatch(typeof(Bed))]
+    [HarmonyPatch("GetHoverText")]
+    internal class BedHoverTextPatch {
+		static string Postfix(ref string __result, ref Bed __instance)
+		{
+            if (__instance.TryGetComponent<HirdmandrBed>(out var HirdmandrComp))
+            {
+                return HirdmandrComp.GetHoverText();
+            }
+			return __result;
+		}
+	}
+}
+

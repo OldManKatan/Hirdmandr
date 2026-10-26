@@ -33,32 +33,22 @@ namespace Hirdmandr
 
             ownerZDOID = ZDOID.None;
             wasOwner = false;
-
-            On.Bed.GetHoverText += OnGetHoverText;
-            On.Bed.GetHoverName += OnGetHoverName;
         }
 
-        protected virtual void Update() { }
+        private float m_lastOwnerCheck = -60f;
+
+        protected virtual void Update()
+        {
+            // Recurring stale-claim sweep: a deleted/dead owner leaves the bed claimed forever
+            // unless we release it here (the NPC side has no reliable death/delete hook).
+            if (Time.time - m_lastOwnerCheck >= 30f)
+            {
+                m_lastOwnerCheck = Time.time;
+                hasOwner();
+            }
+        }
 
         protected virtual void FixedUpdate() { }
-
-        private static string OnGetHoverText(On.Bed.orig_GetHoverText orig, Bed self)
-        {
-            if (self.TryGetComponent<HirdmandrBed>(out var HirdmandrComp))
-            {
-                return HirdmandrComp.GetHoverText();
-            }
-            return orig(self);
-        }
-
-        private static string OnGetHoverName(On.Bed.orig_GetHoverName orig, Bed self)
-        {
-            if (self.TryGetComponent<HirdmandrBed>(out var HirdmandrComp))
-            {
-                return HirdmandrComp.GetHoverName();
-            }
-            return orig(self);
-        }
 
         public string GetHoverText()
         {
@@ -105,7 +95,7 @@ namespace Hirdmandr
         
         public int GetComfortAtBed()
         {
-            List<Piece> nearbyPieces = SE_Rested.GetNearbyPieces(transform.position);
+            List<Piece> nearbyPieces = SE_Rested.GetNearbyComfortPieces(transform.position);
             nearbyPieces.Sort(SE_Rested.PieceComfortSort);
             int num = 1;
             // Check for shelter here
@@ -133,10 +123,20 @@ namespace Hirdmandr
             {
                 if (ownerZDOID != ZDOID.None)
                 {
-                    var ownerChar = ZNetScene.instance.FindInstance(ZDOMan.instance.GetZDO(ownerZDOID)).GetComponent<Character>();
-                    if (ownerChar.GetHealth() <= 0f || ownerChar.IsDead())
+                    // The owner NPC may have been deleted (its ZDO gone) or died. Either way the
+                    // claim is stale: clear it in memory AND persist None so the bed becomes free.
+                    Character ownerChar = null;
+                    var ownerZDO = ZDOMan.instance.GetZDO(ownerZDOID);
+                    if (ownerZDO != null)
                     {
-                        ownerZDOID = ZDOID.None;
+                        var ownerGO = ZNetScene.instance.FindInstance(ownerZDO);
+                        ownerChar = (ownerGO != null) ? ownerGO.GetComponent<Character>() : null;
+                    }
+                    if (ownerChar == null || ownerChar.GetHealth() <= 0f || ownerChar.IsDead())
+                    {
+                        // Owner is gone/dead: free the bed AND its NPC's ref (bi-directional sync)
+                        // so the claim does not dangle on a dead owner.
+                        ClearOwnerAndNPC(ownerZDOID);
                         return false;
                     }
                     else
@@ -152,12 +152,17 @@ namespace Hirdmandr
         {
             if (checkOwnership())
             {
-                if (ownerZDOID == ZDOID.None)
+                // Authoritative gate: read the owner from the ZDO, never the in-memory field, so a
+                // desynced in-memory value can never let a second NPC claim an already-owned bed.
+                if (m_znetv.GetZDO().GetZDOID("hmnpc_bedOwnerZDOID") == ZDOID.None)
                 {
                     ownerZDOID = owner_id;
                     m_znetv.GetZDO().Set("hmnpc_bedOwnerZDOID", owner_id);
+                    Jotunn.Logger.LogWarning("HirdmandrBed.Claim: " + owner_id + " claimed the bed.");
                     return true;
                 }
+                Jotunn.Logger.LogWarning("HirdmandrBed.Claim REFUSED for " + owner_id
+                    + ": bed already owned by " + m_znetv.GetZDO().GetZDOID("hmnpc_bedOwnerZDOID"));
             }
             return false;
         }
@@ -168,8 +173,8 @@ namespace Hirdmandr
             {
                 if (ownerZDOID == owner_id)
                 {
-                    ownerZDOID = ZDOID.None;
-                    m_znetv.GetZDO().Set("hmnpc_bedOwnerZDOID", ZDOID.None);
+                    // Free the bed AND the owning NPC's ref (bi-directional sync).
+                    ClearOwnerAndNPC(owner_id);
                     return true;
                 }
             }
@@ -180,8 +185,31 @@ namespace Hirdmandr
         {
             if (checkOwnership())
             {
-                ownerZDOID = ZDOID.None;
-                m_znetv.GetZDO().Set("hmnpc_bedOwnerZDOID", ZDOID.None);
+                // Free the bed AND the owning NPC's ref (bi-directional sync) so the two sides
+                // of the claim never desync.
+                ClearOwnerAndNPC(ownerZDOID);
+            }
+        }
+
+        // Clear the bed's owner (memory + ZDO) AND the owning NPC's ownedBedZDOID, so the two
+        // sides of the claim can never desync. A bed freed while its NPC still points at it is
+        // exactly how two NPCs end up in the same bed: the orphaned NPC walks to a bed it no
+        // longer owns while another NPC legitimately re-claims the now-free bed.
+        public void ClearOwnerAndNPC(ZDOID owner_id)
+        {
+            ownerZDOID = ZDOID.None;
+            m_znetv.GetZDO().Set("hmnpc_bedOwnerZDOID", ZDOID.None);
+            var ownerZDO = ZDOMan.instance.GetZDO(owner_id);
+            if (ownerZDO != null)
+            {
+                var ownerGO = ZNetScene.instance.FindInstance(ownerZDO);
+                var ownerNPC = (ownerGO != null) ? ownerGO.GetComponent<HirdmandrNPC>() : null;
+                if (ownerNPC != null)
+                {
+                    Jotunn.Logger.LogWarning("HirdmandrBed: freeing owner " + owner_id
+                        + " and its NPC-side bed ref (bi-directional sync).");
+                    ownerNPC.ClearOwnedBedRef();
+                }
             }
         }
     }

@@ -27,7 +27,7 @@ namespace Hirdmandr
                             ZInput.GetButtonDown("Inventory") ||
                             ZInput.GetButtonDown("JoyButtonB") ||
                             ZInput.GetButtonDown("JoyButtonY") ||
-                            Input.GetKeyDown(KeyCode.Escape) ||
+                            // Input.GetKeyDown(KeyCode.Escape) ||
                             ZInput.GetButtonDown("Use")
                         )
                     )
@@ -38,6 +38,23 @@ namespace Hirdmandr
                     ZInput.ResetButtonStatus("Use");
                     TogglePanel();
                 }
+            }
+        }
+
+        // The panel is a child of GUIManager.CustomGUIFront, not the NPC, so it would outlive the
+        // NPC's death/despawn and leak under the UI layer. Tear it down with the NPC (gui_research.md Â§4.5).
+        void OnDestroy()
+        {
+            if (GUIRescue)
+            {
+                if (GUIRescue.activeSelf)
+                {
+                    // Panel was open when the NPC died: close the player-facing inventory + unblock input.
+                    // Don't touch the dying NPC's own m_container/m_visequip here.
+                    InventoryGui.instance.Hide();
+                    GUIManager.BlockInput(false);
+                }
+                Destroy(GUIRescue);
             }
         }
 
@@ -66,15 +83,15 @@ namespace Hirdmandr
                 // Create the panel object
                 GUIRescue = GUIManager.Instance.CreateWoodpanel(
                     parent: GUIManager.CustomGUIFront.transform,
-                    anchorMin: new Vector2(1f, 0.5f),
-                    anchorMax: new Vector2(1f, 0.5f),
-                    position: new Vector2(-200, 0),
+                    anchorMin: new Vector2(0.5f, 0.5f),
+                    anchorMax: new Vector2(0.5f, 0.5f),
+                    position: new Vector2(0, 0),
                     width: 350,
                     height: 500,
                     draggable: true);
                 GUIRescue.SetActive(false);
 
-                // Add the Jötunn draggable Component to the panel
+                // Add the Jï¿½tunn draggable Component to the panel
                 // Note: This is normally automatically added when using CreateWoodpanel()
                 // GUIHirdmandr.AddComponent<DragWindowCntrl>();
                 // DragWindowCntrl.ApplyDragWindowCntrl(GUIHirdmandr);

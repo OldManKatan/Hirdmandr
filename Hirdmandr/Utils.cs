@@ -7,6 +7,34 @@ namespace Hirdmandr
 {
     public static class Utils
     {
+        // How far around a Lamplighter's chest / NPC it looks for fuel fixtures to refuel.
+        // "Wide radius" per the Lamplighter spec; covers a whole homestead.
+        public const float LamplighterRange = 40f;
+
+        // How far around a Mender it looks for damaged player-built pieces to repair. Wider
+        // than the Lamplighter: a Mender tends the whole settlement, not one chest.
+        public const float MenderRange = 50f;
+
+        // Horizontal (XZ) distance at which the Mender is "close enough" to repair a piece.
+        public const float MenderRepairReach = 4f;
+
+        // How long the Mender tries to walk to a piece's anchor before giving up and mending from
+        // wherever it ended up. Bounds the walk so an unreachable anchor (a ship's bow) can't make
+        // it waddle here forever; a normal reachable stand point (3-6f) settles well before this.
+        public const float MenderRepairMoveTimeout = 15f;
+
+        // How far around a Farmer's chest it looks for mature crops to harvest + replant.
+        // Matches the chest's existing farmer worksite radius so the field reads as one area.
+        public const float FarmerRange = 15f;
+
+        // Horizontal (XZ) distance at which the Farmer is "close enough" to harvest (Interact) a
+        // crop. Same idea as MenderRepairReach: the walk aims a bit closer than this.
+        public const float FarmerInteractReach = 4f;
+
+        // How long the Farmer tries to walk to a crop before giving up (bounds the walk so an
+        // unreachable crop can't make it waddle here forever; a normal stand point settles sooner).
+        public const float FarmerMoveTimeout = 15f;
+
         public static string TrimCloneTag(this string s)
         {
             if (!s.EndsWith("(Clone)"))
@@ -64,10 +92,11 @@ namespace Hirdmandr
 
             // Get zdo's
             var foundZDOs = new List<ZDO>();
+            var visited = new HashSet<ZoneSystem.SectorIndex>();
 
             foreach (var sector in sectors)
             {
-                ZDOMan.instance.FindObjects(sector, foundZDOs);
+                ZDOMan.instance.FindObjects(new Vector2s(sector), foundZDOs, visited);
             }
 
             return foundZDOs;
@@ -116,6 +145,89 @@ namespace Hirdmandr
             {
                 return Mathf.FloorToInt((coordinate + 32) / 64f);
             }
+        }
+    }
+
+    // A single farmer crop: the mature Pickable's yield item (the internal item name a live
+    // Pickable's m_itemPrefab reports; the detection key), how much it drops per harvest, the
+    // item the farmer pulls from the chest (x1) to replant, and the sapling_* prefab to
+    // instantiate so the SAME mature crop regrows in place.
+    public struct FarmerCrop
+    {
+        public string yieldItem;
+        public int yieldAmount;
+        public string consumeItem;
+        public string sapling;
+
+        public FarmerCrop(string yieldItem, int yieldAmount, string consumeItem, string sapling)
+        {
+            this.yieldItem = yieldItem;
+            this.yieldAmount = yieldAmount;
+            this.consumeItem = consumeItem;
+            this.sapling = sapling;
+        }
+    }
+
+    // The farmer's crop table + lookup, keyed by the mature crop's YIELD item (internal name).
+    //   - Two-tier crops cross-sustain: food crop replants with the seed item, seed crop with the
+    //     food item (net = seed growth).
+    //   - One-tier crops "drop themselves": replant with their own yield.
+    // Sustainability is the player's job: a crop whose consumeItem isn't in the chest is left
+    // alone (no harvest, no replant) -- enforced in Step 4, not here.
+    public static class FarmerCrops
+    {
+        // The cultivator tool the farmer equips to work a field.
+        public static readonly string CultivatorItem = "$item_cultivator";
+
+        // Sapling names (ALL confirmed registered via /hirdmandr farmscan section 3): the two-tier
+        // food/seed pairs, the one-tier drops, and the mushrooms. Note sapling_Kale has a capital K
+        // (the others are lowercase); the mushrooms are sapling_magecap / sapling_jotunpuffs (no
+        // "mushroom_" prefix -- that name is NOT a registered prefab).
+        private static readonly FarmerCrop[] m_crops = new FarmerCrop[]
+        {
+            // --- two-tier (food + seed) ---
+            new FarmerCrop("$item_carrot", 1, "$item_carrotseeds", "sapling_carrot"),
+            new FarmerCrop("$item_carrotseeds", 3, "$item_carrot", "sapling_seedcarrot"),
+            new FarmerCrop("$item_turnip", 1, "$item_turnipseeds", "sapling_turnip"),
+            new FarmerCrop("$item_turnipseeds", 3, "$item_turnip", "sapling_seedturnip"),
+            new FarmerCrop("$item_onion", 1, "$item_onionseeds", "sapling_onion"),
+            new FarmerCrop("$item_onionseeds", 3, "$item_onion", "sapling_seedonion"),
+            new FarmerCrop("$item_kale", 3, "$item_kaleseeds", "sapling_Kale"),
+            new FarmerCrop("$item_kaleseeds", 3, "$item_kale", "sapling_seedkale"),
+            // --- one-tier (drop themselves) ---
+            new FarmerCrop("$item_oatseeds", 3, "$item_oatseeds", "sapling_oat"),
+            new FarmerCrop("$item_poteitr", 3, "$item_poteitr", "sapling_poteitr"),
+            new FarmerCrop("$item_barley", 2, "$item_barley", "sapling_barley"),
+            new FarmerCrop("$item_flax", 2, "$item_flax", "sapling_flax"),
+            new FarmerCrop("$item_magecap", 3, "$item_magecap", "sapling_magecap"),
+            new FarmerCrop("$item_jotunpuffs", 3, "$item_jotunpuffs", "sapling_jotunpuffs"),
+        };
+
+        private static readonly Dictionary<string, FarmerCrop> m_byYield = new Dictionary<string, FarmerCrop>();
+
+        static FarmerCrops()
+        {
+            foreach (var c in m_crops)
+            {
+                m_byYield[c.yieldItem] = c;
+            }
+        }
+
+        // The crop entry for a mature crop's yield item; false if the yield item isn't a farmer crop.
+        public static bool TryGetByYield(string yieldItem, out FarmerCrop crop)
+        {
+            if (yieldItem != null && m_byYield.TryGetValue(yieldItem, out crop))
+            {
+                return true;
+            }
+            crop = default(FarmerCrop);
+            return false;
+        }
+
+        // True if this item name is the yield of a farmer crop (the Step 3 field-scan filter).
+        public static bool IsKnownYield(string itemName)
+        {
+            return itemName != null && m_byYield.ContainsKey(itemName);
         }
     }
 }

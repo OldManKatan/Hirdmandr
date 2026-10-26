@@ -1,5 +1,5 @@
 // Hirdmandr
-// a Valheim mod skeleton using J�tunn
+// a Valheim mod skeleton using J�tunn
 // 
 // File:    Hirdmandr.cs
 // Project: Hirdmandr
@@ -32,21 +32,19 @@ namespace Hirdmandr
                 "socialize",
                 "workDay",
                 "rest",
-                "selfCare",
                 "patrol",
-                "depressed",
-                "threatened"
+                "threatened",
+                "defend"
             };
 
             AddState("schedule", new NodeSchedule(this));
             AddState("socialize", new NodeSocialize(this));
             AddState("workDay", new NodeWorkDay(this));
             AddState("rest", new NodeRest(this));
-            AddState("selfCare", new NodeSelfCare(this));
             AddState("patrol", new NodePatrol(this));
-            AddState("depressed", new NodeDepressed(this));
             AddState("threatened", new NodeThreatened(this));
-            AddState("himthikiFollow", new NodehimthikiFollow(this));
+            AddState("defend", new NodeDefend(this));
+            AddState("follow", new NodeFollow(this));
         }
 
         // Create Nodes
@@ -64,27 +62,13 @@ namespace Hirdmandr
                 if (hmNPC.m_roleWarrior && hmNPC.m_jobThegn)
                 {
                     Jotunn.Logger.LogInfo("    If Warrior Thegn");
-                    if (hmNPC.m_thegnDayshift)
-                    {
-                        if (ToD >= 0.2083 && ToD < 0.2608) { parentSM.ChangeState("selfCare"); }
-                        else if (ToD >= 0.2608 && ToD < 0.7083) { parentSM.ChangeState("patrol"); }
-                        else if (ToD >= 0.7083 && ToD < 0.909) { parentSM.ChangeState("socialize"); }
-                        else if (ToD >= 0.909 || ToD < 0.2083) { parentSM.ChangeState("rest"); }
-                    }
-                    else
-                    {
-                        if (ToD >= 0.6083 && ToD < 0.6983) { parentSM.ChangeState("selfCare"); }
-                        else if (ToD >= 0.6983 || ToD < 0.2708) { parentSM.ChangeState("patrol"); }
-                        else if (ToD >= 0.2708 && ToD < 0.3333) { parentSM.ChangeState("socialize"); }
-                        else if (ToD >= 0.3333 && ToD < 0.6083) { parentSM.ChangeState("rest"); }
-                    }
+                    parentSM.ChangeState(hmNPC.ThegnTargetState(ToD));
                 }
                 else if (hmNPC.m_roleWarrior && hmNPC.m_jobHimthiki)
                 {
                     Jotunn.Logger.LogInfo("    If Warrior Himthiki");
                     if (ToD >= 0.2483 && ToD < 0.909) { parentSM.ChangeState("socialize"); }
-                    else if (ToD >= 0.909 || ToD < 0.2083) { parentSM.ChangeState("rest"); }
-                    else if (ToD >= 0.2083 && ToD < 0.2483) { parentSM.ChangeState("selfCare"); }
+                    else if (ToD >= 0.909 || ToD < 0.2483) { parentSM.ChangeState("rest"); }
                 }
                 else  // Role Artisan or unassigned
                 {
@@ -93,8 +77,7 @@ namespace Hirdmandr
                     if (ToD >= 0.2483 && ToD < 0.3333) { parentSM.ChangeState("socialize"); }
                     else if (ToD >= 0.3333 && ToD < 0.7083) { parentSM.ChangeState("workDay"); }
                     else if (ToD >= 0.7083 && ToD < 0.909) { parentSM.ChangeState("socialize"); }
-                    else if (ToD >= 0.909 || ToD < 0.2083) { parentSM.ChangeState("rest"); }
-                    else if (ToD >= 0.2083 && ToD < 0.2483) { parentSM.ChangeState("selfCare"); }
+                    else if (ToD >= 0.909 || ToD < 0.2483) { parentSM.ChangeState("rest"); }
                 }
             }
         }
@@ -117,8 +100,6 @@ namespace Hirdmandr
             }
             public override void RunState()
             {
-                Jotunn.Logger.LogInfo(hmHum.m_name + " is evaluating their AI");
-
                 socialStateMachine.Evaluate();
                 if (socialStateMachine.changeTopState.Length > 0)
                 {
@@ -126,17 +107,13 @@ namespace Hirdmandr
                     socialStateMachine.changeTopState = "";
                 }
 
+                // The murmur lives in the SocializeSM "socialize" steady state (it calls
+                // HMSocialize.MaybeTalk); this node only drives the sub-SM + the schedule check.
+
                 float ToD = EnvMan.instance.m_smoothDayFraction;
                 if (hmNPC.m_roleWarrior && hmNPC.m_jobThegn)
                 {
-                    if (hmNPC.m_thegnDayshift)
-                    {
-                        if (ToD < 0.7083 || ToD >= 0.909) { parentSM.ChangeState("schedule"); }
-                    }
-                    else
-                    {
-                        if (ToD < 0.2708 || ToD >= 0.3333) { parentSM.ChangeState("schedule"); }
-                    }
+                    if (hmNPC.ThegnTargetState(ToD) != "socialize") { parentSM.ChangeState("schedule"); }
                 }
                 else if (hmNPC.m_roleWarrior && hmNPC.m_jobHimthiki)
                 {
@@ -171,6 +148,19 @@ namespace Hirdmandr
                 }
                 hmAI.curJob = "";
                 hmAI.workJobSite = null;
+                // Leaving all artisan work (to rest/patrol/threatened/socialize/schedule): put the
+                // combat equipment back on. Per-job gear (e.g. the Mender's hammer) is decided inside
+                // the WorkDay state machine; this is the single "back to combat gear" boundary.
+                if (hmAI.m_hmnpc != null)
+                {
+                    // The farmer's cultivator is non-spawnable (player-provided), so unlike the Mender's
+                    // spawned hammer it must go back to the chest it was taken from. No-op if the
+                    // farmer isn't holding one.
+                    hmAI.m_hmnpc.ReleaseCultivator(hmAI.farmerSourceChest);
+                    hmAI.farmerSourceChest = null;
+                    hmAI.farmerHoldsCultivator = false;
+                    hmAI.m_hmnpc.EquipBest();
+                }
             }
 
             public override void RunState()
@@ -205,13 +195,13 @@ namespace Hirdmandr
 
             public override void ExitTo(int aState)
             {
-                if (aState == parentSM.StateInt("schedule"))
-                {
-                    if (hmAI.restBedHMBed)
-                    {
-                        hmNPC.m_thoughts.AddThought(HMThoughts.tType.restedComfort, hmAI.restBedHMBed.GetComfortAtBed() * 50, "", Time.time + 3600);
-                    }
-                }
+                var human = hmAI.GetComponent<NPCPlayerClone>();
+                human.m_sleeping = false;
+                human.AttachStop();
+                // #54: AttachStop leaves the NPC standing on the bed collider, where it cannot
+                // path anywhere. Step it off to a clear floor spot beside the bed (no-op if it is
+                // already off the bed or no open spot is found).
+                hmAI.m_hmnpc.ScheduleStepOffBed("rest-exit (topSM.NodeRest.ExitTo)", 2f);
             }
 
             public override void RunState()
@@ -226,74 +216,19 @@ namespace Hirdmandr
                 float ToD = EnvMan.instance.m_smoothDayFraction;
                 if (hmNPC.m_roleWarrior && hmNPC.m_jobThegn)
                 {
-                    if (hmNPC.m_thegnDayshift)
-                    {
-                        if (ToD < 0.909 && ToD >= 0.2083) { parentSM.ChangeState("schedule"); }
-                    }
-                    else
-                    {
-                        if (ToD < 0.3333 || ToD >= 0.6083) { parentSM.ChangeState("schedule"); }
-                    }
+                    if (hmNPC.ThegnTargetState(ToD) != "rest") { parentSM.ChangeState("schedule"); }
                 }
                 else if (hmNPC.m_roleWarrior && hmNPC.m_jobHimthiki)
                 {
-                    if (ToD < 0.909 && ToD >= 0.2083) { parentSM.ChangeState("schedule"); }
+                    if (ToD < 0.909 && ToD >= 0.2483) { parentSM.ChangeState("schedule"); }
                 }
                 else  // Role Artisan or unassigned
                 {
-                    if (ToD < 0.909 && ToD >= 0.2083) { parentSM.ChangeState("schedule"); }
+                    if (ToD < 0.909 && ToD >= 0.2483) { parentSM.ChangeState("schedule"); }
                 }
             }
         }
 
-        public class NodeSelfCare : SMNode
-        {
-            public SelfCareSM selfCareStateMachine;
-
-            public NodeSelfCare(TopLevelSM psm) : base(psm)
-            {
-                selfCareStateMachine = new SelfCareSM(hmAI);
-            }
-
-            public override void EnterFrom(int aState)
-            {
-                if (aState == parentSM.StateInt("schedule") || aState == parentSM.StateInt("rest") || aState == parentSM.StateInt("depressed") || aState == parentSM.StateInt("hide"))
-                {
-                    selfCareStateMachine.ChangeState("findFood");
-                }
-            }
-            public override void RunState()
-            {
-                selfCareStateMachine.Evaluate();
-                if (selfCareStateMachine.changeTopState.Length > 0)
-                {
-                    parentSM.ChangeState(selfCareStateMachine.changeTopState);
-                    selfCareStateMachine.changeTopState = "";
-                }
-
-                float ToD = EnvMan.instance.m_smoothDayFraction;
-                if (hmNPC.m_roleWarrior && hmNPC.m_jobThegn)
-                {
-                    if (hmNPC.m_thegnDayshift)
-                    {
-                        if (ToD < 0.2083 || ToD >= 0.2608) { parentSM.ChangeState("schedule"); }
-
-                    }
-                    else
-                    {
-                        if (ToD < 0.6083 || ToD >= 0.6983) { parentSM.ChangeState("schedule"); }
-                    }
-                }
-                else if (hmNPC.m_roleWarrior && hmNPC.m_jobHimthiki)
-                {
-                    if (ToD < 0.2083 || ToD >= 0.2483) { parentSM.ChangeState("schedule"); }
-                }
-                else  // Role Artisan or unassigned
-                {
-                    if (ToD < 0.2083 || ToD >= 0.2483) { parentSM.ChangeState("schedule"); }
-                }
-            }
-        }
         public class NodePatrol : SMNode
         {
             public PatrolSM patrolStateMachine;
@@ -309,6 +244,9 @@ namespace Hirdmandr
                 {
                     patrolStateMachine.ChangeState("setupPatrol");
                 }
+
+                // Socialize: on guard duty — queue a "guarded" moment (dedup keeps it to one).
+                hmNPC.m_socialize.EnqueueGuarded();
             }
             public override void RunState()
             {
@@ -322,47 +260,12 @@ namespace Hirdmandr
                 float ToD = EnvMan.instance.m_smoothDayFraction;
                 if (hmNPC.m_roleWarrior && hmNPC.m_jobThegn)
                 {
-                    if (hmNPC.m_thegnDayshift)
-                    {
-                        if (ToD < 0.2608 || ToD >= 0.7083) { parentSM.ChangeState("schedule"); }
-                    }
-                    else
-                    {
-                        if (ToD < 0.6983 && ToD >= 0.2708) { parentSM.ChangeState("schedule"); }
-                    }
+                    if (hmNPC.ThegnTargetState(ToD) != "patrol") { parentSM.ChangeState("schedule"); }
                 }
                 else  // Role Artisan or unassigned
                 {
                     if (ToD < 0.2608 || ToD >= 0.7083) { parentSM.ChangeState("schedule"); }
                 }
-            }
-        }
-        public class NodeDepressed : SMNode
-        {
-            public DepressedSM depressedStateMachine;
-
-            public NodeDepressed(TopLevelSM psm) : base(psm)
-            {
-                depressedStateMachine = new DepressedSM(hmAI);
-            }
-
-            public override void EnterFrom(int aState)
-            {
-                if (aState == parentSM.StateInt("schedule"))
-                {
-                    depressedStateMachine.ChangeState("startDepressed");
-                }
-            }
-            public override void RunState()
-            {
-                depressedStateMachine.Evaluate();
-                if (depressedStateMachine.changeTopState.Length > 0)
-                {
-                    parentSM.ChangeState(depressedStateMachine.changeTopState);
-                    depressedStateMachine.changeTopState = "";
-                }
-
-                parentSM.ChangeState("schedule");
             }
         }
         public class NodeThreatened : SMNode
@@ -377,6 +280,19 @@ namespace Hirdmandr
             public override void EnterFrom(int aState)
             {
                 terrorStateMachine.ChangeState("callForHelp");
+
+                // Socialize: a fight just started — queue a "combat" moment. Carry the threat's
+                // localized name (if identifiable) and the melee/range persona (from the NPC's
+                // higher combat skill); the line is said later, at the fire.
+                Character threat = null;
+                if (hmMAI != null && hmMAI.m_character != null)
+                {
+                    threat = BaseAI.FindClosestEnemy(hmMAI.m_character, hmNPC.transform.position, 50f);
+                }
+                string monsterName = (threat != null && !threat.IsDead()) ? threat.GetHoverName() : "";
+                string persona = (hmNPC.m_skills != null && hmNPC.m_skills.GetSkill("melee") < hmNPC.m_skills.GetSkill("range"))
+                    ? "range" : "melee";
+                hmNPC.m_socialize.EnqueueCombat(monsterName, persona);
             }
             public override void RunState()
             {
@@ -389,14 +305,51 @@ namespace Hirdmandr
 
                 if (!hmAI.m_hmMonsterAI.IsAlerted())
                 {
-                    parentSM.ChangeState("schedule");
+                    // Threat cleared. If we were following the player, resume the follow state;
+                    // otherwise return to the normal schedule.
+                    parentSM.ChangeState(hmAI.m_hmnpc.m_following ? "follow" : "schedule");
                 }
             }
         }
 
-        public class NodehimthikiFollow : SMNode
+        public class NodeDefend : SMNode
         {
-            public NodehimthikiFollow(TopLevelSM psm) : base(psm)
+            public NodeDefend(TopLevelSM psm) : base(psm) { }
+
+            public override void EnterFrom(int aState)
+            {
+                // Start moving to the distressed party member right away. UpdateMoving (per-frame)
+                // does the actual stepping from here on; we only (re)issue the destination.
+                HirdmandrNPC t = hmAI.m_defendTarget;
+                if (t != null)
+                {
+                    hmAI.TryToMove(t.transform.position, 3f, 1f, 3f, false, 30f);
+                }
+            }
+
+            public override void RunState()
+            {
+                // Re-anchor each tick: the distressed NPC may be moving (fighting / fleeing).
+                HirdmandrNPC t = hmAI.m_defendTarget;
+                if (t == null)
+                {
+                    t = hmAI.FindDefendTarget();
+                    hmAI.m_defendTarget = t;
+                }
+                if (t == null)
+                {
+                    // No one in distress anymore → resume the normal schedule.
+                    hmAI.m_defendTarget = null;
+                    parentSM.ChangeState("schedule");
+                    return;
+                }
+                hmAI.TryToMove(t.transform.position, 3f, 1f, 3f, false, 30f);
+            }
+        }
+
+        public class NodeFollow : SMNode
+        {
+            public NodeFollow(TopLevelSM psm) : base(psm)
             {
             }
 
@@ -406,7 +359,9 @@ namespace Hirdmandr
             }
             public override void RunState()
             {
-                if (!hmAI.m_hmnpc.m_himthikiFollowing)
+                // If follow was stopped (manually, or by the owner auto-stop) while we were
+                // parked here, return to the normal schedule.
+                if (!hmAI.m_hmnpc.m_following)
                 {
                     parentSM.ChangeState("schedule");
                 }

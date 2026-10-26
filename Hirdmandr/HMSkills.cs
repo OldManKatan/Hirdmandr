@@ -17,30 +17,60 @@ namespace Hirdmandr
             public bool m_isEnabled = false;
         }
 
-        public static string[] m_hmSkillNames = new string[9]
+        public class SkillDef
         {
-            "woodburner",
-            "furnaceoperator",
-            "farmer",
-            "cook",
-            "baker",
-            "melee",
-            "range",
-            "fighter",
-            "gatherer"
+            public readonly string key;
+            public readonly string readable;
+            public SkillDef(string key, string readable)
+            {
+                this.key = key;
+                this.readable = readable;
+            }
+        }
+
+        // Single source of truth for the skill registry + display order. Each entry couples a
+        // persistent key with its display name so the two can never drift apart (the old parallel
+        // m_hmSkillNames / m_hmSkillReadables arrays could, which misaligned the GUI after cook/baker
+        // were dropped). List order == top-to-bottom order in the GUI skill list.
+        public static readonly SkillDef[] m_skillDefs = new SkillDef[]
+        {
+            new SkillDef("mender", "Mender"),
+            new SkillDef("lamplighter", "Lamplighter"),
+            new SkillDef("woodburner", "Wood Burner"),
+            new SkillDef("furnaceoperator", "Furnace Operator"),
+            new SkillDef("farmer", "Farmer"),
+            new SkillDef("gatherer", "Gatherer"),
+            new SkillDef("fighter", "Fighter"),
+            new SkillDef("melee", "Melee User"),
+            new SkillDef("range", "Ranged User")
         };
 
-        public static string[] m_hmSkillReadables = new string[9]
+        // Flat key array in display order, derived from m_skillDefs so the keys live in exactly one
+        // place. Kept so the existing Array.IndexOf(m_hmSkillNames, ...) / m_hmSkillNames[i] call sites
+        // keep working unchanged.
+        public static readonly string[] m_hmSkillNames = DeriveSkillNames();
+        static string[] DeriveSkillNames()
         {
-            "Wood Burner",
-            "Furnace Operator",
-            "Farmer",
-            "Cook",
-            "Baker",
-            "Melee User",
-            "Ranged User",
-            "Fighter",
-            "Gatherer"
+            var names = new string[m_skillDefs.Length];
+            for (var i = 0; i < m_skillDefs.Length; i++)
+            {
+                names[i] = m_skillDefs[i].key;
+            }
+            return names;
+        }
+
+        // The artisan worksite jobs - the ONLY skills GetEnabledSkillsHighestFirst ranks.
+        // Same set as HirdmandrCommand's "Valid jobs" list. Everything else in m_hmSkillNames
+        // is NOT a job: fighter/melee/range are the warrior's combat-style flags (the
+        // Thegn/Himthiki persona code enables/reads them under the hood - left untouched here),
+        // and gatherer is a skill with no worksite.
+        public static readonly string[] m_artisanJobSkills = new string[]
+        {
+            "mender",
+            "lamplighter",
+            "woodburner",
+            "furnaceoperator",
+            "farmer"
         };
 
         public SkillData[] m_hmSkills = new SkillData[m_hmSkillNames.Length];
@@ -64,21 +94,52 @@ namespace Hirdmandr
                 {
                     m_hmSkills[i] = new SkillData();
                     m_hmSkills[i].m_name = m_hmSkillNames[i];
-                    m_hmSkills[i].m_readable = m_hmSkillReadables[i];
+                    m_hmSkills[i].m_readable = m_skillDefs[i].readable;
                 }
 
-                m_hmSkills[i].m_value = m_znetv.GetZDO().GetFloat("hmnpc_skill" + m_hmSkillNames[i], 0f);
-                m_hmSkills[i].m_isEnabled = m_znetv.GetZDO().GetBool("hmnpc_skill" + m_hmSkillNames[i] + "enable", false);
+                // The ZDO is wired onto this ZNetView only after Awake (CreateObject binds it
+                // post-Instantiate), so it may be null here. Keep the defaults until it is set.
+                var zdo = m_znetv.GetZDO();
+                if (zdo == null)
+                {
+                    continue;
+                }
+                m_hmSkills[i].m_value = zdo.GetFloat("hmnpc_skill" + m_hmSkillNames[i], 0f);
+                m_hmSkills[i].m_isEnabled = zdo.GetBool("hmnpc_skill" + m_hmSkillNames[i] + "enable", false);
+            }
+            var zdoCheck = m_znetv.GetZDO();
+            if (zdoCheck != null)
+            {
+                var loadedNow = new List<string>();
+                for (var i = 0; i < m_hmSkillNames.Length; i++)
+                {
+                    if (m_hmSkills[i].m_isEnabled)
+                    {
+                        loadedNow.Add(m_hmSkillNames[i]);
+                    }
+                }
+                Jotunn.Logger.LogInfo("[HMSkills.LoadSkills] loaded enabled=[" + string.Join(",", loadedNow.ToArray()) + "] furnaceop_readback=" + zdoCheck.GetBool("hmnpc_skillfurnaceoperatorenable"));
             }
         }
 
         public void SaveSkills()
         {
+            if (m_znetv.GetZDO() == null)
+            {
+                Jotunn.Logger.LogInfo("[HMSkills.SaveSkills] ZDO is null, NOT persisting");
+                return;
+            }
+            var enabledNow = new List<string>();
             for (var i = 0; i < m_hmSkillNames.Length; i++)
             {
                 m_znetv.GetZDO().Set("hmnpc_skill" + m_hmSkillNames[i], m_hmSkills[i].m_value);
                 m_znetv.GetZDO().Set("hmnpc_skill" + m_hmSkillNames[i] + "enable", m_hmSkills[i].m_isEnabled);
+                if (m_hmSkills[i].m_isEnabled)
+                {
+                    enabledNow.Add(m_hmSkillNames[i]);
+                }
             }
+            Jotunn.Logger.LogInfo("[HMSkills.SaveSkills] persisted enabled=[" + string.Join(",", enabledNow.ToArray()) + "] furnaceop_readback=" + m_znetv.GetZDO().GetBool("hmnpc_skillfurnaceoperatorenable"));
         }
 
         public float GetSkill(string skill_name)
@@ -98,10 +159,7 @@ namespace Hirdmandr
             if (skill_index > -1)
             {
                 var old_value = m_hmSkills[skill_index].m_value;
-                Jotunn.Logger.LogWarning("  MODIFY SKILL old_value = " + old_value);
-                Jotunn.Logger.LogWarning("  MODIFY SKILL change = " + change);
                 var new_value = 0f;
-                Jotunn.Logger.LogWarning("  MODIFY SKILL new_value = " + new_value);
                 if (!leveled)
                 {
                     new_value = old_value + change;
@@ -117,7 +175,6 @@ namespace Hirdmandr
                         new_value = old_value + change;
                     }
                 }
-                Jotunn.Logger.LogWarning("  MODIFY SKILL Pre-clamped new_value = " + new_value);
 
                 if (new_value < 0)
                 {
@@ -127,22 +184,83 @@ namespace Hirdmandr
                 {
                     new_value = 100;
                 }
-                Jotunn.Logger.LogWarning("  MODIFY SKILL Post-clamped new_value = " + new_value);
 
-                if (leveled)
+                // One trace line per modification (down from the old 5-line dump) so skill
+                // progression is still visible without flooding the log.
+                Jotunn.Logger.LogInfo("  MODIFY SKILL " + skill_name + ": " + old_value.ToString("0.##") + " -> " + new_value.ToString("0.##") + " (change " + change.ToString("0.##") + ")");
+
+                if (leveled && Math.Floor(new_value) > Math.Floor(old_value))
                 {
-                    if (Math.Floor(new_value) > Math.Floor(old_value))
+                    Jotunn.Logger.LogInfo("SKILLUP OCCURRED for " + m_znetv.GetComponent<NPCPlayerClone>().m_name + " from " + old_value + " to " + new_value);
+                    // Play via the effect bus: FireMpEffect plays locally on the owner and
+                    // broadcasts to every other client (the handler skips the owner). The skill
+                    // level stays in the ZDO (state channel); only the trigger + a log-only
+                    // "skillName:level" ride the RPC.
+                    m_hmnpc.FireMpEffect(HMEffectKind.SkillLevelup, skill_name + ":" + (int)Math.Floor(new_value));
+                    // Socialize: queue a "skillup" moment (the readable name + the new level).
+                    // Warrior skills (fighter/melee/range) are suppressed: their readable names
+                    // ("Fighter", "Melee User", "Ranged User") read awkwardly in the lines, and
+                    // this Valheim build has no clean weapon-in-hand to name them after (equipment
+                    // is stored by item hash, no Item/GetFullName; fighter has no weapon at all).
+                    // Only artisan skillups create moments, so the trade names carry the value.
+                    if (skill_name != "fighter" && skill_name != "melee" && skill_name != "range")
                     {
-                        Jotunn.Logger.LogWarning("SKILLUP OCCURRED for " + m_znetv.GetComponent<Humanoid>().m_name + " from " + old_value + " to " + new_value);
-                        m_hmnpc.m_thoughts.AddThought(HMThoughts.tType.skillUp, (float)(Math.Floor(new_value) * 100), m_hmSkillReadables[skill_index], UnityEngine.Time.time + 18000);
+                        m_hmnpc.m_socialize.EnqueueSkillup(skill_name, m_skillDefs[skill_index].readable, (int)Math.Floor(new_value));
                     }
                 }
                 m_hmSkills[skill_index].m_value = new_value;
                 m_znetv.GetZDO().Set("hmnpc_skill" + skill_name, m_hmSkills[skill_index].m_value);
+
+                // Combat skills scale live stats: fighter -> maxHP/heal, melee -> melee damage,
+                // range -> bow arrow power. Re-deriving here keeps level-ups visible immediately.
+                if (m_hmnpc != null
+                    && (skill_name == "fighter" || skill_name == "melee" || skill_name == "range"))
+                {
+                    m_hmnpc.PopulateCombatProps();
+                }
             }
             else
             {
                 Jotunn.Logger.LogError("ModifySkill was called with unknown skill '" + skill_name + "'!");
+            }
+        }
+
+        // Direct test setter: sets an exact skill value (bypassing the leveled ModifySkill math)
+        // and re-applies any live combat stat that depends on it.
+        public void SetSkillValue(string skill_name, float value)
+        {
+            skill_name = skill_name.Replace("skill", "");
+            var skill_index = Array.IndexOf(m_hmSkillNames, skill_name);
+            if (skill_index > -1)
+            {
+                if (value < 0f)
+                {
+                    value = 0f;
+                }
+                if (value > 100f)
+                {
+                    value = 100f;
+                }
+
+                m_hmSkills[skill_index].m_value = value;
+                if (m_znetv != null)
+                {
+                    var zdo = m_znetv.GetZDO();
+                    if (zdo != null)
+                    {
+                        zdo.Set("hmnpc_skill" + skill_name, value);
+                    }
+                }
+
+                if (m_hmnpc != null
+                    && (skill_name == "fighter" || skill_name == "melee" || skill_name == "range"))
+                {
+                    m_hmnpc.PopulateCombatProps();
+                }
+            }
+            else
+            {
+                Jotunn.Logger.LogError("SetSkillValue was called with unknown skill '" + skill_name + "'!");
             }
         }
 
@@ -165,37 +283,30 @@ namespace Hirdmandr
 
         public List<string> GetEnabledSkillsHighestFirst()
         {
-            string[] artisanSkills = new string[]
-            {
-                "woodburner",
-                "furnaceoperator",
-                "farmer",
-                "cook",
-                "baker"
-            };
-
             List<string> enabledSkills = new List<string>();
             foreach (SkillData skl in m_hmSkills)
             {
+                // Only the 5 worksite job skills are jobs (m_artisanJobSkills). Without this
+                // filter an enabled warrior combat skill would be ranked as a job: the
+                // Thegn/Himthiki persona code enables melee/range under the hood, and that flag
+                // survives a warrior -> artisan role switch (RoleChanged never clears it), so a
+                // switched-back artisan would rank "melee" and crash in
+                // HirdmandrChest.IsValidWorksite (no artisanJobPieces entry for a combat key).
+                if (Array.IndexOf(m_artisanJobSkills, skl.m_name) < 0)
+                {
+                    continue;
+                }
                 if (skl.m_isEnabled)
                 {
                     enabledSkills.Add(skl.m_name);
-                    Jotunn.Logger.LogWarning("GetEnabledSkillsHighestFirst is adding " + skl.m_name + " to enabledSkills");
                 }
-            }
-
-            Jotunn.Logger.LogWarning("enabledSkills return list");
-            foreach (string aSkill in enabledSkills)
-            {
-                Jotunn.Logger.LogWarning("    " + aSkill);
             }
 
             List<string> returnList = new List<string>();
             var numSkills = enabledSkills.Count;
 
-            for (int i = 0; i < numSkills; i++) {
-                Jotunn.Logger.LogWarning("GetEnabledSkillsHighestFirst is evaluating skill #" + i);
-
+            for (int i = 0; i < numSkills; i++)
+            {
                 float highest_skill_value = -1f;
                 string highest_skill_str = "";
 
@@ -206,19 +317,12 @@ namespace Hirdmandr
                         highest_skill_value = GetSkill(aSkill);
                         highest_skill_str = aSkill;
                     }
-                    Jotunn.Logger.LogWarning("GetEnabledSkillsHighestFirst is looking at " + aSkill);
                 }
                 if (highest_skill_str != "")
                 {
-                    Jotunn.Logger.LogWarning("GetEnabledSkillsHighestFirst is adding " + highest_skill_str + " to returnList");
                     returnList.Add(highest_skill_str);
                     enabledSkills.RemoveAt(enabledSkills.IndexOf(highest_skill_str));
                 }
-            }
-            Jotunn.Logger.LogWarning("GetEnabledSkillsHighestFirst FINAL RETURN LIST");
-            foreach (string aStr in returnList)
-            {
-                Jotunn.Logger.LogWarning("    " + aStr);
             }
             return returnList;
         }
@@ -247,6 +351,18 @@ namespace Hirdmandr
                 {
                     Jotunn.Logger.LogInfo("Skill " + skill_name + " was Disabled.");
                 }
+            }
+        }
+
+        // Local-only enable toggle: updates this client's cache without touching the ZDO.
+        // The GUI routes the toggle through HirdmandrNPC.InvokeSetting, which persists on
+        // the owner; this keeps a non-owner toggle from doing an owner-only ZDO Set (review F2).
+        public void SetSkillEnableLocal(string skill_name, bool enable_value)
+        {
+            var skill_index = Array.IndexOf(m_hmSkillNames, skill_name);
+            if (skill_index > -1)
+            {
+                m_hmSkills[skill_index].m_isEnabled = enable_value;
             }
         }
 

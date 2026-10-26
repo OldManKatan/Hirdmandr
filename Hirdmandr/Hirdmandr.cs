@@ -5,6 +5,7 @@
 // Project: Hirdmandr
 
 using BepInEx;
+using HarmonyLib;
 using Jotunn.Configs;
 using Jotunn.Entities;
 using Jotunn.GUI;
@@ -18,41 +19,82 @@ using UnityEngine.UI;
 
 namespace Hirdmandr
 {
+    /// <summary>
+    /// Main entry point for the Hirdmandr mod. 
+    /// This mod adds functional NPCs (hirdmandr) to Valheim, inspired by Norse culture.
+    /// Rescued warriors become loyal followers who can work artisan jobs or defend as warriors.
+    /// They have daily schedules, and respond to player direction.
+    /// </summary>
     [BepInPlugin(PluginGUID, PluginName, PluginVersion)]
     [BepInDependency(Jotunn.Main.ModGuid)]
-    // [NetworkCompatibility(CompatibilityLevel.EveryoneMustHaveMod, VersionStrictness.Minor)]
+    [NetworkCompatibility(CompatibilityLevel.EveryoneMustHaveMod, VersionStrictness.Minor)]
 
     internal class Hirdmandr : BaseUnityPlugin
     {
+        /// <summary>Unique identifier for registry and multiplayer compatibility.</summary>
         public const string PluginGUID = "com.github.Hirdmandr";
+        
+        /// <summary>Pure display name shown in game's mod manager.</summary>
         public const string PluginName = "Hirdmandr";
-        public const string PluginVersion = "0.0.1";
+        
+        /// <summary>Must exactly match Package/manifest.json version_number (BepInEx 5 chainloader requirement).</summary>
+        public const string PluginVersion = "1.0.16";
 
         // Use this class to add your own localization to the game
         // https://valheim-modding.github.io/Jotunn/tutorials/localization.html
         public static CustomLocalization Localization = LocalizationManager.Instance.GetLocalization();
 
-        private void Awake()
+    /// <summary>
+    /// Initializes the mod: sets up Harmony patches and registers prefab creation delegates.
+    /// We wait for OnVanillaPrefabsAvailable to ensure core Valheim assets exist before cloning/modifying them.
+    /// </summary>
+    private void Awake()
+    {
+        try
         {
-            // Jotunn comes with MonoMod Detours enabled for hooking Valheim's code
-            // https://github.com/MonoMod/MonoMod
-            On.FejdStartup.Awake += FejdStartup_Awake;
+        // Initialize Harmony for applying all mod patches
+        Harmony harmony = new Harmony("Hirdmandr");
+        harmony.PatchAll();
 
-            // Jotunn comes with its own Logger class to provide a consistent Log style for all mods using it
-            Jotunn.Logger.LogInfo("Hirdmandr has landed");
+        // Confirms successful initialization (appears in Valheim log)
+        Jotunn.Logger.LogInfo("Hirdmandr has landed");
 
-            // To learn more about Jotunn's features, go to
-            // https://valheim-modding.github.io/Jotunn/tutorials/overview.html
+        // Register callbacks to create NPC prefabs once Vanilla assets are available:
+        // - CreateNPCPlayer: Creates the rescued warrior NPC entity
+        // - CreateNPCChests: Adds chest/barrel pieces (wood, reinforced, blackmetal, barrel, grausten) for worksites
+        // - CreateNPCFires: Adds campfire/hearth/bonfire pieces for gathering/socializing
+        // - CreateNPCBeds: Adds bed pieces for sleeping/rest mechanics  
+        // - DebugMons: Creates debug monster prefabs (unused in final build?)
+        PrefabManager.OnVanillaPrefabsAvailable += CreateNPCPlayer;
+        PrefabManager.OnVanillaPrefabsAvailable += CreateNPCChests;
+        PrefabManager.OnVanillaPrefabsAvailable += CreateNPCFires;
+        PrefabManager.OnVanillaPrefabsAvailable += CreateNPCBeds;
+        PrefabManager.OnVanillaPrefabsAvailable += DebugMons;
+        // Soul item (R3c): the pickable record a rescued NPC becomes when it dies. Registered
+        // alongside the other cloned prefabs; spawned on demand (test) / on NPC death.
+        PrefabManager.OnVanillaPrefabsAvailable += SoulItem.RegisterSoulItem;
+        // Altar to Hella (PMW #62): the resurrection altar piece, cloned from the Eikthyrnir
+        // offering bowl. Registered at scene load (OnPrefabsRegistered), not menu time: its
+        // ZNetView/Piece Awake and the stonecutter station lookup all need ZNet up.
+        PrefabManager.OnPrefabsRegistered += CreateAltarHella;
 
-            PrefabManager.OnVanillaPrefabsAvailable += CreateNPCPlayer;
-            PrefabManager.OnVanillaPrefabsAvailable += CreateNPCChests;
-            PrefabManager.OnVanillaPrefabsAvailable += CreateNPCFires;
-            PrefabManager.OnVanillaPrefabsAvailable += CreateNPCBeds;
-            PrefabManager.OnVanillaPrefabsAvailable += CreateNPCBows;
-            PrefabManager.OnVanillaPrefabsAvailable += DebugMons;
+        // Register the in-game console commands (e.g. "/hirdmandr spawn"). This must run
+        // before a level loads (so the game's Terminal picks the command up) - Awake is that
+        // point. CommandManager.Instance is lazily created, so it is safe here.
+        CommandManager.Instance.AddConsoleCommand(new HirdmandrSpawnCommand());
 
-            // On.Container.Awake += OnContainerAwake;
-            On.Tutorial.Awake += OnTutorialAwake;
+        // Rescue spawn (R3c refactor): start the periodic world-rescue scanner. It runs a
+        // coroutine on this (the persistent plugin MonoBehaviour); it idles until a level loads,
+        // then scans the zones around the player every few seconds and offers an unrescued rescue
+        // at a deterministic subset of whitelisted, unclaimed structures. See RescueScanner +
+        // rescue_spawn_design.md.
+        RescueScanner.Start(this);
+        }
+        catch (System.Exception e)
+        {
+            Jotunn.Logger.LogError("Hirdmandr.Awake threw:\n" + e);
+            throw;
+        }
         }
 
         // public void OnContainerAwake(On.Container.orig_Awake orig, Container self)
@@ -67,136 +109,6 @@ namespace Hirdmandr
         //     }
         // }
 
-        public void OnTutorialAwake(On.Tutorial.orig_Awake orig, Tutorial self)
-        {
-            orig(self);
-
-            var tut_adds = new List<string>
-            {
-                "hirdmandr_find_rescue",
-                "hirdmandr_first_rescue",
-                "hirdmandr_welcome_home",
-                "hirdmandr_thegn",
-                "hirdmandr_himthiki",
-                "hirdmandr_artisan"
-            };
-            for (var i = 0; i < self.m_texts.Count; i++)
-            {
-                if (tut_adds.Contains(self.m_texts[i].m_name))
-                {
-                    tut_adds.RemoveAt(tut_adds.IndexOf(self.m_texts[i].m_name));
-                }
-            }
-
-            if (tut_adds.Contains("hirdmandr_find_rescue"))
-            {
-                Tutorial.TutorialText hm_temp = new Tutorial.TutorialText()
-                {
-                    m_name = "hirdmandr_find_rescue",
-                    m_topic = "You are not the first...",
-                    m_label = "This is the label",
-                    m_text = "Odin's Valkyires have been bringing warriors to Valheim for centuries. Warriors who succeed in the tasks laid out by Odin are " +
-                    "carried to Valhalla by the Valkyries. Those who fail lose Odin's blessing and are no longer to be reborn on Valheim when they die, instead " +
-                    "they are claimed by Hel and the Valkyries bring them to Helheim upon their death in Valheim.\n\n" +
-                    "If you find these cast out warriors and offer them protection: they will join your cause as one of your Hirdmandr and serve you faithfully!"
-                };
-
-                self.m_texts.Add(hm_temp);
-            }
-            
-            if (tut_adds.Contains("hirdmandr_first_rescue"))
-            {
-                Tutorial.TutorialText hm_temp = new Tutorial.TutorialText()
-                {
-                    m_name = "hirdmandr_first_rescue",
-                    m_topic = "Becoming a Jarl of Valheim",
-                    m_label = "This is the label",
-                    m_text = "You have rescued a lost warrior! \n\n" +
-                    "You have taken your first step to becoming a mighty Jarl of Valheim! To be a Jarl is to be responsible for the health, happiness, and security of your Hirdmandr. " +
-                    "Your first task as a Jarl is to lead this lost warrior to one of your strongholds or camps. You may welcome them to their new home only within range of a " +
-                    "workbench and a fire \n\n" +
-                    "Whether grand castle or humble shack, your new friend will make their home in that place as a Hirdmandr, loyal to their benevolent Jarl: You."
-                };
-
-                self.m_texts.Add(hm_temp);
-            }
-            
-            if (tut_adds.Contains("hirdmandr_welcome_home"))
-            {
-                Tutorial.TutorialText hm_temp = new Tutorial.TutorialText()
-                {
-                    m_name = "hirdmandr_welcome_home",
-                    m_topic = "A Jarl's Hirdmandr",
-                    m_label = "This is the label",
-                    m_text = "<color=yellow><b>Hugin</b></color> and <color=yellow><b>Munin</b></color> join you in welcoming this lost warrior home! \n\n" +
-                    "Take some time to speak [<color=yellow><b>E</b></color>] with your new hirdmandr, and discuss their duties [<color=yellow><b>LShift+E</b></color>] " +
-                    "at length. Learn about their personality, a good Jarl assigns duties by each person's stengths! You can also discover their skills, " +
-                    "which may help you. Remember: Each of your hirdmandr may be assigned a role of Artisan or Warrior, but not both."
-                };
-
-                self.m_texts.Add(hm_temp);
-            }
-            
-            if (tut_adds.Contains("hirdmandr_thegn"))
-            {
-                Tutorial.TutorialText hm_temp = new Tutorial.TutorialText()
-                {
-                    m_name = "hirdmandr_thegn",
-                    m_topic = "Your Garrison and Militia",
-                    m_label = "This is the label",
-                    m_text = "Thegn are young warriors, full of drive but lacking in experience. Warriors assigned to the Thegn duty will remain " + 
-                    "in your stronghold and protect your hirdmandr from the threats of wandering creatures and attacks by the forsaken. Once the " + 
-                    "mod author figures out how to do patrols, there will be a note about it here!"
-                };
-
-                self.m_texts.Add(hm_temp);
-            }
-
-            if (tut_adds.Contains("hirdmandr_himthiki"))
-            {
-                Tutorial.TutorialText hm_temp = new Tutorial.TutorialText()
-                {
-                    m_name = "hirdmandr_himthiki",
-                    m_topic = "A Jarl's Elite Warriors",
-                    m_label = "This is the label",
-                    m_text = "A Himthiki is an elite warrior! They have been the backbone of every Jarl's royal guard for centuries. At your command, " +
-                    "your Himthiki will follow you out of your stronghold and into glorious battle. Take care with their trust! Valheim " +
-                    "is dangerous, and a Himthiki who dies is not reborn. Himthiki with the Gatherer job enabled will pick up useful things on your " + 
-                    "journeys, everything from stone to cloudberries."
-                };
-
-                self.m_texts.Add(hm_temp);
-            }
-
-            if (tut_adds.Contains("hirdmandr_artisan"))
-            {
-                Tutorial.TutorialText hm_temp = new Tutorial.TutorialText()
-                {
-                    m_name = "hirdmandr_artisan",
-                    m_topic = "Artisans and Laborers",
-                    m_label = "This is the label",
-                    m_text = "While any hirdmandr can learn any skill, many hirdmandr are best suited to the quiet, industrious life of an Artisan. " +
-                    "You may give any number of artisan duties to each hirdmandr, but they always prefer the jobs they are best at. Each artisan " +
-                    "requires a workspace before they can work. A Wood Burner, for example, requires an NPC Chest (any kind) close to a Kiln."
-                };
-
-                self.m_texts.Add(hm_temp);
-            }
-
-        }
-
-        private void FejdStartup_Awake(On.FejdStartup.orig_Awake orig, FejdStartup self)
-        {
-            // This code runs before Valheim's FejdStartup.Awake
-            Jotunn.Logger.LogInfo("FejdStartup is going to awake");
-
-            // Call this method so the original game method is invoked
-            orig(self);
-
-            // This code runs after Valheim's FejdStartup.Awake
-            Jotunn.Logger.LogInfo("FejdStartup has awoken");
-        }
-
         // Implementation of cloned asset
         //private void CreateNPCChest()
         //{
@@ -205,16 +117,22 @@ namespace Hirdmandr
         //    PieceManager.Instance.AddPieceTable(CPT);
         //}
 
+        /// <summary>
+        /// Creates NPC chests (wood, reinforced, blackmetal, barrel, grausten) that NPCs will use
+        /// as worksites. Multiple NPCs near these chests can be assigned jobs like wood burner or
+        /// furnace operator. Chests are linked via HirdmandrChest component to manage inventory
+        /// pooling. Each clone keeps the exact vanilla cost/requirements of its source piece.
+        /// </summary>
         private void CreateNPCChests()
         {
-            // Create NPC Chest first
+            // Register first the basic wooden chest for common worksites (farmers, etc.)
             if (!PrefabManager.Instance.GetPrefab("piece_npc_chest"))
             {
                 var NPCChestPrefab = PrefabManager.Instance.CreateClonedPrefab("piece_npc_chest", "piece_chest_wood");
                 NPCChestPrefab.AddComponent<HirdmandrChest>();
 
                 var NPCChestContainer = NPCChestPrefab.GetComponent<Container>();
-                NPCChestContainer.m_name = "NPC Chest";
+                NPCChestContainer.m_name = "NPC Chest"; // Generic container name for inventory pooling
 
                 var NPCChestPiece = new CustomPiece(NPCChestPrefab, fixReference: true,
                     new PieceConfig
@@ -238,37 +156,37 @@ namespace Hirdmandr
                 PieceManager.Instance.AddPiece(NPCChestPiece);
             }
 
-            // // Create NPC Reinforced Chest
-            // if (!PrefabManager.Instance.GetPrefab("piece_npc_chest_reinforced"))
-            // {
-            //     var NPCChestPrefab = PrefabManager.Instance.CreateClonedPrefab("piece_npc_chest_reinforced", "piece_chest");
-            //     NPCChestPrefab.AddComponent<HirdmandrChest>();
-            // 
-            //     var NPCChestContainer = NPCChestPrefab.GetComponent<Container>();
-            //     NPCChestContainer.m_name = "NPC Chest";
-            // 
-            //     var NPCChestPiece = new CustomPiece(NPCChestPrefab, fixReference: true,
-            //         new PieceConfig
-            //         {
-            //             Name = "NPC Reinforced Chest",
-            //             Description = "Testing Descriptions",
-            //             PieceTable = "_HammerPieceTable",
-            //             Category = "Hirdmandr",
-            //             AllowedInDungeons = false,
-            //             Icon = GUIManager.Instance.GetSprite("chest_iron"),
-            //             Requirements = new[]
-            //             {
-            //                      new RequirementConfig { Item = "FineWood", Amount = 10, Recover = true },
-            //                      new RequirementConfig { Item = "Iron", Amount = 2, Recover = true }
-            //             }
-            //         });
-            // 
-            //     NPCChestPiece.Piece.m_canBeRemoved = true;
-            //     NPCChestPiece.Piece.m_enabled = true;
-            //     NPCChestPiece.Piece.m_randomTarget = true;
-            // 
-            //     PieceManager.Instance.AddPiece(NPCChestPiece);
-            // }
+            // Create NPC Reinforced Chest
+            if (!PrefabManager.Instance.GetPrefab("piece_npc_chest_reinforced"))
+            {
+                var NPCChestPrefab = PrefabManager.Instance.CreateClonedPrefab("piece_npc_chest_reinforced", "piece_chest");
+                NPCChestPrefab.AddComponent<HirdmandrChest>();
+
+                var NPCChestContainer = NPCChestPrefab.GetComponent<Container>();
+                NPCChestContainer.m_name = "NPC Reinforced Chest"; // Generic container name for inventory pooling
+
+                var NPCChestPiece = new CustomPiece(NPCChestPrefab, fixReference: true,
+                    new PieceConfig
+                    {
+                        Name = "NPC Reinforced Chest",
+                        Description = "Testing Descriptions",
+                        PieceTable = "_HammerPieceTable",
+                        Category = "Hirdmandr",
+                        AllowedInDungeons = false,
+                        Icon = GUIManager.Instance.GetSprite("chest_iron"),
+                        Requirements = new[]
+                        {
+                                 new RequirementConfig { Item = "FineWood", Amount = 10, Recover = true },
+                                 new RequirementConfig { Item = "Iron", Amount = 2, Recover = true }
+                        }
+                    });
+
+                NPCChestPiece.Piece.m_canBeRemoved = true;
+                NPCChestPiece.Piece.m_enabled = true;
+                NPCChestPiece.Piece.m_randomTarget = true;
+
+                PieceManager.Instance.AddPiece(NPCChestPiece);
+            }
 
             // Create NPC Blackmetal Chest
             if (!PrefabManager.Instance.GetPrefab("piece_npc_chest_blackmetal"))
@@ -277,7 +195,7 @@ namespace Hirdmandr
                 NPCChestPrefab.AddComponent<HirdmandrChest>();
 
                 var NPCChestContainer = NPCChestPrefab.GetComponent<Container>();
-                NPCChestContainer.m_name = "NPC Chest";
+                NPCChestContainer.m_name = "NPC Blackmetal Chest";
 
                 var NPCChestPiece = new CustomPiece(NPCChestPrefab, fixReference: true,
                     new PieceConfig
@@ -303,12 +221,82 @@ namespace Hirdmandr
                 PieceManager.Instance.AddPiece(NPCChestPiece);
             }
 
+            // Create NPC Barrel (vanilla barrel piece is named "piece_chestbarrel")
+            if (!PrefabManager.Instance.GetPrefab("piece_npc_barrel"))
+            {
+                var NPCChestPrefab = PrefabManager.Instance.CreateClonedPrefab("piece_npc_barrel", "piece_chest_barrel");
+                NPCChestPrefab.AddComponent<HirdmandrChest>();
+
+                var NPCChestContainer = NPCChestPrefab.GetComponent<Container>();
+                NPCChestContainer.m_name = "NPC Barrel"; // Generic container name for inventory pooling
+
+                var NPCChestPiece = new CustomPiece(NPCChestPrefab, fixReference: true,
+                    new PieceConfig
+                    {
+                        Name = "NPC Barrel",
+                        Description = "Testing Descriptions",
+                        PieceTable = "_HammerPieceTable",
+                        Category = "Hirdmandr",
+                        AllowedInDungeons = false,
+                        Icon = GUIManager.Instance.GetSprite("chest_barrel"),
+                        Requirements = new[]
+                        {
+                                 new RequirementConfig { Item = "Wood", Amount = 10, Recover = true },
+                                 new RequirementConfig { Item = "BarrelRings", Amount = 1, Recover = true }
+                        }
+                    });
+
+                NPCChestPiece.Piece.m_canBeRemoved = true;
+                NPCChestPiece.Piece.m_enabled = true;
+                NPCChestPiece.Piece.m_randomTarget = true;
+
+                PieceManager.Instance.AddPiece(NPCChestPiece);
+            }
+
+            // Create NPC Grausten Chest
+            if (!PrefabManager.Instance.GetPrefab("piece_npc_chest_grausten"))
+            {
+                var NPCChestPrefab = PrefabManager.Instance.CreateClonedPrefab("piece_npc_chest_grausten", "piece_chest_grausten");
+                NPCChestPrefab.AddComponent<HirdmandrChest>();
+
+                var NPCChestContainer = NPCChestPrefab.GetComponent<Container>();
+                NPCChestContainer.m_name = "NPC Grausten Chest"; // Generic container name for inventory pooling
+
+                var NPCChestPiece = new CustomPiece(NPCChestPrefab, fixReference: true,
+                    new PieceConfig
+                    {
+                        Name = "NPC Grausten Chest",
+                        Description = "Testing Descriptions",
+                        PieceTable = "_HammerPieceTable",
+                        Category = "Hirdmandr",
+                        AllowedInDungeons = false,
+                        Icon = GUIManager.Instance.GetSprite("chest_grausten"),
+                        Requirements = new[]
+                        {
+							new RequirementConfig { Item = "Grausten", Amount = 10, Recover = true },
+							new RequirementConfig { Item = "TrophyCharredMelee", Amount = 5, Recover = true },
+							new RequirementConfig { Item = "FlametalNew", Amount = 2, Recover = true }
+                        }
+                    });
+
+                NPCChestPiece.Piece.m_canBeRemoved = true;
+                NPCChestPiece.Piece.m_enabled = true;
+                NPCChestPiece.Piece.m_randomTarget = true;
+
+                PieceManager.Instance.AddPiece(NPCChestPiece);
+            }
+
             Jotunn.Logger.LogInfo("CreateNPCChests completed successfully");
         }
 
+        /// <summary>
+        /// Creates NPC fires (campfires, hearths, bonfires) and HirdmandrBed.
+        /// Fires act as social gathering spots and warm the environment for NPC comfort; 
+        /// beds track who owns them so NPCs can sleep/rest properly.
+        /// </summary>
         private void CreateNPCFires()
         {
-            // Add NPC Campfire
+            // Add NPC Campfire (basic fire type, used by most villagers)
             if (!PrefabManager.Instance.GetPrefab("piece_npc_fire_pit"))
             {
                 var NPCCampfirePrefab = PrefabManager.Instance.CreateClonedPrefab("piece_npc_fire_pit", "fire_pit");
@@ -472,31 +460,18 @@ namespace Hirdmandr
             Jotunn.Logger.LogInfo("CreateNPCBeds completed successfully");
         }
 
-        private void CreateNPCBows()
-        {
-            if (!PrefabManager.Instance.GetPrefab("npc_crude_bow"))
-            {
-                CustomItem crudeBowPrefab = new CustomItem("npc_crude_bow", "Bow");
-
-                // Replace vanilla properties of the custom item
-                var crudeBowItemDrop = crudeBowPrefab.ItemDrop;
-
-                var skeletonBow = PrefabManager.Instance.GetPrefab("skeleton_bow");
-                crudeBowItemDrop = skeletonBow.GetComponent<ItemDrop>();
-
-                ItemManager.Instance.AddItem(crudeBowPrefab);
-            }
-
-            Jotunn.Logger.LogInfo("CreateNPCBows completed successfully");
-        }
-
         private void CreateNPCPlayer()
         {
+            try
+            {
             // Create NPC Player entity
             if (!PrefabManager.Instance.GetPrefab("npc_entity"))
             {
 
                 var NPCPlayerPrefab = PrefabManager.Instance.CreateClonedPrefab("npc_entity", "Goblin");
+                Destroy(NPCPlayerPrefab.GetComponent<Humanoid>());
+                Destroy(NPCPlayerPrefab.GetComponent<MonsterAI>());
+
 
                 for (int i = 0; i < NPCPlayerPrefab.transform.childCount; i++)
                 {
@@ -513,6 +488,84 @@ namespace Hirdmandr
                         eyePos = gameObject;
                     }
                 }
+
+                NPCPlayerPrefab.AddComponent<NPCPlayerClone>();
+                NPCPlayerClone npcpc = NPCPlayerPrefab.GetComponent<NPCPlayerClone>();
+                NPCPlayerPrefab.AddComponent<MonsterAI>();
+
+                //// Copy over Humanoid attributes
+                //npcpc.m_equipStaminaDrain = 10f;
+                //npcpc.m_blockStaminaDrain = 25f;
+                //npcpc.m_pickupEffects = new EffectList();
+                //npcpc.m_dropEffects = new EffectList();
+                //npcpc.m_consumeItemEffects = new EffectList();
+                //npcpc.m_equipEffects = new EffectList();
+                //npcpc.m_perfectBlockEffect = new EffectList();
+                //npcpc.m_inventory = new Inventory("Inventory", null, 8, 4);
+                //npcpc.m_beardItem = "Beard0";
+                //npcpc.m_hairItem = "Hair0";
+                //npcpc.m_blockTimer = 9999f;
+                //npcpc.m_lastCombatTimer = 999f;
+                //npcpc.m_eqipmentStatusEffects = new HashSet<StatusEffect>();
+
+                //npcpc.m_groundContactPoint = Vector3.zero;
+                //npcpc.m_groundContactNormal = Vector3.zero;
+                //npcpc.m_name = "Human";
+                //npcpc.m_group = "";
+                //npcpc.m_faction = Character.Faction.Players;
+                //npcpc.m_bossEvent = "";
+                //npcpc.m_defeatSetGlobalKey = "";
+                //npcpc.m_crouchSpeed = 2f;
+                //npcpc.m_walkSpeed = 5f;
+                //npcpc.m_speed = 10f;
+                //npcpc.m_turnSpeed = 300f;
+                //npcpc.m_runSpeed = 20f;
+                //npcpc.m_runTurnSpeed = 300f;
+                //npcpc.m_flySlowSpeed = 5f;
+                //npcpc.m_flyFastSpeed = 12f;
+                //npcpc.m_flyTurnSpeed = 12f;
+                //npcpc.m_acceleration = 1f;
+                //npcpc.m_jumpForce = 10f;
+                //npcpc.m_jumpForceTiredFactor = 0.7f;
+                //npcpc.m_airControl = 0.1f;
+                //npcpc.m_canSwim = true;
+                //npcpc.m_swimDepth = 2f;
+                //npcpc.m_swimSpeed = 2f;
+                //npcpc.m_swimTurnSpeed = 100f;
+                //npcpc.m_swimAcceleration = 0.05f;
+                //npcpc.m_groundTiltSpeed = 50f;
+                //npcpc.m_jumpStaminaUsage = 10f;
+                //npcpc.m_hitEffects = new EffectList();
+                //npcpc.m_critHitEffects = new EffectList();
+                //npcpc.m_backstabHitEffects = new EffectList();
+                //npcpc.m_deathEffects = new EffectList();
+                //npcpc.m_waterEffects = new EffectList();
+                //npcpc.m_tarEffects = new EffectList();
+                //npcpc.m_slideEffects = new EffectList();
+                //npcpc.m_jumpEffects = new EffectList();
+                //npcpc.m_tolerateWater = char_orig.m_tolerateWater;
+                //npcpc.m_tolerateSmoke = char_orig.m_tolerateSmoke;
+                //npcpc.m_health = 60f;
+                //npcpc.m_staggerWhenBlocked = true;
+                //npcpc.m_backstabTime = char_orig.m_backstabTime;
+                //npcpc.m_moveDir = Vector3.zero;
+                //npcpc.m_lookDir = Vector3.forward;
+                //npcpc.m_lookYaw = Quaternion.identity;
+                //npcpc.m_lastGroundNormal = Vector3.up;
+                //npcpc.m_lastGroundPoint = Vector3.zero;
+                //npcpc.m_lastAttachPos = Vector3.zero;
+                //npcpc.m_maxAirAltitude = char_orig.m_maxAirAltitude;
+                //npcpc.m_waterLevel = char_orig.m_waterLevel;
+                //npcpc.m_tarLevel = char_orig.m_tarLevel;
+                //npcpc.m_swimTimer = char_orig.m_swimTimer;
+                //npcpc.m_level = 1;
+                //npcpc.m_currentVel = Vector3.zero;
+                //npcpc.m_groundTiltNormal = Vector3.up;
+                //npcpc.m_pushForce = Vector3.zero;
+                //npcpc.m_rootMotion = Vector3.zero;
+                //npcpc.m_lodVisible = true;
+
+
                 VisEquipment visEquipComp = NPCPlayerPrefab.GetComponent<VisEquipment>();
                 visEquipComp.m_bodyModel = NPCPlayerPrefab.transform.Find("Visual/body").GetComponent<SkinnedMeshRenderer>();
                 visEquipComp.m_leftHand = NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/Spine/Spine1/Spine2/LeftShoulder/LeftArm/LeftForeArm/LeftHand/LeftHand_Attach").GetComponent<Transform>();
@@ -524,16 +577,9 @@ namespace Hirdmandr
                 // component.m_backBow = NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/Spine/Spine1/BackBow_attach").GetComponent<Transform>();
                 // component.m_backTool = NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/BackTool_attach").GetComponent<Transform>();
                 // component.m_backAtgeir = NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/Spine/Spine1/BackAtgeir_attach").GetComponent<Transform>();
-                visEquipComp.m_clothColliders = new CapsuleCollider[5]
-                {
-                    NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/ClothCollider").GetComponent<CapsuleCollider>(),
-                    NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/LeftUpLeg/ClothCollider").GetComponent<CapsuleCollider>(),
-                    NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/RightUpLeg/ClothCollider").GetComponent<CapsuleCollider>(),
-                    NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/Spine/Spine1/ClothCollider (3)").GetComponent<CapsuleCollider>(),
-                    NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/Spine/Spine1/Spine2/ClothCollider (4)").GetComponent<CapsuleCollider>()
-                };
+                visEquipComp.SetupCloth(NPCPlayerPrefab);
                 visEquipComp.m_models = playerPrefab.GetComponent<VisEquipment>().m_models;
-                visEquipComp.m_isPlayer = false;
+                visEquipComp.m_isPlayer = true;
                 CapsuleCollider capCollider = NPCPlayerPrefab.GetComponent<CapsuleCollider>();
                 capCollider.center = (playerPrefab.GetComponent<CapsuleCollider>().center);
                 capCollider.radius = (playerPrefab.GetComponent<CapsuleCollider>().radius);
@@ -555,19 +601,34 @@ namespace Hirdmandr
                 NPCFootstepComp.m_feet[0] = NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/LeftUpLeg/LeftLeg/LeftFoot");
                 NPCFootstepComp.m_feet[1] = NPCPlayerPrefab.transform.Find("Visual/Armature/Hips/RightUpLeg/RightLeg/RightFoot");
 
-                Humanoid NPCHumComp = NPCPlayerPrefab.GetComponent<Humanoid>();
+                // Must be the live NPCPlayerClone: GetComponent<Humanoid>() returns the Goblin
+                // Humanoid destroyed above (Destroy is deferred to end of frame), so copies on
+                // it die with it and instantiated NPCs are left at Character..ctor defaults.
+                Humanoid NPCHumComp = npcpc;
                 Humanoid playerHumComp = playerPrefab.GetComponent<Humanoid>();
-                NPCHumComp.m_crouchSpeed = playerHumComp.m_crouchSpeed;
-                NPCHumComp.m_walkSpeed = playerHumComp.m_walkSpeed;
-                NPCHumComp.m_speed = playerHumComp.m_speed;
+                // #Speed: the NPC's run-speed factor is 1 (Humanoid/NPCPlayerClone never override
+                // GetRunSpeedFactor), so its run speed is just m_runSpeed. The player's run speed is
+                // m_runSpeed * (1 + runSkill*0.25) * (1 + equipMoveMod*1.5) (Player.GetRunSpeedFactor),
+                // and runSkill = Clamp01(skillLevel/100) (Skills.GetSkillFactor). npcSpeedFactor is
+                // set so the NPC exactly matches a player at 66% Run skill with no gear:
+                //   npcSpeedFactor = 1 + 0.66*0.25 = 1.165
+                // so the NPC outruns any player below 66% Run skill and is even at 66%. Only the
+                // SPEED fields get the factor; turn/accel/jump/depth are not speeds and stay 1:1.
+                // (Note: the NPC's effective speed is additionally scaled by the world enemy-speed
+                // settings because IsPlayer() is false - see Character.UpdateWalking.)
+                float npcSpeedFactor = 1.165f;
+                NPCHumComp.m_crouchSpeed = playerHumComp.m_crouchSpeed * npcSpeedFactor;
+                NPCHumComp.m_walkSpeed = playerHumComp.m_walkSpeed * npcSpeedFactor;
+                NPCHumComp.m_speed = playerHumComp.m_speed * npcSpeedFactor;
                 NPCHumComp.m_turnSpeed = playerHumComp.m_turnSpeed;
-                NPCHumComp.m_runSpeed = playerHumComp.m_runSpeed;
+                NPCHumComp.m_runSpeed = playerHumComp.m_runSpeed * npcSpeedFactor;
                 NPCHumComp.m_runTurnSpeed = playerHumComp.m_runTurnSpeed;
                 NPCHumComp.m_acceleration = playerHumComp.m_acceleration;
                 NPCHumComp.m_jumpForce = playerHumComp.m_jumpForce;
                 NPCHumComp.m_jumpForceForward = playerHumComp.m_jumpForceForward;
-                NPCHumComp.m_swimDepth = playerHumComp.m_swimDepth;
-                NPCHumComp.m_swimSpeed = playerHumComp.m_swimSpeed;
+                // #43: hardcoded to the vanilla player value (mimic the vanilla game).
+                NPCHumComp.m_swimDepth = 1.5f;
+                NPCHumComp.m_swimSpeed = playerHumComp.m_swimSpeed * npcSpeedFactor;
                 NPCHumComp.m_damageModifiers = playerHumComp.m_damageModifiers.Clone();
                 NPCHumComp.m_defaultItems = new GameObject[0];
                 NPCHumComp.m_randomWeapon = new GameObject[0];
@@ -585,11 +646,19 @@ namespace Hirdmandr
                 NPCHumComp.m_equipEffects = Utils.CloneEffectList(playerHumComp.m_equipEffects);
                 NPCHumComp.m_perfectBlockEffect = Utils.CloneEffectList(playerHumComp.m_perfectBlockEffect);
 
+                // NOTE: the NPC's skill-levelup effect (NPCPlayerClone.m_skillLevelupEffects) is
+                // populated per-instance in HirdmandrNPC.Awake() (not on this template) because it is
+                // a non-serialized field that resets to empty on every instantiated NPC.
 
-                Character NPCCharComp = NPCPlayerPrefab.GetComponent<Character>();
-                NPCCharComp.m_name = "Human";
-                NPCCharComp.m_health = 60f;
-                NPCCharComp.m_faction = Character.Faction.Players;
+
+                //Character NPCCharComp = NPCPlayerPrefab.GetComponent<Character>();
+                //NPCCharComp.m_name = "Human";
+                //NPCCharComp.m_health = 60f;
+                //NPCCharComp.m_faction = Character.Faction.Players;
+
+                //NPCHumComp.m_name = "Human";
+                //NPCHumComp.m_health = 60f;
+                //NPCHumComp.m_faction = Character.Faction.Players;
 
                 NPCPlayerPrefab.AddComponent<HirdmandrNPC>();
                 NPCPlayerPrefab.AddComponent<HirdmandrAI>();
@@ -602,10 +671,23 @@ namespace Hirdmandr
                 Jotunn.Logger.LogInfo("CreateNPCPlayer Prefab Added");
             }
             Jotunn.Logger.LogInfo("CreateNPCPlayer completed successfully");
+            }
+            catch (System.Exception e)
+            {
+                Jotunn.Logger.LogError("Hirdmandr.CreateNPCPlayer threw:\n" + e);
+                throw;
+            }
         }
 
         public void DebugMons()
         {
+            // OnVanillaObjectsAvailable can fire more than once. On a later pass the debug clones
+            // already exist, so CreateClonedPrefab returns null and the .AddComponent below NRE'd.
+            if (PrefabManager.Instance.GetPrefab("debugSkeleton"))
+            {
+                return;
+            }
+
             var DebugMonPrefab1 = PrefabManager.Instance.CreateClonedPrefab("debugSkeleton", "Skeleton");
             DebugMonPrefab1.AddComponent<DebugMAI>();
             PrefabManager.Instance.AddPrefab(DebugMonPrefab1);
@@ -623,5 +705,174 @@ namespace Hirdmandr
             PrefabManager.Instance.AddPrefab(DebugMonPrefab4);
 
         }
+
+        /// <summary>
+        /// Altar to Hella (PMW #62): the resurrection altar piece.
+        ///
+        /// Clones the Eikthyrnir offering bowl ("altar") and exposes it as a standalone piece
+        /// (Jotunn cannot register a whole building as a piece). Runs from
+        /// OnPrefabsRegistered (scene load) rather than the menu-time event, because
+        /// ZNetView.Awake (which creates and registers the piece ZDO), Piece.Awake (which
+        /// binds to the view) and the stonecutter CraftingStation lookup all need ZNet up.
+        /// The clone root carries no network component of its own, so ZNetView and Piece
+        /// are added here (ZNetView first, so Piece.Awake can see it). The vanilla
+        /// OfferingBowl component is destroyed from the clone - it is a boss-spawn ritual
+        /// with its own ZNetView and we only want the bowl's visuals.
+        /// </summary>
+        private void CreateAltarHella()
+        {
+            if (PrefabManager.Instance.GetPrefab("piece_hm_altar_hella"))
+            {
+                return;
+            }
+            // Usual prefab copy, same as every other piece in this mod. If 'altar' is not
+            // resolvable at this point, Jotunn logs "Failed to clone prefab, can not find
+            // base prefab with name: ..." and returns null.
+            GameObject altar = PrefabManager.Instance.CreateClonedPrefab("piece_hm_altar_hella", "altar");
+            if (altar == null)
+            {
+                Jotunn.Logger.LogError("[Hirdmandr] CreateAltarHella: could not clone 'altar' - cannot create the Altar to Hella.");
+                return;
+            }
+            /*
+            // Previous approach: resolve the 'Eikthyrnir' scene prefab and find its offering
+            // bowl child. Kept commented for easy revert.
+            if (ZNetScene.instance == null)
+            {
+                Jotunn.Logger.LogError("[Hirdmandr] CreateAltarHella: ZNetScene.instance is null - retrying on the next scene load.");
+                return;
+            }
+            GameObject eikthyrnir = ZNetScene.instance.GetPrefab("Eikthyrnir");
+            if (eikthyrnir == null)
+            {
+                Jotunn.Logger.LogError("[Hirdmandr] CreateAltarHella: 'Eikthyrnir' prefab not registered - cannot create the Altar to Hella.");
+                return;
+            }
+            // Real hierarchy (UnityExplorer): Eikthyrnir/offeraltar_deer/altar.
+            Transform deer = FindChildRecursive(eikthyrnir.transform, "offeraltar_deer");
+            Transform bowl = deer != null ? FindChildRecursive(deer, "altar") : null;
+            if (bowl == null)
+            {
+                // List the direct children so the right name/depth is visible from the log.
+                var names = new List<string>();
+                foreach (Transform child in eikthyrnir.transform)
+                {
+                    names.Add(child.name);
+                }
+                Jotunn.Logger.LogError("[Hirdmandr] CreateAltarHella: no 'offeraltar_deer/altar' under Eikthyrnir (direct children: " + string.Join(", ", names) + ") - aborting.");
+                return;
+            }
+            altar = UnityEngine.Object.Instantiate(bowl.gameObject);
+            altar.name = "piece_hm_altar_hella";
+            */
+            // The child's local transform carries its offset within the building; as a
+            // standalone piece prefab the root must sit at the origin with an identity pose.
+            altar.transform.localPosition = Vector3.zero;
+            altar.transform.localRotation = Quaternion.identity;
+            altar.transform.localScale = Vector3.one;
+            altar.SetActive(true);
+
+            // The vanilla bowl is a boss-spawn offering with its own ZNetView; only the visuals
+            // are wanted.
+            OfferingBowl offeringBowl = altar.GetComponent<OfferingBowl>();
+            if (offeringBowl != null)
+            {
+                UnityEngine.Object.DestroyImmediate(offeringBowl);
+            }
+            // The clone root carries no network component of its own. Add ZNetView first -
+            // Piece.Awake binds to it. The m_persistent fix runs after Awake: the stored
+            // clone's own ZDO keeps its placeholder value, the field is what every placed
+            // instance's ZNetView.Awake will read (placed pieces must survive a world save).
+            if (altar.GetComponent<ZNetView>() == null)
+            {
+                altar.AddComponent<ZNetView>();
+            }
+            altar.GetComponent<ZNetView>().m_persistent = true;
+            if (altar.GetComponent<Piece>() == null)
+            {
+                altar.AddComponent<Piece>();
+            }
+            altar.AddComponent<HirdmandrAltarHella>();
+
+            // The build ghost and placement need the piece footprint, which is the root
+            // collider. The vanilla bowl clone root has none, so add a BoxCollider that
+            // wraps the visible bowl (2 x 1 x 1). The collider height also drives the
+            // terrain snap: at 2m the piece floated 1m, at 1m it sits on the ground.
+            BoxCollider footprint = altar.GetComponent<BoxCollider>();
+            if (footprint == null)
+            {
+                footprint = altar.AddComponent<BoxCollider>();
+                footprint.size = new Vector3(2f, 1f, 1f);
+                footprint.center = new Vector3(0f, 0.5f, 0f);
+                footprint.isTrigger = false;
+            }
+
+            var config = new PieceConfig
+            {
+                Name = "Altar to Hella",
+                Description = "A stone altar to Hella. Offer a soul and its tribute to call the dead home.",
+                PieceTable = "_HammerPieceTable",
+                Category = "Hirdmandr",
+                AllowedInDungeons = false,
+                // Icon = GUIManager.Instance.GetSprite("hearth"),
+				Icon = RenderManager.Instance.Render(altar, RenderManager.IsometricRotation),
+                Requirements = new[]
+                {
+                    new RequirementConfig { Item = "Stone", Amount = 20, Recover = true },
+                    new RequirementConfig { Item = "SurtlingCore", Amount = 2, Recover = true },
+                    new RequirementConfig { Item = "AmberPearl", Amount = 2, Recover = true },
+                    new RequirementConfig { Item = "Ruby", Amount = 1, Recover = true }
+                }
+            };
+            var piece = new CustomPiece(altar, fixReference: false, config);
+
+            piece.Piece.m_canBeRemoved = true;
+            piece.Piece.m_enabled = true;
+            piece.Piece.m_randomTarget = true;
+
+            // Stonecutter gate: the same CraftingStation the stonecutter workshop uses (Jotunn's
+            // CraftingStations.Stonecutter = "piece_stonecutter"). If it cannot be resolved,
+            // log and leave the gate off rather than abort the whole piece.
+            GameObject stonecutter = ZNetScene.instance.GetPrefab("piece_stonecutter");
+            CraftingStation station = stonecutter != null ? stonecutter.GetComponent<CraftingStation>() : null;
+            if (station != null)
+            {
+                piece.Piece.m_craftingStation = station;
+            }
+            else
+            {
+                Jotunn.Logger.LogWarning("[Hirdmandr] CreateAltarHella: 'piece_stonecutter' has no CraftingStation - the Altar to Hella will not be stonecutter-gated.");
+            }
+
+            PieceManager.Instance.AddPiece(piece);
+            Jotunn.Logger.LogInfo("[Hirdmandr] Altar to Hella piece registered.");
+        }
+
+        /*
+        /// <summary>
+        /// First descendant of <paramref name="root"/> (or the root itself) whose name equals
+        /// <paramref name="name"/> (case-insensitive), or null.
+        /// </summary>
+        private static Transform FindChildRecursive(Transform root, string name)
+        {
+            if (root == null)
+            {
+                return null;
+            }
+            if (root.name.Equals(name, StringComparison.OrdinalIgnoreCase))
+            {
+                return root;
+            }
+            foreach (Transform child in root)
+            {
+                Transform found = FindChildRecursive(child, name);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+            return null;
+        }
+        */
     }
 }

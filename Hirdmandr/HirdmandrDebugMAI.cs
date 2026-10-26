@@ -80,9 +80,9 @@ namespace Hirdmandr
 			Jotunn.Logger.LogError("  m_secondaryAttack = " + sh.m_secondaryAttack);
 			Jotunn.Logger.LogError("  m_tamedOnly = " + sh.m_tamedOnly);
 			Jotunn.Logger.LogError("Hold");
-			Jotunn.Logger.LogError("  m_holdDurationMin = " + sh.m_holdDurationMin);
-			Jotunn.Logger.LogError("  m_holdStaminaDrain = " + sh.m_holdStaminaDrain);
-			Jotunn.Logger.LogError("  m_holdAnimationState = " + sh.m_holdAnimationState);
+			Jotunn.Logger.LogError("  m_drawDurationMin = " + (sh.m_attack != null ? sh.m_attack.m_drawDurationMin.ToString() : "null"));
+			Jotunn.Logger.LogError("  m_drawStaminaDrain = " + (sh.m_attack != null ? sh.m_attack.m_drawStaminaDrain.ToString() : "null"));
+			Jotunn.Logger.LogError("  m_drawAnimationState = " + (sh.m_attack != null ? sh.m_attack.m_drawAnimationState : "null"));
 			Jotunn.Logger.LogError("Ammo");
 			Jotunn.Logger.LogError("  m_ammoType = " + sh.m_ammoType);
 			Jotunn.Logger.LogError("AI");

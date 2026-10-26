@@ -10,12 +10,10 @@ namespace Hirdmandr
     public class HirdmandrGUI : MonoBehaviour
     {
         GameObject GUIHirdmandr;
-        Humanoid m_humanoid;
+        NPCPlayerClone m_humanoid;
         HirdmandrNPC m_hirdmandrnpc;
         GameObject g_name;
         GameObject g_talk;
-        GameObject g_mood;
-        GameObject g_values;
         GameObject g_skillnames;
         GameObject g_skillvalues;
         GameObject g_role_t_header;
@@ -25,18 +23,27 @@ namespace Hirdmandr
         GameObject g_art_t_furnaceoper;
         GameObject g_art_ch_farmer;
         GameObject g_art_t_farmer;
-        GameObject g_art_ch_cook;
-        GameObject g_art_t_cook;
-        GameObject g_art_ch_baker;
-        GameObject g_art_t_baker;
+        GameObject g_art_ch_lamplighter;
+        GameObject g_art_t_lamplighter;
+        GameObject g_art_ch_mender;
+        GameObject g_art_t_mender;
         GameObject g_role_ch_artisan;
         GameObject g_role_ch_warrior;
         ToggleGroup g_role_tg;
+        ToggleGroup g_job_tg;
         GameObject g_war_ch_thegn;
         GameObject g_war_t_thegn;
+        // Thegn "guard here" controls (warrior-page only): the button anchors the guard post to the
+        // NPC's current position; Day/Night are the two independent shift flags.
+        GameObject g_b_guard;
+        GameObject g_war_ch_thegnDay;
+        GameObject g_war_t_thegnDay;
+        GameObject g_war_ch_thegnNight;
+        GameObject g_war_t_thegnNight;
+        GameObject g_war_t_guardHeader;
         GameObject g_war_ch_himthiki;
         GameObject g_war_t_himthiki;
-        GameObject g_war_b_himthikiFollow;
+        GameObject g_b_follow;
         GameObject g_war_ch_gatherer;
         GameObject g_war_t_gatherer;
         GameObject g_war_t_styleHeader;
@@ -67,7 +74,7 @@ namespace Hirdmandr
                             ZInput.GetButtonDown("Inventory") ||
                             ZInput.GetButtonDown("JoyButtonB") ||
                             ZInput.GetButtonDown("JoyButtonY") ||
-                            Input.GetKeyDown(KeyCode.Escape) ||
+                            // Input.GetKeyDown(KeyCode.Escape) ||
                             ZInput.GetButtonDown("Use")
                         )
                     )
@@ -78,6 +85,23 @@ namespace Hirdmandr
                     ZInput.ResetButtonStatus("Use");
                     TogglePanel();
                 }
+            }
+        }
+
+        // The panel is a child of GUIManager.CustomGUIFront, not the NPC, so it would outlive the
+        // NPC's death/despawn and leak under the UI layer. Tear it down with the NPC (gui_research.md §4.5).
+        void OnDestroy()
+        {
+            if (GUIHirdmandr)
+            {
+                if (GUIHirdmandr.activeSelf)
+                {
+                    // Panel was open when the NPC died: close the player-facing inventory + unblock input.
+                    // Don't touch the dying NPC's own m_container/m_visequip here.
+                    InventoryGui.instance.Hide();
+                    GUIManager.BlockInput(false);
+                }
+                Destroy(GUIHirdmandr);
             }
         }
 
@@ -99,31 +123,12 @@ namespace Hirdmandr
                     return;
                 }
 
-                m_humanoid = GetComponent<Humanoid>();
+                m_humanoid = GetComponent<NPCPlayerClone>();
                 m_hirdmandrnpc = GetComponent<HirdmandrNPC>();
-
-                var valuestring = "";
-                var first_line = true;
-                foreach (HMPersonality.ValueData each_value in m_hirdmandrnpc.m_personality.m_hmValues)
-                {
-                    if (!first_line)
-                    {
-                        valuestring += "\n";
-                    }
-                    if (each_value.m_value > 0.7) { valuestring += "<color=green>Strongly values</color> " + each_value.m_readable; }
-                    else if (each_value.m_value > 0.4) { valuestring += "<color=green>Values</color> " + each_value.m_readable; }
-                    else if (each_value.m_value > 0.1) { valuestring += "Weakly values " + each_value.m_readable; }
-                    else if (each_value.m_value > -0.1) { valuestring += "Doesn't care about " + each_value.m_readable; }
-                    else if (each_value.m_value > -0.4) { valuestring += "Weakly disdains " + each_value.m_readable; }
-                    else if (each_value.m_value > -0.7) { valuestring += "<color=red>Disdains</color> " + each_value.m_readable; }
-                    else { valuestring += "<color=red>Strongly disdains</color> " + each_value.m_readable; }
-
-                    first_line = false;
-                }
 
                 var skillnames = "";
                 var skillvalues = "";
-                first_line = true;
+                var first_line = true;
                 foreach (HMSkills.SkillData each_skill in m_hirdmandrnpc.m_skills.m_hmSkills)
                 {
                     if (!first_line)
@@ -141,13 +146,13 @@ namespace Hirdmandr
                 // Create the panel object
                 GUIHirdmandr = GUIManager.Instance.CreateWoodpanel(
                     parent: GUIManager.CustomGUIFront.transform,
-                    anchorMin: new Vector2(1f, 0.5f),
-                    anchorMax: new Vector2(1f, 0.5f),
-                    position: new Vector2(-550, 0),
+                    anchorMin: new Vector2(0.5f, 0.5f),
+                    anchorMax: new Vector2(0.5f, 0.5f),
+                    position: new Vector2(0, 0),
                     width: 1000,
-                    height: 500,
+                    height: 640,
                     draggable: true);
-                GUIHirdmandr.SetActive(true);
+                GUIHirdmandr.SetActive(false);
 
                 // Add the Jötunn draggable Component to the panel
                 // Note: This is normally automatically added when using CreateWoodpanel()
@@ -160,7 +165,7 @@ namespace Hirdmandr
                     parent: GUIHirdmandr.transform,
                     anchorMin: new Vector2(0.25f, 1f),
                     anchorMax: new Vector2(0.25f, 1f),
-                    position: new Vector2(0f, -45f),
+                    position: new Vector2(0f, -60f),
                     font: GUIManager.Instance.AveriaSerifBold,
                     fontSize: 30,
                     color: GUIManager.Instance.ValheimOrange,
@@ -175,7 +180,7 @@ namespace Hirdmandr
                     parent: GUIHirdmandr.transform,
                     anchorMin: new Vector2(0.25f, 1f),
                     anchorMax: new Vector2(0.25f, 1f),
-                    position: new Vector2(0f, -115f),
+                    position: new Vector2(0f, -120f),
                     font: GUIManager.Instance.AveriaSerifBold,
                     fontSize: 18,
                     color: Color.white,
@@ -183,36 +188,6 @@ namespace Hirdmandr
                     outlineColor: Color.black,
                     width: 450f,
                     height: 80f,
-                    addContentSizeFitter: false);
-
-                g_mood = GUIManager.Instance.CreateText(
-                    text: "This is my mood!",
-                    parent: GUIHirdmandr.transform,
-                    anchorMin: new Vector2(0.25f, 1f),
-                    anchorMax: new Vector2(0.25f, 1f),
-                    position: new Vector2(0f, -200f),
-                    font: GUIManager.Instance.AveriaSerifBold,
-                    fontSize: 18,
-                    color: Color.white,
-                    outline: true,
-                    outlineColor: Color.black,
-                    width: 450f,
-                    height: 80f,
-                    addContentSizeFitter: false);
-
-                GUIManager.Instance.CreateText(
-                    text: "Personality",
-                    parent: GUIHirdmandr.transform,
-                    anchorMin: new Vector2(0.15f, 1f),
-                    anchorMax: new Vector2(0.15f, 1f),
-                    position: new Vector2(0f, -290f),
-                    font: GUIManager.Instance.AveriaSerifBold,
-                    fontSize: 30,
-                    color: GUIManager.Instance.ValheimOrange,
-                    outline: true,
-                    outlineColor: Color.black,
-                    width: 250f,
-                    height: 40f,
                     addContentSizeFitter: false);
 
                 GUIManager.Instance.CreateText(
@@ -230,34 +205,19 @@ namespace Hirdmandr
                     height: 40f,
                     addContentSizeFitter: false);
 
-                g_values = GUIManager.Instance.CreateText(
-                    text: valuestring,
-                    parent: GUIHirdmandr.transform,
-                    anchorMin: new Vector2(0.15f, 1f),
-                    anchorMax: new Vector2(0.15f, 1f),
-                    position: new Vector2(0f, -400f),
-                    font: GUIManager.Instance.AveriaSerifBold,
-                    fontSize: 16,
-                    color: Color.white,
-                    outline: true,
-                    outlineColor: Color.black,
-                    width: 250f,
-                    height: 180f,
-                    addContentSizeFitter: false);
-
                 g_skillnames = GUIManager.Instance.CreateText(
                     text: skillnames,
                     parent: GUIHirdmandr.transform,
                     anchorMin: new Vector2(0.375f, 1f),
                     anchorMax: new Vector2(0.375f, 1f),
-                    position: new Vector2(0f, -400f),
+                    position: new Vector2(0f, -440f),
                     font: GUIManager.Instance.AveriaSerifBold,
                     fontSize: 16,
                     color: Color.white,
                     outline: true,
                     outlineColor: Color.black,
                     width: 150f,
-                    height: 180f,
+                    height: 220f,
                     addContentSizeFitter: false);
 
                 g_skillvalues = GUIManager.Instance.CreateText(
@@ -265,14 +225,14 @@ namespace Hirdmandr
                     parent: GUIHirdmandr.transform,
                     anchorMin: new Vector2(0.475f, 1f),
                     anchorMax: new Vector2(0.475f, 1f),
-                    position: new Vector2(0f, -400f),
+                    position: new Vector2(0f, -440f),
                     font: GUIManager.Instance.AveriaSerifBold,
                     fontSize: 16,
                     color: Color.white,
                     outline: true,
                     outlineColor: Color.black,
                     width: 25f,
-                    height: 180f,
+                    height: 220f,
                     addContentSizeFitter: false);
 
                 // ------------------------------------------------------
@@ -336,7 +296,7 @@ namespace Hirdmandr
                 g_role_ch_warriorRect.ForceUpdateRectTransforms();
 
                 var g_role_ch_warriorComp = g_role_ch_warrior.GetComponent<Toggle>();
-                g_role_ch_warriorComp.isOn = m_hirdmandrnpc.m_roleArtisan;
+                g_role_ch_warriorComp.isOn = m_hirdmandrnpc.m_roleWarrior;
                 g_role_ch_warriorComp.onValueChanged.AddListener(RoleChanged);
 
                 GUIManager.Instance.CreateText(
@@ -366,7 +326,7 @@ namespace Hirdmandr
                 var g_art_ch_woodburnerRect = g_art_ch_woodburner.GetComponent<RectTransform>();
                 g_art_ch_woodburnerRect.anchorMin = new Vector2(0.55f, 1f);
                 g_art_ch_woodburnerRect.anchorMax = new Vector2(0.55f, 1f);
-                g_art_ch_woodburnerRect.anchoredPosition = new Vector2(0f, -100);
+                g_art_ch_woodburnerRect.anchoredPosition = new Vector2(0f, -200);
                 g_art_ch_woodburnerRect.ForceUpdateRectTransforms();
 
                 var g_art_ch_woodburnerComp = g_art_ch_woodburner.GetComponent<Toggle>();
@@ -378,7 +338,7 @@ namespace Hirdmandr
                     parent: GUIHirdmandr.transform,
                     anchorMin: new Vector2(0.72f, 1f),
                     anchorMax: new Vector2(0.72f, 1f),
-                    position: new Vector2(0f, -100f),
+                    position: new Vector2(0f, -200f),
                     font: GUIManager.Instance.AveriaSerifBold,
                     fontSize: 24,
                     color: Color.white,
@@ -396,7 +356,7 @@ namespace Hirdmandr
                 var g_art_ch_furnaceoperRect = g_art_ch_furnaceoper.GetComponent<RectTransform>();
                 g_art_ch_furnaceoperRect.anchorMin = new Vector2(0.55f, 1f);
                 g_art_ch_furnaceoperRect.anchorMax = new Vector2(0.55f, 1f);
-                g_art_ch_furnaceoperRect.anchoredPosition = new Vector2(0f, -150);
+                g_art_ch_furnaceoperRect.anchoredPosition = new Vector2(0f, -250);
 
                 var g_art_ch_furnaceoperComp = g_art_ch_furnaceoper.GetComponent<Toggle>();
                 g_art_ch_furnaceoperComp.isOn = m_hirdmandrnpc.m_skills.isEnabled("furnaceoperator");
@@ -407,7 +367,7 @@ namespace Hirdmandr
                     parent: GUIHirdmandr.transform,
                     anchorMin: new Vector2(0.72f, 1f),
                     anchorMax: new Vector2(0.72f, 1f),
-                    position: new Vector2(0f, -150f),
+                    position: new Vector2(0f, -250f),
                     font: GUIManager.Instance.AveriaSerifBold,
                     fontSize: 24,
                     color: Color.white,
@@ -425,7 +385,7 @@ namespace Hirdmandr
                 var g_art_ch_farmerRect = g_art_ch_farmer.GetComponent<RectTransform>();
                 g_art_ch_farmerRect.anchorMin = new Vector2(0.55f, 1f);
                 g_art_ch_farmerRect.anchorMax = new Vector2(0.55f, 1f);
-                g_art_ch_farmerRect.anchoredPosition = new Vector2(0f, -200);
+                g_art_ch_farmerRect.anchoredPosition = new Vector2(0f, -300);
 
                 var g_art_ch_farmerComp = g_art_ch_farmer.GetComponent<Toggle>();
                 g_art_ch_farmerComp.isOn = m_hirdmandrnpc.m_skills.isEnabled("farmer");
@@ -436,65 +396,65 @@ namespace Hirdmandr
                     parent: GUIHirdmandr.transform,
                     anchorMin: new Vector2(0.72f, 1f),
                     anchorMax: new Vector2(0.72f, 1f),
-                    position: new Vector2(0f, -200f),
-                    font: GUIManager.Instance.AveriaSerifBold,
-                    fontSize: 24,
-                    color: Color.white,
-                    outline: true,
-                    outlineColor: Color.black,
-                    width: 300f,
-                    height: 40f,
-                    addContentSizeFitter: false);
-
-                g_art_ch_cook = GUIManager.Instance.CreateToggle(
-                    parent: GUIHirdmandr.transform,
-                    width: 30f,
-                    height: 30f);
-
-                var g_art_ch_cookRect = g_art_ch_cook.GetComponent<RectTransform>();
-                g_art_ch_cookRect.anchorMin = new Vector2(0.55f, 1f);
-                g_art_ch_cookRect.anchorMax = new Vector2(0.55f, 1f);
-                g_art_ch_cookRect.anchoredPosition = new Vector2(0f, -250);
-
-                var g_art_ch_cookComp = g_art_ch_cook.GetComponent<Toggle>();
-                g_art_ch_cookComp.isOn = m_hirdmandrnpc.m_skills.isEnabled("cook");
-                g_art_ch_cookComp.onValueChanged.AddListener(CookToggle);
-
-                g_art_t_cook = GUIManager.Instance.CreateText(
-                    text: "Cook",
-                    parent: GUIHirdmandr.transform,
-                    anchorMin: new Vector2(0.72f, 1f),
-                    anchorMax: new Vector2(0.72f, 1f),
-                    position: new Vector2(0f, -250f),
-                    font: GUIManager.Instance.AveriaSerifBold,
-                    fontSize: 24,
-                    color: Color.white,
-                    outline: true,
-                    outlineColor: Color.black,
-                    width: 300f,
-                    height: 40f,
-                    addContentSizeFitter: false);
-
-                g_art_ch_baker = GUIManager.Instance.CreateToggle(
-                    parent: GUIHirdmandr.transform,
-                    width: 30f,
-                    height: 30f);
-
-                var g_art_ch_bakerRect = g_art_ch_baker.GetComponent<RectTransform>();
-                g_art_ch_bakerRect.anchorMin = new Vector2(0.55f, 1f);
-                g_art_ch_bakerRect.anchorMax = new Vector2(0.55f, 1f);
-                g_art_ch_bakerRect.anchoredPosition = new Vector2(0f, -300);
-
-                var g_art_ch_bakerComp = g_art_ch_baker.GetComponent<Toggle>();
-                g_art_ch_bakerComp.isOn = m_hirdmandrnpc.m_skills.isEnabled("baker");
-                g_art_ch_bakerComp.onValueChanged.AddListener(BakerToggle);
-
-                g_art_t_baker = GUIManager.Instance.CreateText(
-                    text: "Baker",
-                    parent: GUIHirdmandr.transform,
-                    anchorMin: new Vector2(0.72f, 1f),
-                    anchorMax: new Vector2(0.72f, 1f),
                     position: new Vector2(0f, -300f),
+                    font: GUIManager.Instance.AveriaSerifBold,
+                    fontSize: 24,
+                    color: Color.white,
+                    outline: true,
+                    outlineColor: Color.black,
+                    width: 300f,
+                    height: 40f,
+                    addContentSizeFitter: false);
+
+                g_art_ch_lamplighter = GUIManager.Instance.CreateToggle(
+                    parent: GUIHirdmandr.transform,
+                    width: 30f,
+                    height: 30f);
+
+                var g_art_ch_lamplighterRect = g_art_ch_lamplighter.GetComponent<RectTransform>();
+                g_art_ch_lamplighterRect.anchorMin = new Vector2(0.55f, 1f);
+                g_art_ch_lamplighterRect.anchorMax = new Vector2(0.55f, 1f);
+                g_art_ch_lamplighterRect.anchoredPosition = new Vector2(0f, -150);
+
+                var g_art_ch_lamplighterComp = g_art_ch_lamplighter.GetComponent<Toggle>();
+                g_art_ch_lamplighterComp.isOn = m_hirdmandrnpc.m_skills.isEnabled("lamplighter");
+                g_art_ch_lamplighterComp.onValueChanged.AddListener(LamplighterToggle);
+
+                g_art_t_lamplighter = GUIManager.Instance.CreateText(
+                    text: "Lamplighter",
+                    parent: GUIHirdmandr.transform,
+                    anchorMin: new Vector2(0.72f, 1f),
+                    anchorMax: new Vector2(0.72f, 1f),
+                    position: new Vector2(0f, -150f),
+                    font: GUIManager.Instance.AveriaSerifBold,
+                    fontSize: 24,
+                    color: Color.white,
+                    outline: true,
+                    outlineColor: Color.black,
+                    width: 300f,
+                    height: 40f,
+                    addContentSizeFitter: false);
+
+                g_art_ch_mender = GUIManager.Instance.CreateToggle(
+                    parent: GUIHirdmandr.transform,
+                    width: 30f,
+                    height: 30f);
+
+                var g_art_ch_menderRect = g_art_ch_mender.GetComponent<RectTransform>();
+                g_art_ch_menderRect.anchorMin = new Vector2(0.55f, 1f);
+                g_art_ch_menderRect.anchorMax = new Vector2(0.55f, 1f);
+                g_art_ch_menderRect.anchoredPosition = new Vector2(0f, -100);
+
+                var g_art_ch_menderComp = g_art_ch_mender.GetComponent<Toggle>();
+                g_art_ch_menderComp.isOn = m_hirdmandrnpc.m_skills.isEnabled("mender");
+                g_art_ch_menderComp.onValueChanged.AddListener(MenderToggle);
+
+                g_art_t_mender = GUIManager.Instance.CreateText(
+                    text: "Mender",
+                    parent: GUIHirdmandr.transform,
+                    anchorMin: new Vector2(0.72f, 1f),
+                    anchorMax: new Vector2(0.72f, 1f),
+                    position: new Vector2(0f, -100f),
                     font: GUIManager.Instance.AveriaSerifBold,
                     fontSize: 24,
                     color: Color.white,
@@ -511,10 +471,10 @@ namespace Hirdmandr
                     g_art_t_furnaceoper,
                     g_art_ch_farmer,
                     g_art_t_farmer,
-                    g_art_ch_cook,
-                    g_art_t_cook,
-                    g_art_ch_baker,
-                    g_art_t_baker
+                    g_art_ch_lamplighter,
+                    g_art_t_lamplighter,
+                    g_art_ch_mender,
+                    g_art_t_mender
                 };
 
                 // ------------------------------------------------------
@@ -581,19 +541,22 @@ namespace Hirdmandr
                     addContentSizeFitter: false);
 
                 // Create the button object
-                g_war_b_himthikiFollow = GUIManager.Instance.CreateButton(
-                    text: "Follow",
+                // Role-neutral follow toggle (D4): header row, to the left of the Artisan role
+                // radio (anchor 0.4, same height as the radios). Not in all_arts/all_wars so it
+                // is visible on every role page. Label is per-player (IsFollowing(m_user)) and
+                // refreshed on open.
+                g_b_follow = GUIManager.Instance.CreateButton(
+                    text: m_hirdmandrnpc.IsFollowing(m_hirdmandrnpc.m_user) ? "Stop Following" : "Follow",
                     parent: GUIHirdmandr.transform,
-                    anchorMin: new Vector2(0.9f, 1f),
-                    anchorMax: new Vector2(0.9f, 1f),
-                    position: new Vector2(0f, -150f),
-                    width: 100f,
+                    anchorMin: new Vector2(0.4f, 1f),
+                    anchorMax: new Vector2(0.4f, 1f),
+                    position: new Vector2(0f, -50f),
+                    width: 120f,
                     height: 40f);
-                g_war_b_himthikiFollow.SetActive(true);
+                g_b_follow.SetActive(true);
 
-                // Add a listener to the button to close the panel again
-                Button g_war_b_himthikiFollowComp = g_war_b_himthikiFollow.GetComponent<Button>();
-                g_war_b_himthikiFollowComp.onClick.AddListener(m_hirdmandrnpc.HimthikiFollow);
+                Button g_b_followComp = g_b_follow.GetComponent<Button>();
+                g_b_followComp.onClick.AddListener(m_hirdmandrnpc.FollowToggle);
                 
                 g_war_ch_gatherer = GUIManager.Instance.CreateToggle(
                     parent: GUIHirdmandr.transform,
@@ -606,7 +569,7 @@ namespace Hirdmandr
                 g_war_ch_gathererRect.anchoredPosition = new Vector2(0f, -200);
 
                 var g_war_ch_gathererComp = g_war_ch_gatherer.GetComponent<Toggle>();
-                g_war_ch_gathererComp.isOn = m_hirdmandrnpc.m_jobHimthiki;
+                g_war_ch_gathererComp.isOn = m_hirdmandrnpc.m_jobGatherer;
                 g_war_ch_gathererComp.onValueChanged.AddListener(ToggleGatherer);
 
                 g_war_t_gatherer = GUIManager.Instance.CreateText(
@@ -650,7 +613,7 @@ namespace Hirdmandr
                 g_war_ch_styleDefenseRect.anchoredPosition = new Vector2(0f, -300);
 
                 var g_war_ch_styleDefenseComp = g_war_ch_styleDefense.GetComponent<Toggle>();
-                g_war_ch_styleDefenseComp.isOn = m_hirdmandrnpc.m_jobHimthiki;
+                g_war_ch_styleDefenseComp.isOn = m_hirdmandrnpc.m_fightingStyleDefense;
                 g_war_ch_styleDefenseComp.onValueChanged.AddListener(FightingStyle);
 
                 g_war_t_styleDefense = GUIManager.Instance.CreateText(
@@ -679,7 +642,7 @@ namespace Hirdmandr
                 g_war_ch_styleOffenseRect.anchoredPosition = new Vector2(0f, -300);
 
                 var g_war_ch_styleOffenseComp = g_war_ch_styleOffense.GetComponent<Toggle>();
-                g_war_ch_styleOffenseComp.isOn = m_hirdmandrnpc.m_jobHimthiki;
+                g_war_ch_styleOffenseComp.isOn = m_hirdmandrnpc.m_fightingStyleOffense;
                 g_war_ch_styleOffenseComp.onValueChanged.AddListener(FightingStyle);
 
                 g_war_t_styleOffense = GUIManager.Instance.CreateText(
@@ -723,7 +686,7 @@ namespace Hirdmandr
                 g_war_ch_rangeCloseRect.anchoredPosition = new Vector2(0f, -400);
 
                 var g_war_ch_rangeCloseComp = g_war_ch_rangeClose.GetComponent<Toggle>();
-                g_war_ch_rangeCloseComp.isOn = m_hirdmandrnpc.m_jobHimthiki;
+                g_war_ch_rangeCloseComp.isOn = m_hirdmandrnpc.m_fightingRangeClose;
                 g_war_ch_rangeCloseComp.onValueChanged.AddListener(FightingRange);
 
                 g_war_t_rangeClose = GUIManager.Instance.CreateText(
@@ -752,7 +715,7 @@ namespace Hirdmandr
                 g_war_ch_rangeMidRect.anchoredPosition = new Vector2(0f, -400);
 
                 var g_war_ch_rangeMidComp = g_war_ch_rangeMid.GetComponent<Toggle>();
-                g_war_ch_rangeMidComp.isOn = m_hirdmandrnpc.m_jobHimthiki;
+                g_war_ch_rangeMidComp.isOn = m_hirdmandrnpc.m_fightingRangeMid;
                 g_war_ch_rangeMidComp.onValueChanged.AddListener(FightingRange);
 
                 g_war_t_rangeMid = GUIManager.Instance.CreateText(
@@ -781,7 +744,7 @@ namespace Hirdmandr
                 g_war_ch_rangeFarRect.anchoredPosition = new Vector2(0f, -400);
 
                 var g_war_ch_rangeFarComp = g_war_ch_rangeFar.GetComponent<Toggle>();
-                g_war_ch_rangeFarComp.isOn = m_hirdmandrnpc.m_jobHimthiki;
+                g_war_ch_rangeFarComp.isOn = m_hirdmandrnpc.m_fightingRangeFar;
                 g_war_ch_rangeFarComp.onValueChanged.AddListener(FightingRange);
 
                 g_war_t_rangeFar = GUIManager.Instance.CreateText(
@@ -799,10 +762,98 @@ namespace Hirdmandr
                     height: 40f,
                     addContentSizeFitter: false);
 
+                // --- Thegn "guard here" controls (warrior-page only; below the range row) ---
+                g_war_t_guardHeader = GUIManager.Instance.CreateText(
+                    text: "Guard Duty",
+                    parent: GUIHirdmandr.transform,
+                    anchorMin: new Vector2(0.65f, 1f),
+                    anchorMax: new Vector2(0.65f, 1f),
+                    position: new Vector2(0f, -450f),
+                    font: GUIManager.Instance.AveriaSerifBold,
+                    fontSize: 24,
+                    color: GUIManager.Instance.ValheimOrange,
+                    outline: true,
+                    outlineColor: Color.black,
+                    width: 300f,
+                    height: 40f,
+                    addContentSizeFitter: false);
 
-                all_wars = new GameObject[18] {
+                // "Guard here" anchors the guard post to the NPC's current position and stops
+                // following; the schedule then routes the Thegn to patrol (guard) during its window.
+                g_b_guard = GUIManager.Instance.CreateButton(
+                    text: "Guard here",
+                    parent: GUIHirdmandr.transform,
+                    anchorMin: new Vector2(0.55f, 1f),
+                    anchorMax: new Vector2(0.55f, 1f),
+                    position: new Vector2(0f, -500f),
+                    width: 130f,
+                    height: 40f);
+                g_b_guard.SetActive(true);
+                g_b_guard.GetComponent<Button>().onClick.AddListener(m_hirdmandrnpc.GuardHere);
+
+                g_war_ch_thegnDay = GUIManager.Instance.CreateToggle(
+                    parent: GUIHirdmandr.transform,
+                    width: 30f,
+                    height: 30f);
+                var g_war_ch_thegnDayRect = g_war_ch_thegnDay.GetComponent<RectTransform>();
+                g_war_ch_thegnDayRect.anchorMin = new Vector2(0.55f, 1f);
+                g_war_ch_thegnDayRect.anchorMax = new Vector2(0.55f, 1f);
+                g_war_ch_thegnDayRect.anchoredPosition = new Vector2(0f, -550);
+                var g_war_ch_thegnDayComp = g_war_ch_thegnDay.GetComponent<Toggle>();
+                g_war_ch_thegnDayComp.isOn = m_hirdmandrnpc.m_thegnDayshift;
+                g_war_ch_thegnDayComp.onValueChanged.AddListener(ThegnShiftDay);
+
+                g_war_t_thegnDay = GUIManager.Instance.CreateText(
+                    text: "Day",
+                    parent: GUIHirdmandr.transform,
+                    anchorMin: new Vector2(0.63f, 1f),
+                    anchorMax: new Vector2(0.63f, 1f),
+                    position: new Vector2(0f, -550f),
+                    font: GUIManager.Instance.AveriaSerifBold,
+                    fontSize: 24,
+                    color: Color.white,
+                    outline: true,
+                    outlineColor: Color.black,
+                    width: 80f,
+                    height: 40f,
+                    addContentSizeFitter: false);
+
+                g_war_ch_thegnNight = GUIManager.Instance.CreateToggle(
+                    parent: GUIHirdmandr.transform,
+                    width: 30f,
+                    height: 30f);
+                var g_war_ch_thegnNightRect = g_war_ch_thegnNight.GetComponent<RectTransform>();
+                g_war_ch_thegnNightRect.anchorMin = new Vector2(0.78f, 1f);
+                g_war_ch_thegnNightRect.anchorMax = new Vector2(0.78f, 1f);
+                g_war_ch_thegnNightRect.anchoredPosition = new Vector2(0f, -550);
+                var g_war_ch_thegnNightComp = g_war_ch_thegnNight.GetComponent<Toggle>();
+                g_war_ch_thegnNightComp.isOn = m_hirdmandrnpc.m_thegnNightshift;
+                g_war_ch_thegnNightComp.onValueChanged.AddListener(ThegnShiftNight);
+
+                g_war_t_thegnNight = GUIManager.Instance.CreateText(
+                    text: "Night",
+                    parent: GUIHirdmandr.transform,
+                    anchorMin: new Vector2(0.86f, 1f),
+                    anchorMax: new Vector2(0.86f, 1f),
+                    position: new Vector2(0f, -550f),
+                    font: GUIManager.Instance.AveriaSerifBold,
+                    fontSize: 24,
+                    color: Color.white,
+                    outline: true,
+                    outlineColor: Color.black,
+                    width: 80f,
+                    height: 40f,
+                    addContentSizeFitter: false);
+
+                all_wars = new GameObject[24] {
                     g_war_ch_thegn,
                     g_war_t_thegn,
+                    g_b_guard,
+                    g_war_ch_thegnDay,
+                    g_war_t_thegnDay,
+                    g_war_ch_thegnNight,
+                    g_war_t_thegnNight,
+                    g_war_t_guardHeader,
                     g_war_ch_himthiki,
                     g_war_t_himthiki,
                     g_war_ch_gatherer,
@@ -839,6 +890,40 @@ namespace Hirdmandr
                     m_hirdmandrnpc.m_roleArtisan = true;
                 }
                 g_role_tg.allowSwitchOff = false;
+
+                g_job_tg = g_war_t_thegn.AddComponent<ToggleGroup>();
+                g_war_ch_thegnComp.group = g_job_tg;
+                g_war_ch_himthikiComp.group = g_job_tg;
+                if (m_hirdmandrnpc.m_roleWarrior)
+                {
+                    if (m_hirdmandrnpc.m_jobThegn && m_hirdmandrnpc.m_jobHimthiki)
+                    {
+                        m_hirdmandrnpc.InvokeSetting("jobThegn", true);
+                    }
+                    else if (!m_hirdmandrnpc.m_jobThegn && !m_hirdmandrnpc.m_jobHimthiki)
+                    {
+                        m_hirdmandrnpc.InvokeSetting("jobThegn", true);
+                    }
+                    else if (m_hirdmandrnpc.m_jobHimthiki)
+                    {
+                        m_hirdmandrnpc.InvokeSetting("jobHimthiki", true);
+                    }
+                }
+                g_war_ch_thegnComp.SetIsOnWithoutNotify(m_hirdmandrnpc.m_jobThegn);
+                g_war_ch_himthikiComp.SetIsOnWithoutNotify(m_hirdmandrnpc.m_jobHimthiki);
+                g_job_tg.allowSwitchOff = false;
+
+                // Initial page visibility: hide both, show the active role
+                foreach (GameObject go in all_arts) go.SetActive(false);
+                foreach (GameObject go in all_wars) go.SetActive(false);
+                if (m_hirdmandrnpc.m_roleArtisan)
+                {
+                    foreach (GameObject go in all_arts) go.SetActive(true);
+                }
+                if (m_hirdmandrnpc.m_roleWarrior)
+                {
+                    foreach (GameObject go in all_wars) go.SetActive(true);
+                }
 
                 g_style_tg = g_war_t_styleHeader.AddComponent<ToggleGroup>();
                 g_war_ch_styleDefenseComp.group = g_style_tg;
@@ -878,40 +963,32 @@ namespace Hirdmandr
                 {
                     g_war_ch_rangeCloseComp.isOn = true;
                 }
-                g_style_tg.allowSwitchOff = false;
+                g_range_tg.allowSwitchOff = false;
 
             }
 
-            // Switch the current state
+            // Switch the current state — derive from activeSelf (one source of truth; gui_research.md §4.4).
             bool state = !GUIHirdmandr.activeSelf;
 
-            if (state)
+                if (state)
             {
-                string thoughtSnapshot = "";
-                int startTht = m_hirdmandrnpc.m_thoughts.m_thoughts.Count - 5;
-                if (startTht < 0)
-                {
-                    startTht = 0;
-                }
-                for (var i = startTht; i < m_hirdmandrnpc.m_thoughts.m_thoughts.Count; i++)
-                {
-                    string thtStr = "";
-                    HMThoughts.Thought atht = m_hirdmandrnpc.m_thoughts.m_thoughts[i];
-                    string thisStr = m_hirdmandrnpc.m_thoughts.m_thoughtStrings[atht.m_type]["thoughtStrings"][
-                        UnityEngine.Random.Range(0, m_hirdmandrnpc.m_thoughts.m_thoughtStrings[atht.m_type]["thoughtStrings"].Count)
-                        ];
-                    thtStr = thtStr.Replace("%feltAbout%", m_hirdmandrnpc.m_thoughts.StrengthToFeelStr(atht.m_calcStrength));
-                    thtStr = thtStr.Replace("%subject%", atht.m_subject);
-                    thoughtSnapshot = thoughtSnapshot + thtStr;
-                }
-                g_mood.GetComponent<Text>().text = m_hirdmandrnpc.m_mood.ToString() + "\n" + thoughtSnapshot;
+                // Refresh the name too (it was set once at create-time): picks up a future rename feature.
+                g_name.GetComponent<Text>().text = m_humanoid.m_name;
                 g_talk.GetComponent<Text>().text = m_hirdmandrnpc.GetRescueText();
+                g_b_follow.GetComponentInChildren<Text>().text = m_hirdmandrnpc.IsFollowing(m_hirdmandrnpc.m_user) ? "Stop Following" : "Follow";
+                RefreshGuardControls();
             }
             else
             {
+                // Persist the full skill state (floats + enable bools) on panel close, the same
+                // way ZDOSaveGeneral persists role/job fields. Toggle-time persistence already
+                // happens in ApplySettingLocal; this is the belt-and-braces snapshot at the
+                // point the player is done configuring.
+                m_hirdmandrnpc.m_skills.SaveSkills();
                 m_hirdmandrnpc.ZDOSaveGeneral();
             }
 
+            update_skills();
             // Set the active state of the panel
             GUIHirdmandr.SetActive(state);
             m_hirdmandrnpc.OpenInventory(state);
@@ -925,8 +1002,8 @@ namespace Hirdmandr
         private void RoleChanged(bool toggle_value)
         {
             if (toggle_value) {
-                m_hirdmandrnpc.m_roleArtisan = g_role_ch_artisan.GetComponent<Toggle>().isOn;
-                m_hirdmandrnpc.m_roleWarrior = g_role_ch_warrior.GetComponent<Toggle>().isOn;
+                m_hirdmandrnpc.InvokeSetting("roleArtisan", g_role_ch_artisan.GetComponent<Toggle>().isOn);
+                m_hirdmandrnpc.InvokeSetting("roleWarrior", g_role_ch_warrior.GetComponent<Toggle>().isOn);
 
                 if (m_hirdmandrnpc.m_roleArtisan)
                 {
@@ -939,15 +1016,23 @@ namespace Hirdmandr
                     {
                         go.SetActive(false);
                     }
-                    var thisPlayer = m_hirdmandrnpc.m_user.GetComponent<Player>();
+                    var thisPlayer = m_hirdmandrnpc.m_user?.GetComponent<Player>();
                     if (thisPlayer == Player.m_localPlayer) 
                     {
-                        Player.m_localPlayer?.ShowTutorial("hirdmandr_artisan");
+                        HMTutorial.Show(HMTutorial.Artisan);
                     }
                 }
                 if (m_hirdmandrnpc.m_roleWarrior)
                 {
                     Jotunn.Logger.LogInfo("Role changed to Warrior");
+                    if (m_hirdmandrnpc.m_jobThegn && m_hirdmandrnpc.m_jobHimthiki)
+                    {
+                        m_hirdmandrnpc.InvokeSetting("jobThegn", true);
+                    }
+                    else if (!m_hirdmandrnpc.m_jobThegn && !m_hirdmandrnpc.m_jobHimthiki)
+                    {
+                        m_hirdmandrnpc.InvokeSetting("jobThegn", true);
+                    }
                     foreach (GameObject go in all_arts)
                     {
                         go.SetActive(false);
@@ -956,46 +1041,50 @@ namespace Hirdmandr
                     {
                         go.SetActive(true);
                     }
+                    g_war_ch_thegn.GetComponent<Toggle>().SetIsOnWithoutNotify(m_hirdmandrnpc.m_jobThegn);
+                    g_war_ch_himthiki.GetComponent<Toggle>().SetIsOnWithoutNotify(m_hirdmandrnpc.m_jobHimthiki);
                 }
             }
         }
 
         public void WoodToggle(bool toggle_value)
         {
-            m_hirdmandrnpc.m_skills.SetSkillEnable("woodburner", toggle_value);
+            m_hirdmandrnpc.InvokeSetting("skill:woodburner", toggle_value);
         }
 
         public void FurnaceToggle(bool toggle_value)
         {
-            m_hirdmandrnpc.m_skills.SetSkillEnable("furnaceoperator", toggle_value);
+            m_hirdmandrnpc.InvokeSetting("skill:furnaceoperator", toggle_value);
         }
 
         public void FarmerToggle(bool toggle_value)
         {
-            m_hirdmandrnpc.m_skills.SetSkillEnable("farmer", toggle_value);
+            m_hirdmandrnpc.InvokeSetting("skill:farmer", toggle_value);
         }
 
-        public void CookToggle(bool toggle_value)
+        public void LamplighterToggle(bool toggle_value)
         {
-            m_hirdmandrnpc.m_skills.SetSkillEnable("cook", toggle_value);
+            m_hirdmandrnpc.InvokeSetting("skill:lamplighter", toggle_value);
         }
 
-        public void BakerToggle(bool toggle_value)
+        public void MenderToggle(bool toggle_value)
         {
-            m_hirdmandrnpc.m_skills.SetSkillEnable("baker", toggle_value);
+            m_hirdmandrnpc.InvokeSetting("skill:mender", toggle_value);
         }
 
         public void CombatJobThegen(bool toggle_value)
         {
-            m_hirdmandrnpc.m_jobThegn = toggle_value;
+            m_hirdmandrnpc.InvokeSetting("jobThegn", toggle_value);
+            SyncCombatTogglesFromFields();
+            RefreshGuardControls();
 
             if (m_hirdmandrnpc.m_jobThegn)
             {
                 Jotunn.Logger.LogInfo("Warrior job Thegn enabled");
-                var thisPlayer = m_hirdmandrnpc.m_user.GetComponent<Player>();
+                var thisPlayer = m_hirdmandrnpc.m_user?.GetComponent<Player>();
                 if (thisPlayer == Player.m_localPlayer) 
                 {
-                    Player.m_localPlayer?.ShowTutorial("hirdmandr_thegn");
+                    HMTutorial.Show(HMTutorial.Thegn);
                 }
             }
             if (!m_hirdmandrnpc.m_jobThegn)
@@ -1006,15 +1095,17 @@ namespace Hirdmandr
 
         public void CombatJobHimthiki(bool toggle_value)
         {
-            m_hirdmandrnpc.m_jobHimthiki = toggle_value;
+            m_hirdmandrnpc.InvokeSetting("jobHimthiki", toggle_value);
+            SyncCombatTogglesFromFields();
+            RefreshGuardControls();
 
             if (m_hirdmandrnpc.m_jobHimthiki)
             {
                 Jotunn.Logger.LogInfo("Warrior job Himthiki enabled");
-                var thisPlayer = m_hirdmandrnpc.m_user.GetComponent<Player>();
+                var thisPlayer = m_hirdmandrnpc.m_user?.GetComponent<Player>();
                 if (thisPlayer == Player.m_localPlayer) 
                 {
-                    Player.m_localPlayer?.ShowTutorial("hirdmandr_himthiki");
+                    HMTutorial.Show(HMTutorial.Himthiki);
                 }
             }
             if (!m_hirdmandrnpc.m_jobHimthiki)
@@ -1023,17 +1114,66 @@ namespace Hirdmandr
             }
         }
 
+        public void ThegnShiftDay(bool toggle_value)
+        {
+            m_hirdmandrnpc.InvokeSetting("thegnDayshift", toggle_value);
+        }
+
+        public void ThegnShiftNight(bool toggle_value)
+        {
+            m_hirdmandrnpc.InvokeSetting("thegnNightshift", toggle_value);
+        }
+
+        // (Re)sync the guard controls from the NPC fields: set the Day/Night toggle states and enable
+        // the button + toggles only while the active warrior job is Thegn. Called on panel open and
+        // when the combat job changes.
+        private void RefreshGuardControls()
+        {
+            if (g_b_guard == null || g_war_ch_thegnDay == null || g_war_ch_thegnNight == null) return;
+            bool thegn = m_hirdmandrnpc.m_roleWarrior && m_hirdmandrnpc.m_jobThegn;
+            g_war_ch_thegnDay.GetComponent<Toggle>().isOn = m_hirdmandrnpc.m_thegnDayshift;
+            g_war_ch_thegnNight.GetComponent<Toggle>().isOn = m_hirdmandrnpc.m_thegnNightshift;
+            g_b_guard.GetComponent<Button>().interactable = thegn;
+            g_war_ch_thegnDay.GetComponent<Toggle>().interactable = thegn;
+            g_war_ch_thegnNight.GetComponent<Toggle>().interactable = thegn;
+        }
+
         public void ToggleGatherer(bool toggle_value)
         {
-            m_hirdmandrnpc.m_jobGatherer = toggle_value;
+            m_hirdmandrnpc.InvokeSetting("jobGatherer", toggle_value);
             Jotunn.Logger.LogInfo("Gatherer enabled changed to " + toggle_value.ToString());
+        }
+
+        private void SyncCombatTogglesFromFields()
+        {
+            if (m_hirdmandrnpc.m_fightingStyleDefense)
+            {
+                g_war_ch_styleDefense.GetComponent<Toggle>().isOn = true;
+            }
+            else if (m_hirdmandrnpc.m_fightingStyleOffense)
+            {
+                g_war_ch_styleOffense.GetComponent<Toggle>().isOn = true;
+            }
+
+            if (m_hirdmandrnpc.m_fightingRangeClose)
+            {
+                g_war_ch_rangeClose.GetComponent<Toggle>().isOn = true;
+            }
+            else if (m_hirdmandrnpc.m_fightingRangeMid)
+            {
+                g_war_ch_rangeMid.GetComponent<Toggle>().isOn = true;
+            }
+            else if (m_hirdmandrnpc.m_fightingRangeFar)
+            {
+                g_war_ch_rangeFar.GetComponent<Toggle>().isOn = true;
+            }
         }
 
         public void FightingStyle(bool toggle_value)
         {
             if (toggle_value) {
-                m_hirdmandrnpc.m_fightingStyleDefense = g_war_ch_styleDefense.GetComponent<Toggle>().isOn;
-                m_hirdmandrnpc.m_fightingStyleOffense = g_war_ch_styleOffense.GetComponent<Toggle>().isOn;
+                m_hirdmandrnpc.InvokeSetting("fightingStyleDefense", g_war_ch_styleDefense.GetComponent<Toggle>().isOn);
+                m_hirdmandrnpc.InvokeSetting("fightingStyleOffense", g_war_ch_styleOffense.GetComponent<Toggle>().isOn);
 
                 if (m_hirdmandrnpc.m_fightingStyleDefense)
                 {
@@ -1048,9 +1188,9 @@ namespace Hirdmandr
         public void FightingRange(bool toggle_value)
         {
             if (toggle_value) {
-                m_hirdmandrnpc.m_fightingRangeClose = g_war_ch_rangeClose.GetComponent<Toggle>().isOn;
-                m_hirdmandrnpc.m_fightingRangeMid = g_war_ch_rangeMid.GetComponent<Toggle>().isOn;
-                m_hirdmandrnpc.m_fightingRangeFar = g_war_ch_rangeFar.GetComponent<Toggle>().isOn;
+                m_hirdmandrnpc.InvokeSetting("fightingRangeClose", g_war_ch_rangeClose.GetComponent<Toggle>().isOn);
+                m_hirdmandrnpc.InvokeSetting("fightingRangeMid", g_war_ch_rangeMid.GetComponent<Toggle>().isOn);
+                m_hirdmandrnpc.InvokeSetting("fightingRangeFar", g_war_ch_rangeFar.GetComponent<Toggle>().isOn);
 
                 if (m_hirdmandrnpc.m_fightingRangeClose)
                 {
@@ -1065,6 +1205,27 @@ namespace Hirdmandr
                     Jotunn.Logger.LogInfo("Warrior fighting range changed to Far");
                 }
             }
+        }
+        public void update_skills()
+        {
+            var first_line = true;
+
+            var skillnames = "";
+            var skillvalues = "";
+            foreach (HMSkills.SkillData each_skill in m_hirdmandrnpc.m_skills.m_hmSkills)
+            {
+                if (!first_line)
+                {
+                    skillnames += "\n";
+                    skillvalues += "\n";
+                }
+                skillnames += each_skill.m_readable;
+                skillvalues += (int)each_skill.m_value;
+
+                first_line = false;
+            }
+            g_skillnames.GetComponent<Text>().text = skillnames;
+            g_skillvalues.GetComponent<Text>().text = skillvalues;
         }
     }
 }

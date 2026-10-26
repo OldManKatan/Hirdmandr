@@ -70,9 +70,11 @@ namespace OldManSM
                 if (states.TryGetValue(curState, out SMNode curNode) && states.TryGetValue(nextState, out SMNode nextNode))
                 {
                     // Jotunn.Logger.LogInfo("    Calling current node ExitTo");
-                    curNode.ExitTo(nextState);
+                    try { curNode.ExitTo(nextState); }
+                    catch (System.Exception e) { Jotunn.Logger.LogError("SM " + stateIndexes[curState] + ".ExitTo threw:\n" + e); }
                     // Jotunn.Logger.LogInfo("    Calling next node EnterFrom");
-                    nextNode.EnterFrom(curState);
+                    try { nextNode.EnterFrom(curState); }
+                    catch (System.Exception e) { Jotunn.Logger.LogError("SM " + stateIndexes[nextState] + ".EnterFrom threw:\n" + e); }
 
                     lastState = curState;
                     curState = nextState;
@@ -89,7 +91,8 @@ namespace OldManSM
                 if (states.TryGetValue(curState, out SMNode curNode))
                 {
                     // Jotunn.Logger.LogInfo("    Calling curNode.RunState() on " + stateIndexes[curState]);
-                    curNode.RunState();
+                    try { curNode.RunState(); }
+                    catch (System.Exception e) { Jotunn.Logger.LogError("SM " + stateIndexes[curState] + ".RunState threw:\n" + e); }
                 }
                 else 
                 {
@@ -145,7 +148,7 @@ namespace OldManSM
         public HirdmandrAI hmAI;
         public HirdmandrNPC hmNPC;
         public MonsterAI hmMAI;
-        public Humanoid hmHum;
+        public NPCPlayerClone hmHum;
 
         public SMNode(StateMachine psm)
         {
