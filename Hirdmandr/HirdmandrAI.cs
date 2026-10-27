@@ -76,6 +76,22 @@ namespace Hirdmandr
         public float moveMaxDist;
         public float moveCloseEnough;
         public bool moveRequireShelter;
+        // #85: stuck-on-furniture detection + recovery. Wake (AttachStop) can leave the NPC standing
+        // on a bed collider whose floor navmesh is carved out (piece is solid), so FindPath is
+        // false forever and MoveTo treats no-path as "arrived" - the old code re-rolled the spot
+        // every tick until the move timeout, a silent standstill. Two flavors are detected:
+        // FindPath failing continuously (findpath-fail) and a found path that yields no progress
+        // (progress-stall). Recovery is vanilla's own MoveAndAvoid drive (which carries the 1.5s
+        // stuck detect + 4s random corner-escape) plus a StepOffBed teleport fast path.
+        // MoveAndAvoid raycasts straight and never calls FindPath, so FindPath's 5s same-target
+        // false cache cannot poison it.
+        public const float STUCK_STALL_TIME = 1.5f;
+        public const float STUCK_STALL_DIST = 0.2f;
+        public const float STUCK_RECOVERY_TIME = 5f;
+        public float m_stallTimer;
+        public Vector3 m_stallLastPos;
+        public float m_pathFailSince; // Time.time when the current FindPath-fail streak began (0=none)
+        public float m_recoveryUntil; // Time.time when the current recovery drive ends (0=none)
         Dictionary<string, float> hazardTypes = new Dictionary<string, float>();
         public List<Tuple<Vector3, float>> hazardZones = new List<Tuple<Vector3, float>>();
         public float nextHazardCheck = 0;
@@ -90,39 +106,39 @@ namespace Hirdmandr
         public GameObject workJobSite = null;
         public HirdmandrChest workSiteHMChest = null;
         public GameObject workSiteObject;
-         public string curJob = "";
-          public string[] npcChests = new string[5]
-              {
-                  "piece_npc_chest_blackmetal",
-                  "piece_npc_chest_reinforced",
-                  "piece_npc_chest",
-                  "piece_npc_barrel",
-                  "piece_npc_chest_grausten"
-              };
-            public float nextJobTime;
-            // setupArtJob re-setup gate: when no enabled job has a claimable site, WorkDaySM re-ranks
-            // (via resetArtJob) on this gate instead of stalling to the end of the workday, so a
-            // site freed mid-workday (another NPC resting / leaving / a chest restocked) is picked up.
-            public float nextWorkSetupTime = 0f;
-            // doJob re-eval gate (stretch #64): while working, if this job is no longer the
-            // highest-skill enabled job, WorkDaySM goes back to setupArtJob on this gate to
-            // re-rank and claim in ranked order.
-            public float nextJobReEvalTime = 0f;
-            public GameObject lamplighterTarget = null;
-            public Piece menderTarget = null;
-            public Vector3 menderMeetPoint = Vector3.zero;
-            // Mender: the scan timer, separate from the work cooldown (nextJobTime). Every scan is
-            // spaced 5s apart (menderNextScanTime); nextJobTime is the skill-based wait AFTER a
-            // repair, before the next scan may start. Both must have passed to re-scan.
-            public float menderNextScanTime = 0f;
-           // Farmer: the selected target crop + its crop-table entry (Step 8/9), the work chest the
-           // cultivator was taken from (so release returns it there), and the held-tool flag.
-            public Pickable farmerTarget = null;
-            public FarmerCrop farmerTargetEntry = default(FarmerCrop);
-            public HirdmandrChest farmerSourceChest = null;
-            public bool farmerHoldsCultivator = false;
-            public bool farmerMoveIssued = false;
-            public float farmerCollectNextTime = 0f;
+        public string curJob = "";
+        public string[] npcChests = new string[5]
+            {
+                "piece_npc_chest_blackmetal",
+                "piece_npc_chest_reinforced",
+                "piece_npc_chest",
+                "piece_npc_barrel",
+                "piece_npc_chest_grausten"
+            };
+		public float nextJobTime;
+		// setupArtJob re-setup gate: when no enabled job has a claimable site, WorkDaySM re-ranks
+		// (via resetArtJob) on this gate instead of stalling to the end of the workday, so a
+		// site freed mid-workday (another NPC resting / leaving / a chest restocked) is picked up.
+		public float nextWorkSetupTime = 0f;
+		// doJob re-eval gate (stretch #64): while working, if this job is no longer the
+		// highest-skill enabled job, WorkDaySM goes back to setupArtJob on this gate to
+		// re-rank and claim in ranked order.
+		public float nextJobReEvalTime = 0f;
+		public GameObject lamplighterTarget = null;
+		public Piece menderTarget = null;
+		public Vector3 menderMeetPoint = Vector3.zero;
+		// Mender: the scan timer, separate from the work cooldown (nextJobTime). Every scan is
+		// spaced 5s apart (menderNextScanTime); nextJobTime is the skill-based wait AFTER a
+		// repair, before the next scan may start. Both must have passed to re-scan.
+		public float menderNextScanTime = 0f;
+	   // Farmer: the selected target crop + its crop-table entry (Step 8/9), the work chest the
+	   // cultivator was taken from (so release returns it there), and the held-tool flag.
+		public Pickable farmerTarget = null;
+		public FarmerCrop farmerTargetEntry = default(FarmerCrop);
+		public HirdmandrChest farmerSourceChest = null;
+		public bool farmerHoldsCultivator = false;
+		public bool farmerMoveIssued = false;
+		public float farmerCollectNextTime = 0f;
 
         // Rest
         public ZDO restBedZDO = null;
@@ -316,6 +332,28 @@ namespace Hirdmandr
                     moveToTrying = false;
                     moveEnabled = false;
                 }
+                else if (Time.time < m_recoveryUntil)
+                {
+                    // #85 stuck recovery: drive with vanilla's own MoveAndAvoid, which raycasts
+                    // straight to the target (no navmesh) and carries the 1.5s stuck detect +
+                    // 4s random corner-escape. IdleMovement is suppressed while moveEnabled, so
+                    // this is the sole driver. Arrival here ends the move cleanly; expiry falls
+                    // back to normal flow, where the FindPath-fail streak re-triggers recovery
+                    // until the move timeout cancels the move.
+                    m_hmMonsterAI.MoveAndAvoid(timeDelta, moveToTarget, 0f, true);
+
+                    if (Vector3.Distance(m_hmnpc.transform.position, moveToTarget) < moveCloseEnough)
+                    {
+                        m_hmMonsterAI.StopMoving();
+                        m_hmMonsterAI.SetPatrolPoint();
+                        moveToPos = Vector3.zero;
+                        moveToReached = true;
+                        moveEnabled = false;
+                        moveToTrying = false;
+                        m_recoveryUntil = 0f;
+                        Jotunn.Logger.LogInfo("[HirdmandrStuck] " + transform.name + ": reached target via stuck recovery.");
+                    }
+                }
                 else
                 {
                     if (moveToPos == Vector3.zero)
@@ -383,6 +421,9 @@ namespace Hirdmandr
                     {
                         if (m_hmMonsterAI.FindPath(moveToPos))
                         {
+                            // A path exists again: any findpath-fail streak is over.
+                            m_pathFailSince = 0f;
+
                             // run=true: travel to work/rest sites at run speed. run=false (walk) made the
                             // NPC visibly slower than the socialize SM, which already uses MoveTowards(..., true).
                             m_hmMonsterAI.MoveTo(timeDelta, moveToPos, 1f, true);
@@ -396,11 +437,40 @@ namespace Hirdmandr
                                 moveEnabled = false;
                                 moveToTrying = false;
                             }
+                            else
+                            {
+                                // #85 progress-stall: a path is found but we barely move over
+                                // STUCK_STALL_TIME (e.g. grinding against a wall the path can't
+                                // clear). Measures progress over the window, not total
+                                // displacement since the move, so re-baseline each check.
+                                m_stallTimer += timeDelta;
+                                if (m_stallTimer >= STUCK_STALL_TIME)
+                                {
+                                    m_stallTimer = 0f;
+                                    if (Vector3.Distance(m_hmnpc.transform.position, m_stallLastPos) < STUCK_STALL_DIST)
+                                    {
+                                        EnterStuckRecovery("progress-stall");
+                                    }
+                                    m_stallLastPos = m_hmnpc.transform.position;
+                                }
+                            }
                         }
                         else
                         {
                             moveToPos = Vector3.zero;
-                            // Jotunn.Logger.LogWarning("Move can't find path, trying again...");
+                            // #85 findpath-fail: replaces the old silent re-roll loop. Track the
+                            // streak across ticks; the re-roll lands within 1m of the previous
+                            // spot each tick, so FindPath's 5s same-target cache keeps this
+                            // returning false and the streak is continuous. After
+                            // STUCK_STALL_TIME of that, enter recovery.
+                            if (m_pathFailSince == 0f)
+                            {
+                                m_pathFailSince = Time.time;
+                            }
+                            else if (Time.time - m_pathFailSince >= STUCK_STALL_TIME)
+                            {
+                                EnterStuckRecovery("findpath-fail");
+                            }
                         }
                     }
                 }
@@ -431,6 +501,39 @@ namespace Hirdmandr
             moveEnabled = true;
             moveToReached = false;
             moveToTrying = true;
+
+            // #85: each new move starts with a clean stuck slate; a fresh destination must not
+            // inherit the previous move's fail streak or recovery window.
+            m_stallTimer = 0f;
+            m_stallLastPos = transform.position;
+            m_pathFailSince = 0f;
+            m_recoveryUntil = 0f;
+        }
+
+        // #85: begin stuck recovery for a move that can't get unstuck on its own. source is the
+        // trigger flavor (findpath-fail / progress-stall) for the log. First try StepOffBed:
+        // the wake case is exactly "standing on a bed whose floor navmesh is carved out", and
+        // the teleport is the only thing that works when the NPC is boxed in. If it finds no
+        // open spot, fall back to the vanilla MoveAndAvoid drive (recovery window), which
+        // carries the random corner-escape.
+        public void EnterStuckRecovery(string source)
+        {
+            m_pathFailSince = 0f;
+            m_stallTimer = 0f;
+            m_stallLastPos = m_hmnpc.transform.position;
+
+            Jotunn.Logger.LogInfo("[HirdmandrStuck] " + transform.name + " (" + source + "): stuck recovery at " + m_hmnpc.transform.position.ToString("F2"));
+
+            if (m_hmnpc.StepOffBed("stuck-recovery(" + source + ")"))
+            {
+                // Teleported to an open spot: the navmesh under us is valid again, so normal
+                // flow (re-roll + FindPath) can proceed; no recovery window needed.
+                Jotunn.Logger.LogInfo("[HirdmandrStuck] " + transform.name + " (" + source + "): StepOffBed moved us off the bed; resuming normal flow.");
+                m_recoveryUntil = 0f;
+                return;
+            }
+
+            m_recoveryUntil = Time.time + STUCK_RECOVERY_TIME;
         }
 
         // Step 10 / #49h: the distressed party member this NPC should run to help, or null.

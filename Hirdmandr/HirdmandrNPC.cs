@@ -27,7 +27,8 @@ namespace Hirdmandr
         SkillLevelup,
         Rescue,
         Welcome,
-        Resurrect
+        Resurrect,
+        BonusYield
     }
 
     [Serializable]
@@ -51,6 +52,9 @@ namespace Hirdmandr
         public bool m_isHirdmandr;
         public float m_rescueRange = 100f;
         public long m_jarlZOID;
+        // Display name of the Jarl (m_jarlZOID is the stable ID; the name is what the manage
+        // GUI shows). Welcome-only capture - see WelcomeHome.
+        public string m_jarlName = "";
 
         // Skills
         public HMSkills m_skills;
@@ -63,6 +67,7 @@ namespace Hirdmandr
         public LookAt m_lookAt;
         public EffectList m_rescueEffect = new EffectList();
         public EffectList m_welcomeEffect = new EffectList();
+        public EffectList m_bonusYieldEffect = new EffectList();
 
         // Combat
         public float m_healTick = 2f;
@@ -184,9 +189,22 @@ namespace Hirdmandr
                 m_randomRotation = false,
                 m_scale = true
             };
-            m_welcomeEffect.m_effectPrefabs[1] = new EffectList.EffectData
+			// Commented out the sound effect for "boar love". 
+			// An oinking NPC was off-putting!
+            // m_welcomeEffect.m_effectPrefabs[1] = new EffectList.EffectData
+            // {
+            //     m_prefab = PrefabManager.Instance.GetPrefab("sfx_boar_love"),
+            //     m_enabled = true,
+            //     m_attach = false,
+            //     m_inheritParentRotation = true,
+            //     m_inheritParentScale = true,
+            //     m_randomRotation = false,
+            //     m_scale = true
+            // };
+			m_bonusYieldEffect.m_effectPrefabs = new EffectList.EffectData[1];
+            m_bonusYieldEffect.m_effectPrefabs[0] = new EffectList.EffectData
             {
-                m_prefab = PrefabManager.Instance.GetPrefab("sfx_boar_love"),
+                m_prefab = PrefabManager.Instance.GetPrefab("fx_BonusYield"),
                 m_enabled = true,
                 m_attach = false,
                 m_inheritParentRotation = true,
@@ -194,7 +212,6 @@ namespace Hirdmandr
                 m_randomRotation = false,
                 m_scale = true
             };
-
             // Skill-levelup effect (MP-safe): NPCPlayerClone.m_skillLevelupEffects is a non-serialized
             // field that resets to an empty EffectList on every instantiated NPC, so it is (re)populated
             // per-instance here, the same way m_rescueEffect / m_welcomeEffect are set up above. We clone
@@ -420,7 +437,6 @@ namespace Hirdmandr
             }
             if ((m_visequip.m_rightItemInstance != null) || (m_visequip.m_leftItemInstance != null))
             {
-                Jotunn.Logger.LogInfo(string.Format("[Hirdmandr] ForceSpawnEquipBest: weapon attached on pass {0}", m_spawnEquipRetry));
                 CancelInvoke("ForceSpawnEquipBest");
                 return;
             }
@@ -677,31 +693,24 @@ namespace Hirdmandr
         {
             if (m_humanoid == null)
             {
-                Jotunn.Logger.LogInfo("[HirdmandrBedStep] " + source + ": SKIP - m_humanoid is null.");
                 return false;
             }
-            string who = m_humanoid.m_name;
             // Actively sleeping (attached to the bed) is normal - never pull a sleeper up.
             if (m_humanoid.IsAttached())
             {
-                Jotunn.Logger.LogInfo("[HirdmandrBedStep] " + who + " (" + source + "): SKIP - actively attached (sleeping).");
                 return false;
             }
             if (!IsStandingOnBed())
             {
-                Jotunn.Logger.LogInfo("[HirdmandrBedStep] " + who + " (" + source + "): SKIP - IsStandingOnBed() returned false (not on a bed).");
                 return false;
             }
             Quaternion rot;
             Vector3 spot = FindOpenSpotNear(m_humanoid.transform.position, m_humanoid.transform.position.y, out rot);
             if (spot == Vector3.zero)
             {
-                Jotunn.Logger.LogInfo("[HirdmandrBedStep] " + who + " (" + source + "): on a bed but FindOpenSpotNear found NO open spot; staying put.");
                 return false;
             }
-            Vector3 fromPos = m_humanoid.transform.position;
             m_humanoid.TeleportTo(spot, rot, false);
-            Jotunn.Logger.LogInfo("[HirdmandrBedStep] " + who + " (" + source + "): STEPPED OFF bed " + fromPos.ToString("F2") + " -> " + spot.ToString("F2"));
             return true;
         }
 
@@ -731,33 +740,27 @@ namespace Hirdmandr
             {
                 return false;
             }
-            string who = m_humanoid.m_name;
             Transform self = m_humanoid.transform;
             // RaycastAll from the feet, closest first. The origin is inside our own collider, so
             // the very first hit is usually our own body; skip it (and any other of our own
             // colliders) to test the surface UNDER us, not our body.
             RaycastHit[] hits = Physics.RaycastAll(self.position, Vector3.down, 12f);
-            Jotunn.Logger.LogInfo("[HirdmandrBedStep] " + who + ": IsStandingOnBed raycast origin " + self.position.ToString("F2") + " -> " + hits.Length + " hit(s).");
             for (int i = 0; i < hits.Length; i++)
             {
                 Collider col = hits[i].collider;
                 if (col == null)
                 {
-                    Jotunn.Logger.LogInfo("[HirdmandrBedStep] " + who + "  hit[" + i + "]: null collider (skip).");
                     continue;
                 }
                 bool isSelf = col.transform.IsChildOf(self);
                 if (isSelf)
                 {
-                    Jotunn.Logger.LogInfo("[HirdmandrBedStep] " + who + "  hit[" + i + "]: '" + col.gameObject.name + "' at " + hits[i].point.ToString("F2") + " is SELF (skip).");
                     continue;
                 }
                 // First non-self surface under us decides: is it a bed?
                 bool isBed = col.GetComponentInParent<Bed>() != null;
-                Jotunn.Logger.LogInfo("[HirdmandrBedStep] " + who + "  hit[" + i + "]: FIRST-SURFACE '" + col.gameObject.name + "' at " + hits[i].point.ToString("F2") + " -> isBed=" + isBed);
                 return isBed;
             }
-            Jotunn.Logger.LogInfo("[HirdmandrBedStep] " + who + ": IsStandingOnBed = FALSE (no non-self surface within 12m).");
             return false;
         }
 
@@ -848,6 +851,28 @@ namespace Hirdmandr
             s_shipPortalRefreshTime = Time.time;
             s_shipList = UnityEngine.Object.FindObjectsOfType<Ship>();
             s_portalList = UnityEngine.Object.FindObjectsOfType<TeleportWorld>();
+        }
+
+        // #84 perf: shared list of all HirdmandrNPCs, refreshed for ALL NPCs at most once per
+        // interval (the old code ran a full FindObjectsOfType object-table scan per free NPC per
+        // 0.5s defense/escape poll). Same pattern as RefreshShipPortalCache (#77), but 1s
+        // instead of 5s: this list gates defense response, so staleness here is a slow
+        // reaction to danger, not invisible noise (ship/portals stay at 5s). NPC membership
+        // only changes on spawn/destroy; a destroyed NPC is Unity-fake-null and is skipped by
+        // the consumers below. 1s staleness is a non-issue: an NPC spawned inside the window
+        // self-heals on the next refresh.
+        private static HirdmandrNPC[] s_npcList;
+        private static float s_npcListRefreshTime = -99999f;
+        private const float m_npcListRefreshInterval = 1f;
+
+        private static void RefreshNpcList()
+        {
+            if (Time.time < s_npcListRefreshTime + m_npcListRefreshInterval)
+            {
+                return;
+            }
+            s_npcListRefreshTime = Time.time;
+            s_npcList = UnityEngine.Object.FindObjectsOfType<HirdmandrNPC>();
         }
 
         // Find the Ship the player is currently in, or null if they are not aboard any ship.
@@ -1636,6 +1661,7 @@ namespace Hirdmandr
             m_isHirdmandr = m_znet.GetZDO().GetBool("hmnpc_isHirdmandr");
 
             m_jarlZOID = m_znet.GetZDO().GetLong("hmnpc_jarlZOID", 0);
+            m_jarlName = m_znet.GetZDO().GetString("hmnpc_jarlName", "");
 
             m_roleArtisan = m_znet.GetZDO().GetBool("hmnpc_roleArtisan");
             m_roleWarrior = m_znet.GetZDO().GetBool("hmnpc_roleWarrior");
@@ -1675,15 +1701,6 @@ namespace Hirdmandr
             Jotunn.Logger.LogInfo("[HirdmandrLoad] name='" + m_humanoid.m_name + "' rescued=" + m_isRescued + " hirdmandr=" + m_isHirdmandr + " roleArtisan=" + m_roleArtisan + " roleWarrior=" + m_roleWarrior);
             Jotunn.Logger.LogInfo("[HirdmandrLoad] jobThegn=" + m_jobThegn + " jobHimthiki=" + m_jobHimthiki + " jobGatherer=" + m_jobGatherer + " bed=" + ownedBedZDOID);
             Jotunn.Logger.LogInfo("[HirdmandrLoad] thegnGuardSet=" + m_thegnGuardSet + " thegnGuardPoint=" + m_thegnGuardPoint + " thegnDayshift=" + m_thegnDayshift + " thegnNightshift=" + m_thegnNightshift);
-            var enabled = new System.Collections.Generic.List<string>();
-            foreach (var s in m_skills.m_hmSkills)
-            {
-                if (s != null && s.m_isEnabled)
-                {
-                    enabled.Add(s.m_name + "=" + s.m_value.ToString("0.##"));
-                }
-            }
-            Jotunn.Logger.LogInfo("[HirdmandrLoad] enabledSkills=[" + string.Join(", ", enabled.ToArray()) + "]");
         }
 
         public void ZDOSaveGeneral()
@@ -1696,6 +1713,7 @@ namespace Hirdmandr
             m_znet.GetZDO().Set("hmnpc_isHirdmandr", m_isHirdmandr);
             
             m_znet.GetZDO().Set("hmnpc_jarlZOID", m_jarlZOID);
+            m_znet.GetZDO().Set("hmnpc_jarlName", m_jarlName);
             
             m_znet.GetZDO().Set("hmnpc_roleArtisan", m_roleArtisan);
             m_znet.GetZDO().Set("hmnpc_roleWarrior", m_roleWarrior);
@@ -1881,6 +1899,8 @@ namespace Hirdmandr
                     return "welcome";
                 case HMEffectKind.Resurrect:
                     return "resurrect";
+                case HMEffectKind.BonusYield:
+                    return "bonusyield";
             }
             return "none";
         }
@@ -1897,6 +1917,8 @@ namespace Hirdmandr
                     return HMEffectKind.Welcome;
                 case "resurrect":
                     return HMEffectKind.Resurrect;
+                case "bonusyield":
+                    return HMEffectKind.BonusYield;
             }
             return HMEffectKind.None;
         }
@@ -1936,6 +1958,14 @@ namespace Hirdmandr
                         m_rescueEffect.Create(transform.position, transform.rotation);
                     }
                     break;
+                case HMEffectKind.BonusYield:
+                    // Local play only (like Resurrect): the fx_BonusYield VFX at the NPC - it is
+                    // standing at the work site when the bonus rolls, so this reads as "at the yield".
+                    if (m_bonusYieldEffect != null)
+                    {
+                        m_bonusYieldEffect.Create(transform.position, transform.rotation);
+                    }
+                    break;
             }
         }
 
@@ -1956,6 +1986,30 @@ namespace Hirdmandr
                 sender = Game.instance.GetPlayerProfile().GetPlayerID();
             }
             m_znet.InvokeRPC(sender, "RPC_HMFX", kindKey + ":" + info);
+        }
+
+        // Artisan job-success animation: the NPC plays the "interact" animation when it completes a
+        // job action (one wood to the kiln, one ore to the smelter, one crop harvested, one
+        // fixture refuelled, one piece repaired). Owner-only (the state machine that fires it is
+        // IsOwner-gated; the IsOwner check is the same defensive no-op as FireMpEffect): play
+        // locally, then broadcast. InvokeRPC is never delivered back to the sender, so the local
+        // SetTrigger is what this client sees; every other client runs ZSyncAnimation's
+        // RPC_SetTrigger on receipt (same owner-local + broadcast shape as the effect bus).
+        // Deliberately NOT fired for bonus yields - one anim per job action, no double-call.
+        public void FireArtisanInteractAnim()
+        {
+            if (m_znet == null || !m_znet.IsOwner())
+            {
+                return;
+            }
+            m_npcPlayerClone.m_zanim.SetTrigger("interact");
+            long sender = 0;
+            if (Game.instance != null && Game.instance.GetPlayerProfile() != null)
+            {
+                sender = Game.instance.GetPlayerProfile().GetPlayerID();
+            }
+            m_znet.InvokeRPC(sender, "RPC_SetTrigger", "interact");
+            Jotunn.Logger.LogInfo("[HirdmandrFX] artisan interact anim: owner-local SetTrigger + RPC_SetTrigger broadcast");
         }
 
         // Effect bus handler: runs on every client EXCEPT the owner (the owner already played it
@@ -2573,6 +2627,11 @@ namespace Hirdmandr
                     // never-rescued case. Persists via the ZDOSaveGeneral() at the end of this method.
                     m_jarlZOID = m_user.GetComponent<Player>().GetPlayerID();
                 }
+                // The Jarl's display name for the manage GUI. Welcome-only by design: the ZOID
+                // is also set at first rescue, but the name lands here, at the welcome (a
+                // resurrected NPC is set up welcomed by the altar, which re-lands both with
+                // the performer as the new Jarl).
+                m_jarlName = m_user.GetComponent<Player>().GetPlayerName();
                 Jotunn.Logger.LogInfo("WelcomeHome triggered an actual home, " + m_humanoid.m_name);
                 m_isHirdmandr = true;
                 m_hirdmandrAI.enabled = true;
@@ -2764,37 +2823,45 @@ namespace Hirdmandr
             m_guiHirdmandr.TogglePanel();
         }
 
-        // Centralized Thegn day/night schedule. Returns the top-level state the Thegn should be in
-        // at time-of-day ToD, honoring the two independent shift flags. This is the single source
-        // of truth used by NodeSchedule (entry) and each work-state's exit check, so the routing can
-        // never disagree with itself:
-        //   day && night  -> patrol (guard 100% of the time, no breaks);
-        //   day only      -> the day shift;
-        //   night only    -> the night shift;
-        //   neither       -> day shift (historical default; keeps the Thegn working).
-        // Only meaningful for a warrior Thegn (callers gate on m_roleWarrior && m_jobThegn).
-        public string ThegnTargetState(float ToD)
+        // Centralized schedule router: returns the top-level state this NPC should be in at
+        // time-of-day ToD. Single source of truth used by NodeSchedule (entry) and each
+        // work-state's exit check, so the routing can never disagree with itself. All times
+        // come from HMSchedule.
+        //   warrior Thegn, day && night -> patrol (guard 100% of the time, no breaks);
+        //   warrior Thegn, day only     -> the day shift;
+        //   warrior Thegn, night only   -> the night shift;
+        //   warrior Thegn, neither      -> day shift (historical default; keeps the Thegn working);
+        //   warrior Himthiki            -> socialize by day, rest at night;
+        //   role Artisan or unassigned  -> morn socialize -> work -> evening socialize -> rest.
+        public string GetStateBySchedule(float ToD)
         {
-            if (m_thegnDayshift && m_thegnNightshift)
+            if (m_roleWarrior && m_jobThegn)
             {
-                return "patrol";
+                if (m_thegnDayshift && m_thegnNightshift)
+                {
+                    return "patrol";
+                }
+                if (!m_thegnDayshift && m_thegnNightshift)
+                {
+                    if (HMSchedule.ToDInWindow(ToD, HMSchedule.ThegnNightPatrolStart, HMSchedule.ThegnNightSocialStart)) return "patrol";
+                    if (HMSchedule.ToDInWindow(ToD, HMSchedule.ThegnNightSocialStart, HMSchedule.ThegnNightRestStart)) return "socialize";
+                    return "rest";
+                }
+                // Day shift, or neither shift selected: the day shift keeps the Thegn working.
+                if (HMSchedule.ToDInWindow(ToD, HMSchedule.ThegnDayPatrolStart, HMSchedule.ThegnDaySocialStart)) return "patrol";
+                if (HMSchedule.ToDInWindow(ToD, HMSchedule.ThegnDaySocialStart, HMSchedule.ThegnDayRestStart)) return "socialize";
+                return "rest";
             }
-            if (m_thegnDayshift)
+            if (m_roleWarrior && m_jobHimthiki)
             {
-                if (ToD >= 0.2608 && ToD < 0.7083) return "patrol";
-                if (ToD >= 0.7083 && ToD < 0.909) return "socialize";
-                return "rest"; // ToD >= 0.909 || ToD < 0.2608 (rest absorbs the former selfCare 0.2083-0.2608 window)
+                if (HMSchedule.ToDInWindow(ToD, HMSchedule.HimthikiSocialStart, HMSchedule.HimthikiRestStart)) return "socialize";
+                return "rest";
             }
-            if (m_thegnNightshift)
-            {
-                if (ToD >= 0.6983 || ToD < 0.2708) return "patrol";
-                if (ToD >= 0.2708 && ToD < 0.3333) return "socialize";
-                return "rest"; // ToD >= 0.3333 && ToD < 0.6983 (rest absorbs the former selfCare 0.6083-0.6983 window)
-            }
-            // Neither shift selected: fall back to the day shift so the Thegn still works.
-            if (ToD >= 0.2608 && ToD < 0.7083) return "patrol";
-            if (ToD >= 0.7083 && ToD < 0.909) return "socialize";
-            return "rest"; // ToD >= 0.909 || ToD < 0.2608 (rest absorbs the former selfCare 0.2083-0.2608 window)
+            // Role Artisan or unassigned.
+            if (HMSchedule.ToDInWindow(ToD, HMSchedule.ArtisanMornSocialStart, HMSchedule.ArtisanWorkdayStart)) return "socialize";
+            if (HMSchedule.ToDInWindow(ToD, HMSchedule.ArtisanWorkdayStart, HMSchedule.ArtisanEveningSocialStart)) return "workDay";
+            if (HMSchedule.ToDInWindow(ToD, HMSchedule.ArtisanEveningSocialStart, HMSchedule.ArtisanRestStart)) return "socialize";
+            return "rest";
         }
 
         public void TestPowerUpGear()
@@ -3439,15 +3506,17 @@ namespace Hirdmandr
         }
 
         // Any client: nearest in-danger hirdmandr (any owner) within maxRange, or null.
-        // FindObjectsOfType matches the existing NPC-discovery convention (HirdmandrCommand);
-        // if Step 10's poll cadence makes this hot, a static registry is the next step.
+        // Uses the shared 1s-TTL NPC list (RefreshNpcList, #84) instead of a per-call
+        // FindObjectsOfType object-table scan - at the 0.5s poll cadence that was one full
+        // scan per free NPC per poll. Per-NPC state (distress flag, health, position) is
+        // still read live, so only discovery is cached.
         public HirdmandrNPC FindNearestDistressed(float maxRange)
         {
             HirdmandrNPC best = null;
             float bestDist = maxRange;
             Vector3 myPos = transform.position;
-            HirdmandrNPC[] all = UnityEngine.Object.FindObjectsOfType<HirdmandrNPC>();
-            foreach (HirdmandrNPC other in all)
+            RefreshNpcList();
+            foreach (HirdmandrNPC other in s_npcList)
             {
                 if (other == null || other == this) continue;
                 if (!other.IsInDistress()) continue;
@@ -3477,16 +3546,17 @@ namespace Hirdmandr
 
         // Step 12 / #49l — Any client: nearest potential helper (another live hirdmandr, or any
         // live player) within maxRange, or null. A helper is who an overmatched hirdmandr retreats
-        // toward (escapeHelp). Mirrors the FindObjectsOfType discovery convention
-        // (FindNearestDistressed / HirdmandrCommand). Returns a Transform so the caller can treat a
+        // toward (escapeHelp). The hirdmandr half uses the shared 1s-TTL NPC list
+        // (RefreshNpcList, #84); the player half stays a direct FindObjectsOfType (the player
+        // list is tiny and escape is a rare path). Returns a Transform so the caller can treat a
         // fellow hirdmandr and a player uniformly as "run to this position."
         public Transform FindNearestHelper(float maxRange)
         {
             Vector3 myPos = transform.position;
             float bestDist = maxRange;
             Transform best = null;
-            HirdmandrNPC[] all = UnityEngine.Object.FindObjectsOfType<HirdmandrNPC>();
-            foreach (HirdmandrNPC other in all)
+            RefreshNpcList();
+            foreach (HirdmandrNPC other in s_npcList)
             {
                 if (other == null || other == this) continue;
                 if (other.m_humanoid == null || other.m_humanoid.GetHealth() <= 0f) continue;

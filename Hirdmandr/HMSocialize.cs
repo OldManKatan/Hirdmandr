@@ -145,6 +145,35 @@ namespace Hirdmandr
             m_nextTalk = Time.time + UnityEngine.Random.Range(30f, 90f);
         }
 
+        // GUI peek (the manage panel's "Say" line): a line the fire might be murmuring right
+        // now, WITHOUT popping. Pick one pending moment at random and compose its line; with
+        // nothing queued, fall back to the idle pool like MaybeTalk does. Read-only on the
+        // ZDO - the moments stay queued for the fire to actually say them later.
+        public string PeekMurmur()
+        {
+            var zdo = m_znetv.GetZDO();
+            if (zdo == null) return null;
+
+            string worked = zdo.GetString(kWorked, "");
+            string combat = zdo.GetString(kCombat, "");
+            string guarded = zdo.GetString(kGuarded, "");
+            string skillup = zdo.GetString(kSkillup, "");
+
+            var keys = new List<string>();
+            var payloads = new List<string>();
+            if (worked.Length > 0) { keys.Add(kWorked); payloads.Add(worked); }
+            if (combat.Length > 0) { keys.Add(kCombat); payloads.Add(combat); }
+            if (guarded.Length > 0) { keys.Add(kGuarded); payloads.Add(guarded); }
+            if (skillup.Length > 0) { keys.Add(kSkillup); payloads.Add(skillup); }
+
+            if (keys.Count > 0)
+            {
+                int pick = UnityEngine.Random.Range(0, keys.Count);
+                return ComposeLine(keys[pick], payloads[pick]);
+            }
+            return PickLine(kIdlePool);
+        }
+
         // Resolve a pending (topic, payload) to a pool key and return the filled line.
         private string ComposeLine(string key, string payload)
         {

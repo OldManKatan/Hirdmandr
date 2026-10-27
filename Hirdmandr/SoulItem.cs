@@ -212,6 +212,7 @@ namespace Hirdmandr
                     // Ownership + role/jobs/fighting style. (The bed is intentionally NOT
                     // carried - see the exclusion note at the end of this block.)
                     payload["hmnpc_jarlZOID"] = zdo.GetLong("hmnpc_jarlZOID", 0).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    payload["hmnpc_jarlName"] = zdo.GetString("hmnpc_jarlName");
                     payload["hmnpc_roleArtisan"] = B(zdo.GetBool("hmnpc_roleArtisan"));
                     payload["hmnpc_roleWarrior"] = B(zdo.GetBool("hmnpc_roleWarrior"));
                     payload["hmnpc_jobThegn"] = B(zdo.GetBool("hmnpc_jobThegn"));

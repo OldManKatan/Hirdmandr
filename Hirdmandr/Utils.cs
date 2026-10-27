@@ -121,6 +121,51 @@ namespace Hirdmandr
             return matchedZDOs;
         }
 
+        // The three NPC fire clones CreateNPCFires registers (Hirdmandr.cs) - the ONLY valid
+        // socialize gathering points (Thomas: nothing else). Searching all three means a village
+        // whose gathering fire is a hearth or bonfire, not just a campfire, still has one.
+        public static readonly string[] NpcGatheringFirePrefabs =
+        {
+            "piece_npc_fire_pit",
+            "piece_npc_hearth",
+            "piece_npc_bonfire"
+        };
+
+        // All NPC gathering fires (any of the three clones) within range of point. Single source
+        // for the socialize / patrol / workday gathering searches; the three old copies each
+        // searched piece_npc_fire_pit only, so a placed hearth or bonfire was invisible to the
+        // NPCs.
+        public static List<ZDO> GetNpcGatheringFiresInRange(Vector3 point, float range)
+        {
+            var fires = new List<ZDO>();
+            foreach (string prefab in NpcGatheringFirePrefabs)
+            {
+                foreach (ZDO fire in GetPrefabZDOsInRange(point, range, prefab))
+                {
+                    fires.Add(fire);
+                }
+            }
+            return fires;
+        }
+
+        // Nearest NPC gathering fire within range of point, or Vector3.zero if none (the
+        // "zero = none found" convention the callers already use).
+        public static Vector3 FindNearestNpcGatheringFire(Vector3 point, float range)
+        {
+            ZDO closest = null;
+            float bestDist = float.MaxValue;
+            foreach (ZDO fire in GetNpcGatheringFiresInRange(point, range))
+            {
+                float d = Vector3.Distance(point, fire.m_position);
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    closest = fire;
+                }
+            }
+            return closest != null ? closest.m_position : Vector3.zero;
+        }
+
         private static List<Vector2i> GetSectors(int minX, int minZ, int maxX, int maxZ)
         {
             List<Vector2i> sectors = new List<Vector2i>();

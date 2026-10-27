@@ -7,9 +7,13 @@ namespace Hirdmandr
 {
     // R3c rescue refactor: the world-rescue scanner. Replaces the old ZoneSystem.PlaceLocations
     // Harmony hook (RescueSpawnHook) with a periodic, deterministic pass. Every Interval seconds -
-    // on a coroutine hosted by the persistent plugin MonoBehaviour - and on the authoritative
-    // client only, it scans the (2*GridRadius+1)^2 zones around the player and offers an
-    // unrescued rescue at HitPercent of whitelisted, unclaimed structures.
+    // on a coroutine hosted by the persistent plugin MonoBehaviour - and on the server only, it
+    // scans the (2*GridRadius+1)^2 zones around each player on the server and offers an
+    // unrescued rescue at HitPercent of whitelisted, unclaimed structures. The centers are the
+    // connected peers (ZNet.instance.GetPeers()) plus the local player when this process has
+    // one - in SP the server IS the host process, and on a hosted MP world the host is a local
+    // player, not a remote peer, so GetPeers() alone does not cover the host in every topology
+    // (see GetScanCenters).
     //
     // Deterministic: a structure's offer is a pure function of (structure name, zone) via a stable
     // hash, so the same structure offers (or doesn't) on every pass and on every client - no
@@ -18,7 +22,7 @@ namespace Hirdmandr
     internal static class RescueScanner
     {
         public const float Interval = 5f;     // seconds between passes
-        public const int GridRadius = 1;      // 3x3 zones around the player
+        public const int GridRadius = 1;      // 3x3 zones around each connected player
         public const int HitPercent = 20;     // deterministic offer chance per structure
 
         private static bool s_started;
@@ -64,8 +68,56 @@ namespace Hirdmandr
             // it automatically), so Claimed() below reflects the current state.
             RescueLedger.CollectLive(s_live);
 
-            Player player = Player.m_localPlayer;
-            Vector2s pzone = ZoneSystem.GetZone(player.transform.position);
+            foreach (Vector3 center in GetScanCenters())
+            {
+                ScanAround(center);
+            }
+        }
+
+        // The scan centers: one per player on this server. The connected peers come from
+        // ZNet.instance.GetPeers(); the local player (when this process has one) is added as
+        // well, because GetPeers() does not reliably list the host: in single player the
+        // server IS the host process, and on a hosted MP world the host is a local player,
+        // not a remote peer. Dedup: if a peer already sits within 10m of the local player
+        // (SP: the host listed both ways) the window is scanned only once this pass.
+        // An empty list means nothing to scan (e.g. a dedicated MP server, no one connected).
+        internal static List<Vector3> GetScanCenters()
+        {
+            var centers = new List<Vector3>();
+            var peers = ZNet.instance.GetPeers();
+            if (peers != null)
+            {
+                foreach (var peer in peers)
+                {
+                    centers.Add(peer.GetRefPos());
+                }
+            }
+            var local = Player.m_localPlayer;
+            if (local != null && local.transform != null)
+            {
+                Vector3 lp = local.transform.position;
+                bool have = false;
+                foreach (Vector3 c in centers)
+                {
+                    if ((c - lp).sqrMagnitude <= 100f)
+                    {
+                        have = true;
+                        break;
+                    }
+                }
+                if (!have)
+                {
+                    centers.Add(lp);
+                }
+            }
+            return centers;
+        }
+
+        // Scan the (2*GridRadius+1)^2 zones around `center` and offer an unrescued rescue at
+        // HitPercent of whitelisted, unclaimed structures (deterministic rules: class comment).
+        private static void ScanAround(Vector3 center)
+        {
+            Vector2s pzone = ZoneSystem.GetZone(center);
 
             for (int dx = -GridRadius; dx <= GridRadius; dx++)
             {
@@ -101,48 +153,42 @@ namespace Hirdmandr
                     }
 
                     // Eligible and unclaimed - place one. PlaceAtLocation stamps
-                    // hmnpc_rescuepoiHash = h on the new ZDO; the live set is rebuilt next
-                    // pass, so this structure is "live" from the following interval onward
-                    // (checked at most once per pass, so no double-spawn this pass).
-                    RescueSpawner.PlaceAtLocation(inst, "rescue scan", h);
+                    // hmnpc_rescuepoiHash = h on the new ZDO.
+                    if (RescueSpawner.PlaceAtLocation(inst, "rescue scan", h) != null)
+                    {
+                        // Two peers' windows can overlap within one pass; claim the structure in
+                        // the live set now so the overlapping window does not place a second
+                        // rescue at the same structure this pass (the live set is re-derived
+                        // next pass anyway).
+                        s_live.Add(h);
+                    }
                 }
             }
         }
 
-        // Only the client running the instance (the server/host) scans and spawns. In single
-        // player the local player is always the server, so this is effectively always true today;
-        // it keeps a future multiplayer session from double-spawning (otherwise every client would
-        // see an unclaimed structure and each spawn its own rescue).
+        // Only the server scans and spawns: every client would otherwise see the same unclaimed
+        // structure and each spawn its own rescue. In SP the server is the host; in MP it is
+        // the (headless) dedicated server. There is deliberately NO local-player gate here -
+        // the server has no local player in MP, and the pass is centered on the connected
+        // peers instead (see RunPass).
         private static bool Ready()
         {
             if (ZNet.instance == null || !ZNet.instance.IsServer())
             {
-				Jotunn.Logger.LogInfo("[Hirdmandr] rescue spawn Ready() returned false, reason: if (ZNet.instance == null || !ZNet.instance.IsServer())");
-                Jotunn.Logger.LogInfo("[Hirdmandr] rescue spawn Ready() ZNet.instance == " + (ZNet.instance == null ? "null" : "true"));
-                Jotunn.Logger.LogInfo("[Hirdmandr] rescue spawn Ready() !ZNet.instance.IsServer() == " + (ZNet.instance == null ? "n/a" : (!ZNet.instance.IsServer()).ToString()));
                 return false;
             }
             if (ZNetScene.instance == null)
             {
-				Jotunn.Logger.LogInfo("[Hirdmandr] rescue spawn Ready() returned false, reason: if (ZNetScene.instance == null)");
-                return false;
-            }
-            if (Player.m_localPlayer == null || Player.m_localPlayer.transform == null)
-            {
-				Jotunn.Logger.LogInfo("[Hirdmandr] rescue spawn Ready() returned false, reason: if (Player.m_localPlayer == null || Player.m_localPlayer.transform == null)");
                 return false;
             }
             if (ZoneSystem.instance == null || ZoneSystem.instance.m_locationInstances == null)
             {
-				Jotunn.Logger.LogInfo("[Hirdmandr] rescue spawn Ready() returned false, reason: if (ZoneSystem.instance == null || ZoneSystem.instance.m_locationInstances == null)");
                 return false;
             }
             if (ZDOMan.instance == null)
             {
-				Jotunn.Logger.LogInfo("[Hirdmandr] rescue spawn Ready() returned false, reason: if (ZDOMan.instance == null)");
                 return false;
             }
-			Jotunn.Logger.LogInfo("[Hirdmandr] rescue spawn Ready() returned true");
             return true;
         }
 

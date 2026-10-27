@@ -13,6 +13,7 @@ namespace Hirdmandr
         NPCPlayerClone m_humanoid;
         HirdmandrNPC m_hirdmandrnpc;
         GameObject g_name;
+        GameObject g_jarl;
         GameObject g_talk;
         GameObject g_skillnames;
         GameObject g_skillvalues;
@@ -175,12 +176,35 @@ namespace Hirdmandr
                     height: 40f,
                     addContentSizeFitter: false);
 
-                g_talk = GUIManager.Instance.CreateText(
-                    text: m_hirdmandrnpc.GetRescueText(),
+                // Jarl line: "Jarl: <display name>" right under the NPC name. Rich text - the
+                // label in the header orange, the name white, both at this size. Hidden while
+                // the name is empty (welcome-only capture: blank until welcomed, and a legacy
+                // save never had one stored).
+                g_jarl = GUIManager.Instance.CreateText(
+                    text: "",
                     parent: GUIHirdmandr.transform,
                     anchorMin: new Vector2(0.25f, 1f),
                     anchorMax: new Vector2(0.25f, 1f),
-                    position: new Vector2(0f, -120f),
+                    position: new Vector2(0f, -105f),
+                    font: GUIManager.Instance.AveriaSerifBold,
+                    fontSize: 24,
+                    color: Color.white,
+                    outline: true,
+                    outlineColor: Color.black,
+                    width: 450f,
+                    height: 30f,
+                    addContentSizeFitter: false);
+                RefreshJarlLine();
+
+                // The "Say" line: a random line from the campfire murmur (peek - a queued
+                // moment is NOT popped, the fire still says it later); idle pool when nothing
+                // is queued.
+                g_talk = GUIManager.Instance.CreateText(
+                    text: m_hirdmandrnpc.m_socialize.PeekMurmur() ?? "",
+                    parent: GUIHirdmandr.transform,
+                    anchorMin: new Vector2(0.25f, 1f),
+                    anchorMax: new Vector2(0.25f, 1f),
+                    position: new Vector2(0f, -170f),
                     font: GUIManager.Instance.AveriaSerifBold,
                     fontSize: 18,
                     color: Color.white,
@@ -974,7 +998,9 @@ namespace Hirdmandr
             {
                 // Refresh the name too (it was set once at create-time): picks up a future rename feature.
                 g_name.GetComponent<Text>().text = m_humanoid.m_name;
-                g_talk.GetComponent<Text>().text = m_hirdmandrnpc.GetRescueText();
+                // A fresh murmur line each open (peek - the queued moments are not popped).
+                g_talk.GetComponent<Text>().text = m_hirdmandrnpc.m_socialize.PeekMurmur() ?? "";
+                RefreshJarlLine();
                 g_b_follow.GetComponentInChildren<Text>().text = m_hirdmandrnpc.IsFollowing(m_hirdmandrnpc.m_user) ? "Stop Following" : "Follow";
                 RefreshGuardControls();
             }
@@ -1122,6 +1148,27 @@ namespace Hirdmandr
         public void ThegnShiftNight(bool toggle_value)
         {
             m_hirdmandrnpc.InvokeSetting("thegnNightshift", toggle_value);
+        }
+
+        // The Jarl line under the NPC name: "Jarl: " in the header orange, the display name
+        // white, same size. Hidden while the name is empty (welcome-only capture).
+        private void RefreshJarlLine()
+        {
+            if (g_jarl == null)
+            {
+                return;
+            }
+            string jarlName = m_hirdmandrnpc.m_jarlName;
+            if (jarlName.Length == 0)
+            {
+                g_jarl.SetActive(false);
+                return;
+            }
+            Color c = GUIManager.Instance.ValheimOrange;
+            string label = string.Format("<color=#{0:x2}{1:x2}{2:x2}>Jarl: </color>",
+                (int)(c.r * 255f), (int)(c.g * 255f), (int)(c.b * 255f));
+            g_jarl.GetComponent<Text>().text = label + jarlName;
+            g_jarl.SetActive(true);
         }
 
         // (Re)sync the guard controls from the NPC fields: set the Day/Night toggle states and enable

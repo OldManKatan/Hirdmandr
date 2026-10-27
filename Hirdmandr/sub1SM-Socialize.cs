@@ -53,9 +53,9 @@ namespace Hirdmandr
             {
                 hmAI.socTargetFire = null;
 
-                List<ZDO> npc_campfires = Utils.GetPrefabZDOsInRange(hmAI.transform.position, 100f, "piece_npc_fire_pit");
+                List<ZDO> npc_fires = Utils.GetNpcGatheringFiresInRange(hmAI.transform.position, 100f);
 
-                if (npc_campfires.Count == 0)
+                if (npc_fires.Count == 0)
                 {
                     parentSM.ChangeState("goIdlePoint");
                     return;
@@ -64,7 +64,7 @@ namespace Hirdmandr
                 float closestSoFar = 999999f;
                 float thisDistance;
 
-                foreach (ZDO aZDO in npc_campfires)
+                foreach (ZDO aZDO in npc_fires)
                 {
                     thisDistance = Vector3.Distance(aZDO.GetPosition(), hmAI.transform.position);
                     if (thisDistance < closestSoFar && hmAI.socNoPathFires.IndexOf(aZDO) == -1)

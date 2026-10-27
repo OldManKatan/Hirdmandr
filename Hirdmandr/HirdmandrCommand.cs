@@ -992,6 +992,17 @@ namespace Hirdmandr
                         Log(string.Format("  PEER id={0} refpos=({1:F1},{2:F1},{3:F1}) zone=({4},{5})",
                             peer.m_playerID, rp.x, rp.y, rp.z, pz.x, pz.y));
                     }
+                    // The scanner's actual decision: the centers RunPass() will scan right now
+                    // (peers + local player, 10m dedup) - ground truth for "why did/didn't the
+                    // scanner scan here".
+                    var centers = RescueScanner.GetScanCenters();
+                    Log("STATE: scanCenters=" + centers.Count + " (peers + local player, 10m dedup)");
+                    foreach (Vector3 center in centers)
+                    {
+                        Vector2s cz = ZoneSystem.GetZone(center);
+                        Log(string.Format("  CENTER refpos=({0:F1},{1:F1},{2:F1}) zone=({3},{4})",
+                            center.x, center.y, center.z, cz.x, cz.y));
+                    }
                 }
                 Log("NOTE: crypt / DG_* entries are dungeon entrances - exclude those from the rescue whitelist (rescues never spawn in dungeons).");
             }

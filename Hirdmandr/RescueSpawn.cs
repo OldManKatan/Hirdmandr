@@ -24,13 +24,6 @@ namespace Hirdmandr
                     return null;
                 }
 
-                Player player = Player.m_localPlayer;
-                if (player == null || player.transform == null)
-                {
-                    Jotunn.Logger.LogInfo("[Hirdmandr] rescue spawn skipped (" + reason + "): no local player to own the ZDO.");
-                    return null;
-                }
-
                 ZNetScene scene = ZNetScene.instance;
                 if (scene == null)
                 {
@@ -44,25 +37,33 @@ namespace Hirdmandr
                     return null;
                 }
 
+                // Identity rotation: the server has no local player to face, and the first-time
+                // branch sits the NPC down anyway (orientation is cosmetic for a sitting rescue).
                 Vector3 pos = PickClearSpot(inst);
-                Quaternion rot = player.transform.rotation;
+                Quaternion rot = Quaternion.identity;
                 int prefabHash = scene.GetPrefabHash(prefab);
 
                 ZDO zdo = ZDOMan.instance.CreateNewZDO(pos, prefabHash);
                 zdo.SetPrefab(prefabHash);
                 zdo.SetRotation(rot);
 
-                // Ownership: the local session owns it, so OwnerInit runs the owner (first-time)
-                // branch. Copy the local player's owner, exactly like /hirdmandr spawn. Without
-                // an owner the NPC would not initialize (OwnerInit owner-only path).
-                var playerView = player.m_nview;
-                var playerZdo = (playerView != null) ? playerView.GetZDO() : null;
-                if (playerZdo == null)
+                // Ownership: CreateNewZDO already stamped the creating session as owner - on the
+                // server (where the scanner runs) that is exactly the owner HirdmandrNPC.OwnerInit
+                // needs for its first-time branch (client replicas see IsOwner()==false and take
+                // the load path). When a local player exists (SP, or the /hirdmandr test command
+                // on a client), copy the player ZDO's owner exactly like before: in MP the player
+                // ZDO is server-owned, so the ZDO stays server-owned even when the command runs
+                // on a client.
+                Player player = Player.m_localPlayer;
+                if (player != null && player.transform != null)
                 {
-                    Jotunn.Logger.LogInfo("[Hirdmandr] rescue spawn skipped (" + reason + "): could not resolve local session owner.");
-                    return null;
+                    var playerView = player.m_nview;
+                    var playerZdo = (playerView != null) ? playerView.GetZDO() : null;
+                    if (playerZdo != null)
+                    {
+                        zdo.SetOwner(playerZdo.GetOwner());
+                    }
                 }
-                zdo.SetOwner(playerZdo.GetOwner());
 
                 // Which structure this rescue belongs to (0 = none, e.g. a manual spawn). Persists
                 // with the ZDO and is how RescueLedger.CollectLive derives the live structures.

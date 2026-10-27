@@ -67,6 +67,7 @@
     <Compile Include="HirdmandrGUI.cs" />
     <Compile Include="HirdmandrGUIRescue.cs" />
     <Compile Include="HirdmandrNPC.cs" />
+    <Compile Include="HMSchedule.cs" />
     <Compile Include="HMSkills.cs" />
     <Compile Include="HMSocialize.cs" />
     <Compile Include="HMTutorial.cs" />

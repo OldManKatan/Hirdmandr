@@ -104,6 +104,34 @@ namespace Hirdmandr
                     }
                     else
                     {
+                        // No job to do: head to (or hold at) the social gathering point, instead of
+                        // standing wherever the workday left us. The meet point is the nearest
+                        // NPC gathering fire, held in socMeetPoint (the same field socialize
+                        // uses) so it is STEADY: found once (socialize's findMeetPoint zeroes it
+                        // on entry, so a fresh find happens after socializing), then the walk is
+                        // issued once and the NPC holds at its stand point. No fire in range:
+                        // stay put, as before (and re-check each tick, like findMeetPoint).
+                        if (hmAI.socMeetPoint == Vector3.zero)
+                        {
+                            hmAI.socMeetPoint = Utils.FindNearestNpcGatheringFire(hmAI.transform.position, 100f);
+                        }
+
+                        if (hmAI.socMeetPoint != Vector3.zero)
+                        {
+                            // A settled stand point is up to 6f off per axis (8.5f diagonal) plus
+                            // the 2f arrival radius, so within 11f of the fire means "there".
+                            // Holding is what keeps the spot steady: each TryToMove call re-rolls
+                            // the stand point (moveToPos is reset), which is what made the NPC
+                            // mill around the fire. moveToReached is shared by all moves, so it
+                            // can't tell "arrived at the fire" from "arrived at a work site" -
+                            // the distance check can.
+                            if (Vector3.Distance(hmAI.transform.position, hmAI.socMeetPoint) > 11f && !hmAI.moveToTrying)
+                            {
+                                hmAI.TryToMove(hmAI.socMeetPoint, 2f, 3f, 6f, false, 30f);
+                            }
+                            // else: at the meet point, or a walk in flight (UpdateMoving drives it).
+                        }
+
                         // workJobs is empty: no job is enabled, or every enabled job was just tried
                         // and had no claimable site. Don't stall to the end of the workday - re-rank
                         // from scratch on a 10s gate so a site that frees up mid-workday (another
@@ -432,10 +460,18 @@ namespace Hirdmandr
                             {
                                     Jotunn.Logger.LogInfo("Lamplighter: refuelled " + hmAI.lamplighterTarget.name);
                                     hmAI.m_hmnpc.m_skills.ModifySkill(hmAI.curJob, 1.0f);
+                                    // Job done: the Lamplighter plays the "interact" anim (owner-local + all clients).
+                                    hmAI.m_hmnpc.FireArtisanInteractAnim();
                                 // Skill-based no-consume roll: free refuel chance 20% (lvl 1) -> 80% (lvl 100),
                                 // i.e. higher skill uses less fuel. Only spend a chest item on a "paid" refuel.
                                 float noConsumeChance = 0.20f + ((lamplighterSkill - 1f) * (0.60f / 99f));
-                                if (!(UnityEngine.Random.value < noConsumeChance))
+                                if (UnityEngine.Random.value < noConsumeChance)
+                                {
+                                    // No-consume roll hit: this refuel cost no fuel - the lamplighter's
+                                    // bonus yield. Announce it on the MP effect bus (all clients).
+                                    hmAI.m_hmnpc.FireMpEffect(HMEffectKind.BonusYield, "lamplighter bonus yield (free refuel of " + hmAI.lamplighterTarget.name + ")");
+                                }
+                                else
                                 {
                                     Fireplace thisFire = hmAI.lamplighterTarget.GetComponent<Fireplace>();
                                     string fuelName = (thisFire != null && thisFire.m_fuelItem != null && thisFire.m_fuelItem.m_itemData != null)
@@ -475,10 +511,15 @@ namespace Hirdmandr
                 {
                     float menderNow = Time.time;
 
-                    // No live target (or first entry): (re)scan. Two timers gate this: the fixed 5s
-                    // scan cooldown (menderNextScanTime) and the skill-based work cooldown
-                    // (nextJobTime, set by the last repair) -- the job cycle can't restart until
-                    // both have passed.
+                    // No live target: (re)scan. Two timers gate this: the fixed 5s scan cooldown
+                    // (menderNextScanTime) and the skill-based work cooldown (nextJobTime, set by
+                    // the last repair) -- the job cycle can't restart until both have passed.
+                    // The meeting-point walk lives in the else below on purpose: the Mender only
+                    // goes to the campfire when a scan just looked and found nothing. Between
+                    // scans (e.g. the work cooldown after a repair, with fresh damage out there)
+                    // it holds where it stands -- a per-tick meet-point block made it detour to
+                    // the campfire mid-cooldown and jitter back out when the next scan picked a
+                    // piece.
                     if (!hmAI.menderTarget)
                     {
                         if (menderNow >= hmAI.nextJobTime && menderNow >= hmAI.menderNextScanTime)
@@ -486,26 +527,45 @@ namespace Hirdmandr
                             hmAI.menderTarget = PickMenderTarget();
                             hmAI.menderMoveIssued = false;
                             hmAI.menderNextScanTime = menderNow + 5f;
-                            // A piece was just picked: re-assert the hammer in hand (the visequip can
-                            // drift while the Mender idles/walks, so re-equip per pick).
                             if (hmAI.menderTarget != null)
                             {
+                                // A piece was just picked: re-assert the hammer in hand (the
+                                // visequip can drift while the Mender idles/walks, so re-equip
+                                // per pick).
                                 EquipMenderHammer();
                             }
-                        }
-                    }
+                            else
+                            {
+                                // Just looked and found nothing: head to (or hold at) the meeting
+                                // point. Same steady pattern as the jobless-artisan gather:
+                                // menderMeetPoint is found once, the walk is issued once, and the
+                                // Mender holds at its stand point (each TryToMove call re-rolls
+                                // the stand point, which is what made it mill around the fire).
+                                if (hmAI.menderMeetPoint == Vector3.zero)
+                                {
+                                    hmAI.menderMeetPoint = FindMenderMeetPoint();
+                                }
 
-                    // Still nothing to mend: head to (or hold at) the meeting point (campfire) and
-                    // wait for the next scan window.
-                    if (!hmAI.menderTarget)
-                    {
-                        Vector3 mp = FindMenderMeetPoint();
-                        if (mp != Vector3.zero)
-                        {
-                            hmAI.menderMeetPoint = mp;
-                            hmAI.TryToMove(mp, 2f, 3f, 6f, false, 30f);
+                                if (hmAI.menderMeetPoint != Vector3.zero)
+                                {
+                                    // Same 11f settled radius as the gather hold: a stand point is
+                                    // up to 8.5f diagonal from the fire plus the 2f arrival radius.
+                                    if (Vector3.Distance(hmAI.transform.position, hmAI.menderMeetPoint) > 11f && !hmAI.moveToTrying)
+                                    {
+                                        hmAI.TryToMove(hmAI.menderMeetPoint, 2f, 3f, 6f, false, 30f);
+                                    }
+                                    // else: at the meet point, or a walk in flight (UpdateMoving drives it).
+                                }
+                            }
                         }
-                        return;
+
+                        // Still no live target: hold here (or let UpdateMoving finish the walk to
+                        // the meeting point). A target picked THIS tick falls through to the
+                        // live-target code below; a null one must never reach it.
+                        if (!hmAI.menderTarget)
+                        {
+                            return;
+                        }
                     }
 
                     // A live target: get horizontally close (XZ only, for ceiling/roof pieces), then
@@ -697,8 +757,19 @@ namespace Hirdmandr
                                         hmAI.workSiteHMChest.m_container.m_inventory.RemoveOneItem(hmAI.workSiteHMChest.m_container.m_inventory.GetItem("$item_wood"));
                                         hmAI.workSiteHMChest.m_container.Save();
                                     }
-                                    Jotunn.Logger.LogWarning("One wood was added to kiln");
-                                    kilnSmelter.m_nview.InvokeRPC("RPC_AddOre", "Wood", false);
+                                     Jotunn.Logger.LogWarning("One wood was added to kiln");
+                                     kilnSmelter.m_nview.InvokeRPC("RPC_AddOre", "Wood", false);
+                                     // Job done: the Woodburner plays the "interact" anim (owner-local + all clients).
+                                     hmAI.m_hmnpc.FireArtisanInteractAnim();
+                                     // Vanilla-style "+1 output": chance = (int)skill / 400 (0% at 0
+                                    // skill, 25% at 100, linear in whole points). A bonus adds one
+                                    // more wood to the kiln queue WITHOUT consuming a second wood -
+                                    // the free extra output, one extra coal later.
+                                    if (RollArtisanBonus(hmAI.m_hmnpc.m_skills.GetSkill(hmAI.curJob)))
+                                    {
+                                        kilnSmelter.m_nview.InvokeRPC("RPC_AddOre", "Wood", false);
+                                        hmAI.m_hmnpc.FireMpEffect(HMEffectKind.BonusYield, "woodburner bonus yield (extra wood to kiln)");
+                                    }
                                     hmAI.m_hmnpc.m_skills.ModifySkill(hmAI.curJob, 1.0f);
                                 }
                                 else
@@ -738,6 +809,7 @@ namespace Hirdmandr
                         genericToggle = !genericToggle;
                         bool oreFull = false;
                         bool fuelFull = false;
+                        bool jobAnimPlayed = false;
 
                         if (hmAI.workSiteObject)
                         {
@@ -750,44 +822,22 @@ namespace Hirdmandr
                                 {
                                     hmAI.m_hmMonsterAI.LookAt(hmAI.workSiteObject.transform.position);
 
-                                    bool addedOre = false;
-
                                     Jotunn.Logger.LogWarning("Queue size less than 10");
-                                    if (smelterChestInv.HaveItem("$item_silverore"))
+                                    string addedOreName = AddOneOreToSmelter(smelterSmelter);
+                                    if (addedOreName != null)
                                     {
-                                        smelterChestInv.RemoveOneItem(smelterChestInv.GetItem("$item_silverore"));
-                                        hmAI.workSiteHMChest.m_container.Save();
-                                        Jotunn.Logger.LogWarning("One SilverOre was added to Smelter");
-                                        smelterSmelter.m_nview.InvokeRPC("RPC_AddOre", "SilverOre", false);
-                                        addedOre = true;
-                                    }
-                                    else if (smelterChestInv.HaveItem("$item_ironscrap"))
-                                    {
-                                        smelterChestInv.RemoveOneItem(smelterChestInv.GetItem("$item_ironscrap"));
-                                        hmAI.workSiteHMChest.m_container.Save();
-                                        Jotunn.Logger.LogWarning("One IronOre was added to Smelter");
-                                        smelterSmelter.m_nview.InvokeRPC("RPC_AddOre", "IronScrap", false);
-                                        addedOre = true;
-                                    }
-                                    else if (smelterChestInv.HaveItem("$item_copperore"))
-                                    {
-                                        smelterChestInv.RemoveOneItem(smelterChestInv.GetItem("$item_copperore"));
-                                        hmAI.workSiteHMChest.m_container.Save();
-                                        Jotunn.Logger.LogWarning("One CopperOre was added to Smelter");
-                                        smelterSmelter.m_nview.InvokeRPC("RPC_AddOre", "CopperOre", false);
-                                        addedOre = true;
-                                    }
-                                    else if (smelterChestInv.HaveItem("$item_tinore"))
-                                    {
-                                        smelterChestInv.RemoveOneItem(smelterChestInv.GetItem("$item_tinore"));
-                                        hmAI.workSiteHMChest.m_container.Save();
-                                        Jotunn.Logger.LogWarning("One TinOre was added to Smelter");
-                                        smelterSmelter.m_nview.InvokeRPC("RPC_AddOre", "TinOre", false);
-                                        addedOre = true;
-                                    }
-
-                                    if (addedOre)
-                                    {
+                                        // Job done: the Furnace Operator plays the "interact" anim (owner-local + all clients).
+                                        hmAI.m_hmnpc.FireArtisanInteractAnim();
+                                        jobAnimPlayed = true;
+                                        // Vanilla-style "+1 output": chance = (int)skill / 400 (0% at 0
+                                        // skill, 25% at 100, linear in whole points). A bonus adds one
+                                        // more of the SAME ore to the smelter queue WITHOUT consuming a
+                                        // second ore - the free extra output, one extra ingot later.
+                                        if (RollArtisanBonus(hmAI.m_hmnpc.m_skills.GetSkill(hmAI.curJob)))
+                                        {
+                                            smelterSmelter.m_nview.InvokeRPC("RPC_AddOre", addedOreName, false);
+                                            hmAI.m_hmnpc.FireMpEffect(HMEffectKind.BonusYield, "furnaceoperator bonus yield (extra " + addedOreName + ")");
+                                        }
                                         hmAI.m_hmnpc.m_skills.ModifySkill(hmAI.curJob, 1.0f);
                                     }
                                 }
@@ -803,8 +853,15 @@ namespace Hirdmandr
                                 {
                                      smelterChestInv.RemoveOneItem(smelterChestInv.GetItem("$item_coal"));
                                      hmAI.workSiteHMChest.m_container.Save();
-                                     Jotunn.Logger.LogWarning("One Coal was added to Smelter");
-                                     smelterSmelter.m_nview.InvokeRPC("RPC_AddFuel", 0L);
+                                      Jotunn.Logger.LogWarning("One Coal was added to Smelter");
+                                      smelterSmelter.m_nview.InvokeRPC("RPC_AddFuel", 0L);
+                                      // Fuel-only cycle (no ore added this pass): play the anim here too, so a
+                                      // fuel-only pass still shows one "interact" (never a double-call).
+                                      if (!jobAnimPlayed)
+                                      {
+                                          hmAI.m_hmnpc.FireArtisanInteractAnim();
+                                          jobAnimPlayed = true;
+                                      }
                                 }
                             }
                             else
@@ -924,6 +981,55 @@ namespace Hirdmandr
                 return true;
             }
 
+            // The "one ore" action: take the first ore the chest carries (silver > iron > copper >
+            // tin, the original chain's order) and put it into the smelter queue. Returns the RPC
+            // ore name added (so a "+1 output" bonus can add a second of the SAME ore), null = the
+            // chest carries no smelt-able ore.
+            private string AddOneOreToSmelter(Smelter smelter)
+            {
+                Inventory chestInv = hmAI.workSiteHMChest.m_container.m_inventory;
+                if (chestInv.HaveItem("$item_silverore"))
+                {
+                    chestInv.RemoveOneItem(chestInv.GetItem("$item_silverore"));
+                    hmAI.workSiteHMChest.m_container.Save();
+                    Jotunn.Logger.LogWarning("One SilverOre was added to Smelter");
+                    smelter.m_nview.InvokeRPC("RPC_AddOre", "SilverOre", false);
+                    return "SilverOre";
+                }
+                if (chestInv.HaveItem("$item_ironscrap"))
+                {
+                    chestInv.RemoveOneItem(chestInv.GetItem("$item_ironscrap"));
+                    hmAI.workSiteHMChest.m_container.Save();
+                    Jotunn.Logger.LogWarning("One IronOre was added to Smelter");
+                    smelter.m_nview.InvokeRPC("RPC_AddOre", "IronScrap", false);
+                    return "IronScrap";
+                }
+                if (chestInv.HaveItem("$item_copperore"))
+                {
+                    chestInv.RemoveOneItem(chestInv.GetItem("$item_copperore"));
+                    hmAI.workSiteHMChest.m_container.Save();
+                    Jotunn.Logger.LogWarning("One CopperOre was added to Smelter");
+                    smelter.m_nview.InvokeRPC("RPC_AddOre", "CopperOre", false);
+                    return "CopperOre";
+                }
+                if (chestInv.HaveItem("$item_tinore"))
+                {
+                    chestInv.RemoveOneItem(chestInv.GetItem("$item_tinore"));
+                    hmAI.workSiteHMChest.m_container.Save();
+                    Jotunn.Logger.LogWarning("One TinOre was added to Smelter");
+                    smelter.m_nview.InvokeRPC("RPC_AddOre", "TinOre", false);
+                    return "TinOre";
+                }
+                return null;
+            }
+
+            // Vanilla-style "+1 output" roll (the artisan balance effect): 0% at 0 skill, 25% at
+            // 100 skill, linear in whole skill points - Random.value < (int)skill / 400.
+            private static bool RollArtisanBonus(float skill)
+            {
+                return UnityEngine.Random.value < ((int)skill / 400f);
+            }
+
             // Mender: pick the worst-damaged player-built piece within MenderRange. Priority =
             // (health/maxHealth) x horizontal distance, so a badly-broken piece near the Mender
             // mends before a barely-scratched one far away. Lowest score wins; null = none.
@@ -969,6 +1075,9 @@ namespace Hirdmandr
                 // RPC_Repair does NOT itself play a visible effect, so fire the piece's impact
                 // effect at the repair spot -- that's what a real hammer hit produces.
                 wnt.m_nview.InvokeRPC("RPC_Repair", 0L);
+                // Job done: the Mender plays the "interact" anim (owner-local + all clients); the
+                // piece's own fix effect below is what a real hammer hit produces.
+                hmAI.m_hmnpc.FireArtisanInteractAnim();
                 if (wnt.m_hitEffect != null)
                 {
                     // Mirror the game's own WearNTear.RPC_Damage hit effect: an owner-spawned ZDO, so it
@@ -983,24 +1092,11 @@ namespace Hirdmandr
                 return true;
             }
 
-            // Mender: where to idle when there's nothing to mend — the nearest campfire
-            // (piece_npc_fire_pit) within 100f, same source as Socialize. zero = none found.
+            // Mender: where to idle when there's nothing to mend - the nearest NPC gathering
+            // fire within 100f, same source as Socialize. zero = none found.
             private Vector3 FindMenderMeetPoint()
             {
-                List<ZDO> fires = Utils.GetPrefabZDOsInRange(hmAI.transform.position, 100f, "piece_npc_fire_pit");
-                if (fires.Count == 0) return Vector3.zero;
-                ZDO closest = null;
-                float bestDist = float.MaxValue;
-                foreach (ZDO f in fires)
-                {
-                    float d = Vector3.Distance(hmAI.transform.position, f.m_position);
-                    if (d < bestDist)
-                    {
-                        bestDist = d;
-                        closest = f;
-                    }
-                }
-                return closest != null ? closest.m_position : Vector3.zero;
+                return Utils.FindNearestNpcGatheringFire(hmAI.transform.position, 100f);
             }
 
             // Mender: make sure the NPC has a hammer in hand. If it's not in the inventory, give
@@ -1170,6 +1266,19 @@ namespace Hirdmandr
                 {
                     return false;
                 }
+                // The yield's ItemData, captured BEFORE the harvest: Interact destroys the crop,
+                // and a "+1 output" bonus needs it to bank one extra full yield into the chest.
+                ItemDrop.ItemData bonusYield = null;
+                GameObject bonusDrop = crop.m_itemPrefab;
+                if (bonusDrop != null)
+                {
+                    ItemDrop bonusIt = bonusDrop.GetComponent<ItemDrop>();
+                    if (bonusIt != null && bonusIt.m_itemData != null)
+                    {
+                        bonusYield = bonusIt.m_itemData;
+                    }
+                }
+
                 string yieldItem;
                 Vector3 position;
                 if (!FarmerHarvest(hmAI.m_hmHumanoid, crop, out yieldItem, out position))
@@ -1182,6 +1291,23 @@ namespace Hirdmandr
                     hmAI.workSiteHMChest.m_container.Save();
                 }
                 FarmerReplant(position, entry.sapling);
+                // Job done (harvest + replant): the Farmer plays the "interact" anim (owner-local + all clients).
+                hmAI.m_hmnpc.FireArtisanInteractAnim();
+
+                // Vanilla-style "+1 output": chance = (int)skill / 400 (0% at 0 skill, 25% at
+                // 100, linear in whole points). A bonus harvest banks one extra FULL yield into
+                // the work chest (a normal seed_onion harvest gives 3 seeds, so a bonus harvest
+                // gives 6 total). The ground drop from the harvest itself is still banked by
+                // FarmerCollectYields; no extra skill for the bonus.
+                if (bonusYield != null && RollArtisanBonus(hmAI.m_hmnpc.m_skills.GetSkill(hmAI.curJob)))
+                {
+                    if (hmAI.workSiteHMChest.m_container.m_inventory.AddItem(bonusYield))
+                    {
+                        hmAI.workSiteHMChest.m_container.Save();
+                        Jotunn.Logger.LogWarning("Farmer bonus: extra " + yieldItem + " yield added to chest");
+                    }
+                    hmAI.m_hmnpc.FireMpEffect(HMEffectKind.BonusYield, "farmer bonus yield (extra " + yieldItem + ")");
+                }
                 return true;
             }
 

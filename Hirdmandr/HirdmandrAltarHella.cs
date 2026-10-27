@@ -313,6 +313,9 @@ namespace Hirdmandr
             // then takes the load path (name != "") and never randomizes anything.
             CopyIdentityTo(npcZdo);
             npcZdo.Set("hmnpc_jarlZOID", performerID);
+            // The display name follows the ZOID: the soul carried the old Jarl's name, the
+            // performer takes over (the manage GUI's "Jarl: " line reads this key).
+            npcZdo.Set("hmnpc_jarlName", PerformerName(performerID));
             npcZdo.Set("hmnpc_isrescued", true);
             npcZdo.Set("hmnpc_isHirdmandr", true);
 
@@ -349,6 +352,21 @@ namespace Hirdmandr
             m_znetv.InvokeRPC(performerID, "RPC_HMAltarAnnounce", name);
 
             Jotunn.Logger.LogInfo("[HirdmandrAltar] resurrected '" + name + "' (jarl " + performerID + ") at " + pos.ToString("F1") + ".");
+        }
+
+        // Display name of the performer for the resurrected NPC's Jarl line. Host-side: every
+        // connected player's Player object exists on the host. Empty if the performer is gone
+        // (the label hides while empty - same rule as a never-welcomed NPC).
+        private static string PerformerName(long performerID)
+        {
+            foreach (Player p in Player.s_players)
+            {
+                if (p != null && p.GetPlayerID() == performerID)
+                {
+                    return p.GetPlayerName();
+                }
+            }
+            return "";
         }
 
         // === RPC handlers (run on every client; the body is owner-gated) ===
@@ -496,6 +514,7 @@ namespace Hirdmandr
                         case "hmnpc_name":
                         case "hmnpc_beard":
                         case "hmnpc_hair":
+                        case "hmnpc_jarlName":
                             zdo.Set(key, "");
                             break;
                         case "hmnpc_haircolor":
@@ -529,6 +548,7 @@ namespace Hirdmandr
             {
                 "hmnpc_name", "hmnpc_female", "hmnpc_haircolor", "hmnpc_skincolor",
                 "hmnpc_beard", "hmnpc_hair", RescueLedger.HashKey, "hmnpc_jarlZOID",
+                "hmnpc_jarlName",
                 "hmnpc_roleArtisan", "hmnpc_roleWarrior", "hmnpc_jobThegn",
                 "hmnpc_thegnDayshift", "hmnpc_thegnNightshift", "hmnpc_thegnGuardSet",
                 "hmnpc_jobHimthiki",
@@ -578,6 +598,9 @@ namespace Hirdmandr
                     case "hmnpc_hair":
                         to.Set(key, from.GetString(key));
                         break;
+                    case "hmnpc_jarlName":
+                        to.Set(key, from.GetString(key, ""));
+                        break;
                     case "hmnpc_haircolor":
                     case "hmnpc_skincolor":
                         to.Set(key, from.GetVec3(key, Vector3.one));
@@ -621,6 +644,7 @@ namespace Hirdmandr
                     case "hmnpc_name":
                     case "hmnpc_beard":
                     case "hmnpc_hair":
+                    case "hmnpc_jarlName":
                         zdo.Set(key, raw ?? "");
                         return;
                     case "hmnpc_haircolor":

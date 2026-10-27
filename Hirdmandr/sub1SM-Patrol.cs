@@ -79,24 +79,11 @@ namespace Hirdmandr
                 return hmAI.transform.position;
             }
 
-            // Nearest campfire (piece_npc_fire_pit) within 100f, or Vector3.zero if none. Same
-            // source as Socialize/WorkDay, so the guard anchors to the same gathering spot.
+            // Nearest NPC gathering fire within 100f, or Vector3.zero if none. Same source as
+            // Socialize/WorkDay, so the guard anchors to the same gathering spot.
             private Vector3 FindNearestFire()
             {
-                List<ZDO> fires = Utils.GetPrefabZDOsInRange(hmAI.transform.position, 100f, "piece_npc_fire_pit");
-                if (fires.Count == 0) return Vector3.zero;
-                ZDO closest = null;
-                float bestDist = float.MaxValue;
-                foreach (ZDO f in fires)
-                {
-                    float d = Vector3.Distance(hmAI.transform.position, f.m_position);
-                    if (d < bestDist)
-                    {
-                        bestDist = d;
-                        closest = f;
-                    }
-                }
-                return closest != null ? closest.m_position : Vector3.zero;
+                return Utils.FindNearestNpcGatheringFire(hmAI.transform.position, 100f);
             }
         }
         public class NodeGoPost : SMNode

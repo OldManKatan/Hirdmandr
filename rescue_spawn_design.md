@@ -4,6 +4,20 @@
 > Read this FIRST after any context compression or cold start — it exists so you do NOT
 > re-derive decisions or re-read the same files in a loop.
 >
+> **Status (2026-10-26):** **Fix A (MP 0-rescues) IMPLEMENTED + BUILT + DEPLOYED, MP VERIFIED (Thomas,
+> 2026-10-26: "MP worked very well"); SP regression found + FIXED (same day, deployed); SP retest pending (Thomas).**
+> The MP scan was dead: the pass required a *local player* (gate + scan center); the headless MP
+> server has none, and clients never scan (`IsServer()` false) — so in MP nobody ever scanned and
+> rescues never appeared (SP worked: the host *is* the player). Fix A: the pass is **server-only
+> and player-centered** — `RunPass` centers on each scan center, `Ready()` drops the local-player
+> gate, and `PlaceAtLocation` drops the local-player requirement (identity rotation; `CreateNewZDO`
+> default owner, guarded player-owner copy). Scan centers = connected peers ∪ the local player
+> (`GetScanCenters()`, 10m dedup): **SP regression found (2026-10-26)** — after Fix A, rescues no
+> longer spawned in SP, because `GetPeers()` does NOT provide the host's position in SP (the
+> "exactly one peer" assumption was wrong), so the peer loop scanned nothing; the local-player
+> center fixes SP (dedicated MP unchanged: no local player there). Build **280,576 B, 0 errors /
+> 27 warnings**, deployed byte-identical (SHA256 verified).
+>
 > **Status (2026-10-08):** Design DECIDED (Thomas), **IMPLEMENTED + BUILT + DEPLOYED (2026-10-07)**,
 > **R7 in-game playtest PASSED (2026-10-07)**, and the last spawn bug — the unrescued **sitting pose
 > (#26i) — is RESOLVED (2026-10-08)**. Current build **190,976 B, 0 errors**. The refactor (remove
@@ -12,7 +26,10 @@
 > (`welcomed_<H>` global keys) and **derives** the live set from loaded ZDOs each pass (no dedicated
 > ZDO, no stored ZDOID, no sweep). Remaining close-out: PMW state corrections + a few OPEN calls
 > (see §18.1).
-> Line numbers are from the files as read on 2026-10-07 (approximate after the #26i edits).
+> Line numbers: `RescueScanner.cs` / `RescueSpawn.cs` are from the Fix A rewrite (2026-10-26, incl. the SP-fix `GetScanCenters`).
+> All other line numbers are from the files as read on 2026-10-07 — **approximate after the
+> "Massive refactor for 0.9" (7f8b741) tree** (e.g. `HirdmandrNPC.OwnerInit` is now ~:267,
+> `LoadZDO` ~:1141, `hmnpc_name` write ~:1542).
 >
 > **Read order:** §1 intent → §2 the pivot → §16 the U1 test (enabling evidence) →
 > components §3–§14 → §18 open questions → §19 code index → §20 build checklist.
@@ -40,8 +57,11 @@ search.
 
 ## 2. THE PIVOT — from the PoI hook to ledger + scan (the core decision)
 
-**Current design (IMPLEMENTED 2026-10-07):** A *periodic* (5s) scan of the 3×3 zone grid around
-the player, **on the authoritative client only** (`ZNet.instance.IsServer()`). For each
+**Current design (IMPLEMENTED 2026-10-07; Fix A 2026-10-26):** A *periodic* (5s) scan of the 3×3
+zone grid around **each connected peer**, **on the server only** (`ZNet.instance.IsServer()`).
+(The original wording — "around the player, on the authoritative client only" — was the MP bug:
+the headless MP server has no local player, so it never scanned, and clients never scan
+(`IsServer()` false) → in MP nobody scanned. Fix A made it peer-centered; see §7.) For each
 placed+whitelisted PoI in range, a **deterministic 20% hash** decides whether that structure
 "has a rescue." If it does and the structure is **not claimed** (`RescueLedger.Claimed(H)`
 false), spawn one. The only durable data is one **global key** per structure —
@@ -302,23 +322,42 @@ re-find on reload — the old OPEN "re-find the ledger ZDO" question (§13) is g
 
 ## 7. The scanner
 
-**Current design (IMPLEMENTED 2026-10-07):** A 5s periodic coroutine, **on the authoritative client
-only** (`ZNet.instance.IsServer()`; in SP that's always true). Each pass (`RescueScanner.RunPass`):
-1. Build the candidate zone set: the player's zone + neighbors — a **3×3** grid
-   (`RescueScanner.GridRadius = 1`).
-2. **Build the live set** once: `RescueLedger.CollectLive` → `HashSet<int>` of structures that have
-   a rescue NPC loaded right now (reads `hmnpc_rescuepoiHash` off every loaded ZDO).
-3. For each zone in that set, for each `LocationInstance` that is placed AND
+**Current design (Fix A, IMPLEMENTED 2026-10-26):** A 5s periodic coroutine, **on the server only**
+(`ZNet.instance.IsServer()`; in SP that's the host). Each pass (`RescueScanner.RunPass` :58):
+1. **Build the live set** once: `RescueLedger.CollectLive(s_live)` → `HashSet<int>` of structures
+   that have a rescue NPC loaded right now (reads `hmnpc_rescuepoiHash` off every loaded ZDO).
+2. **Center the pass on each scan center:** `GetScanCenters()` — one center per player on the
+   server: each connected peer (`ZNet.instance.GetPeers()` → `GetRefPos()`) **plus the local
+   player** (when this process has one — `Player.m_localPlayer`), deduped at 10m so a host listed
+   both ways is scanned once. Dedicated MP: no local player → peers only (the server is
+   **headless**). Hosted MP: peers + the host's own window. SP: `GetPeers()` does not provide the
+   host's position (verified 2026-10-26 — the SP regression below), so the local player IS the
+   center. An empty list = nothing to scan (dedicated server, nobody connected).
+3. `ScanAround(center)` :85 — the candidate zone set: the **3×3** grid around `center`
+   (`RescueScanner.GridRadius = 1`); for each `LocationInstance` that is placed AND
    `RescueWhitelist.Contains(m_location)`:
    a. `H = HashFor(name, zone)`. `if (!Hits(H)) continue;` (deterministic 20%, §5)
-   b. `if (RescueLedger.Claimed(H, live)) continue;` (`Claimed = live.Contains(H) || IsWelcomed(H)`)
-   c. Else: `RescueSpawner.PlaceAtLocation(inst, "scan", H)` — the new NPC is stamped
-      `hmnpc_rescuepoiHash = H`, which makes H live from the next pass (no separate live write).
+   b. `if (RescueLedger.Claimed(H, s_live)) continue;` (`Claimed = live.Contains(H) || IsWelcomed(H)`)
+   c. Else: `RescueSpawner.PlaceAtLocation(inst, "rescue scan", H)` — the new NPC is stamped
+      `hmnpc_rescuepoiHash = H`; on success `s_live.Add(H)` (:130) — two peers' windows can
+      overlap within one pass, so claim the structure in the live set immediately (no separate
+      live write; the live set is re-derived next pass anyway).
 4. **No safety net:** a dead rescue's ZDO is destroyed, so its structure simply drops out of the
    live set — the next pass sees `Claimed(H)` false and re-offers (automatic re-offer on
    not-welcomed death). Never touches `welcomed_<H>` (monotonic); resurrection re-stamps H.
 
 **Why chosen:**
+- **Player-centered on the server (Fix A, DECIDED by Thomas, 2026-10-26):** the pre-Fix-A pass was
+  "around the player" with a local-player requirement — correct in SP (the host *is* the player),
+  but the headless MP server has *no* local player, so it never scanned, and clients never scan
+  (`IsServer()` false) → **MP 0-rescues**. The connected peers are the position source the
+  server actually has in MP. The gate itself (`IsServer()`) was already server-only and stays.
+- **Local player added as a center (SP fix, 2026-10-26):** `GetPeers()` alone does not cover the
+  host — verified 2026-10-26: after Fix A, rescues stopped spawning in SP (the peer loop had no
+  center in SP), and a hosted MP host is a local player, not a remote peer, so it was missing its
+  own window there too. Centers = `peers ∪ local player` (10m dedup): SP works through the
+  local-player center; dedicated MP is unchanged (no local player); hosted MP gains the host's
+  window.
 - **Periodic** = self-healing (a failed spawn retries next pass) and re-evaluates as the player
   moves. No scheduler, no max-N (D1/D8).
 - **Zone grid around the player** = only the PoIs the player is near are considered (the game only
@@ -328,12 +367,16 @@ only** (`ZNet.instance.IsServer()`; in SP that's always true). Each pass (`Rescu
 **Not chosen (and why):**
 - **The `PlaceLocations` post-hook** — dead in SP, one-shot, no self-heal (§2).
 - **A per-frame check** — wasteful; 5s is plenty for "in range."
-- **Owner-only enforcement detail** — see OPEN below (MP is future).
+- **Client-side scan (each client scans around itself)** — rejected: every client would see
+  the same unclaimed structure and each spawn its own rescue (duplicate ZDOs); the server is
+  the single authoritative scanner (Fix A).
 
 **Code references:**
-- `RescueScanner.cs` — `Start(MonoBehaviour host)` (called from `Hirdmandr.cs` `Awake` :87), `Loop`
-  (5s), `RunPass`, `Ready` (authority gate), `HashFor`, `Hits`; tunables `Interval`/`GridRadius`/
-  `HitPercent`.
+- `RescueScanner.cs` — `Start(MonoBehaviour host)` :33 (called from `Hirdmandr.cs` `Awake`),
+  `Loop` :43 (5s), `RunPass` :60 (centers loop), `GetScanCenters` :84 (peers ∪ local player,
+  10m dedup), `ScanAround` :118 (3×3 grid + in-pass claim `s_live.Add(h)` :163),
+  `Ready` :174 (**server gate, no local-player gate**), `HashFor` :197, `Hits` :204; tunables
+  `Interval`/`GridRadius`/`HitPercent` :22–24.
 - Zone grid: `ZoneSystem.instance.m_locationInstances`, `GetZoneCoords(position, out x, out y)`,
   `m_locationInstances[zoneID]` (pattern in `HirdmandrCommand.cs` `ScanLocations()`, `rescue scan`).
 - `RescueSpawner.PlaceAtLocation(inst, reason, rescuepoiHash)` (`RescueSpawn.cs` :32) — stamps
@@ -344,10 +387,14 @@ only** (`ZNet.instance.IsServer()`; in SP that's always true). Each pass (`Rescu
 - Grid size → **DECIDED: 3×3** (`RescueScanner.GridRadius = 1`). The `rescue scan` diagnostic's
   5×5 is just a debug view, not the real scanner.
 - Cadence → **DECIDED: 5s** (`RescueScanner.Interval = 5f`), implemented.
-- **DECIDED: owner-only in MP.** The scan runs only on the **authoritative client**
-  (`ZNet.instance.IsServer()`; SP is always true), so multiple clients never spawn the same
-  rescue. Mirrors how other game functions gate to the instance owner, keeping ZDO ownership
-  deterministic (Thomas).
+- **DECIDED: server-only in MP (Fix A).** The scan runs only on the **server**
+  (`ZNet.instance.IsServer()`; SP = host), so no client ever spawns a rescue. (Originally
+  phrased "authoritative client only"; in MP the server is headless, so the pass is centered
+  on peers, not on a local player.)
+- Q: Does `GetPeers()` include the host peer in SP? → **NO (verified in-game, 2026-10-26):**
+  after Fix A, rescues stopped spawning in SP — the peer loop had no center. The
+  "SP server has exactly one peer" assumption was wrong; resolved by the local-player center
+  (`GetScanCenters`).
 - Safety-net cadence → **GONE:** "live" is derived each pass (`CollectLive`), so there is no
   safety net and no per-entry `GetZDO` call to cadence.
 - Q: Does the scanner spawn a rescue the moment a structure is placed, or only when the player is
@@ -358,33 +405,43 @@ only** (`ZNet.instance.IsServer()`; in SP that's always true). Each pass (`Rescu
 
 ## 8. The spawn (PlaceAtLocation)
 
-**Current design (KEEP, already built & tested):** `RescueSpawner.PlaceAtLocation(LocationInstance
-inst, string reason, int rescuepoiHash = 0)` in `RescueSpawn.cs` :32. It:
-1. Builds a `LocationInstance` (or uses the given one) with the PoI's `ZoneLocation`, position.
-2. `ZNetScene.instance.CreateNewZDO(position, npc_entity prefab hash)` → a new ZDO.
-3. Sets owner (copy the local player's ZDO owner) + position + rotation.
-4. **Stamps the structure hash:** `zdo.Set("hmnpc_rescuepoiHash", rescuepoiHash)` (when
+**Current design (Fix A, IMPLEMENTED 2026-10-26):** `RescueSpawner.PlaceAtLocation(LocationInstance
+inst, string reason, int rescuepoiHash = 0)` in `RescueSpawn.cs` :18. It:
+1. Validates `inst.m_location` + `inst.m_placed`, the `ZNetScene`, and the `npc_entity` prefab.
+2. `PickClearSpot(inst)` (`RescueSpawn.cs` :100) — a short raycast to nudge the spawn point clear
+   of geometry (the "+2 to caller's right" offset Thomas approved in R4); rotation =
+   **`Quaternion.identity`** — the server has no local player to face, and the first-time branch
+   sits the NPC down anyway (orientation is cosmetic for a sitting rescue).
+3. `ZDOMan.instance.CreateNewZDO(pos, prefabHash)` → a new ZDO, `SetPrefab` + `SetRotation`.
+4. **Ownership:** `CreateNewZDO` already stamps the **creating session** as owner — on the
+   server (where the scanner runs) that's exactly the owner `HirdmandrNPC.OwnerInit` needs for
+   its first-time branch (client replicas see `IsOwner()==false` and take `LoadZDO`). When a
+   local player exists (SP, or the `/hirdmandr` test command on a client), copy the player
+   ZDO's owner exactly like before — in MP the player ZDO is server-owned, so the ZDO stays
+   server-owned even when the command runs on a client.
+5. **Stamps the structure hash:** `zdo.Set("hmnpc_rescuepoiHash", rescuepoiHash)` (when
    `rescuepoiHash != 0`) — this is what makes the PoI's structure *live* in the ledger (§6, §7).
    `0` = untracked (the `/hirdmandr spawn` test command).
-5. `ZNetScene.instance.CreateObject(zdo)` → the `GameObject`.
-6. `ZNetScene.instance.AddInstance(zdo, view)` → into the scene.
+6. `ZNetScene.instance.CreateObject(zdo)` → the `GameObject`;
+   `ZNetScene.instance.AddInstance(zdo, view)` → into the scene.
 7. Adds components: `HirdmandrNPC`, `HirdmandrAI`, `HirdmandrGUI`, `HirdmandrGUIRescue`
    (in `Hirdmandr.cs` `CreateNPCPlayer` :386–570, the npc_entity prefab is cloned from "Goblin"
    at :391–394).
-8. `PickClearSpot` (`RescueSpawn.cs` :95) — a short raycast to nudge the spawn point clear of
-   geometry (the "+2 to caller's right" offset Thomas approved in R4).
 
 **Why chosen / kept:** It's the proven spawn path (used by the R3c hook, the `/hirdmandr spawn`
 test command, and the R3c playtest). It works. The refactor keeps it; only the *trigger* changes
-(hook → scan).
+(hook → scan). **Fix A changes only what the function requires:** no local player needed (the
+hard requirement is gone — the server path works headless), identity rotation, and
+`CreateNewZDO` default ownership (the player-owner copy is a guarded, non-fatal extra for the
+SP / test-command paths).
 
 **Not chosen:** Re-implementing the spawn inside the scanner — no; the scanner just calls the
 existing `PlaceAtLocation`.
 
 **Code references:**
-- `RescueSpawn.cs` `PlaceAtLocation` :32 (+ stamp `hmnpc_rescuepoiHash`), `PickClearSpot` :95.
-  The old `RescueChance` (the 0.20f random threshold) is **REMOVED** — the 20% gate is now the
-  deterministic hash §5.
+- `RescueSpawn.cs` `PlaceAtLocation` :18 (+ stamp `hmnpc_rescuepoiHash` :70–73, identity
+  rotation :43, ownership :46–66), `PickClearSpot` :100. The old `RescueChance` (the 0.20f
+  random threshold) is **REMOVED** — the 20% gate is now the deterministic hash §5.
 - `Hirdmandr.cs` `CreateNPCPlayer` :386, npc_entity clone :391–394, `AddComponent` :567–570.
 - Test command: `HirdmandrCommand.cs` `RescueForceSpawn` :486 (`/hirdmandr spawn`).
 
@@ -582,8 +639,12 @@ NPC's death position.
 
 ## 13. Persistence model
 
-**Current design:** NPCs are **persistent ZDOs** (they survive reload). The owner is set to the
-local session owner at spawn (copy `ZNetView.GetZDO().GetOwner()`). On reload, the first-time
+**Current design (Fix A owner model, 2026-10-26):** NPCs are **persistent ZDOs** (they survive
+reload). Ownership: `ZDOMan.CreateNewZDO` stamps the **creating session** as owner (the server,
+in the scanner path) — `IsOwner()` is a bit flag on `m_dataFlags` (bit 5), **not** an ID
+compare, so client replicas see `IsOwner()==false` and take `LoadZDO`; when a local player
+exists (SP / test command) the player ZDO's owner is copied (in MP the player ZDO is
+server-owned, so the ZDO stays server-owned). On reload, the first-time
 `OwnerInit` branch re-initializes (`HirdmandrNPC.cs` :186 reads `hmnpc_name`; :215–216 sets
 `m_isRescued=false`, `m_isHirdmandr=false` on first time; `LoadState` :860–878 restores
 `hmnpc_isrescued`, `hmnpc_isHirdmandr`, `hmnpc_jarlZOID`, role/jobs, skills, ownedbed).
@@ -696,6 +757,23 @@ DeepNorth=64, Ocean=256, Mistlands=512, All=895, Land=639. `Heightmap.FindBiome(
 **Stable hash:** `StringExtensionMethods.GetStableHashCode(string)` (the mod's; stable across
 processes — use for the deterministic 20% gate §5).
 
+**ZNet / ZNetPeer (Fix A, 2026-10-26):**
+- `ZNet.instance` (static), `IsServer()` → bool.
+- `ZNet.instance.GetPeers()` → `List<ZNetPeer>` — the connected peers; **in SP the server has
+  exactly one peer (the host)** (the SP regression test validates this).
+- `ZNetPeer.GetRefPos()` → `Vector3` (the peer's reference position — the scan center);
+  `m_playerID`, `m_characterID`.
+- Usage precedent: `HirdmandrCommand.cs` (~:986) — `var peers = ZNet.instance.GetPeers();`.
+
+**ZDO ownership (Fix A, 2026-10-26; via Cecil on 1.0.16):**
+- `ZDOMan.CreateNewZDO(Vector3, int)` internally calls `SetOwnerInternal(ZDOMan.m_sessionID)`
+  — the creating session owns the new ZDO (no separate `SetOwner` needed for the scanner path).
+- `ZDO.IsOwner()` = `(m_dataFlags & 32) > 0` (bit 5 — a flag, **not** an ID compare). A
+  server-created ZDO: `IsOwner()==true` on the server, `false` on client replicas →
+  `HirdmandrNPC.OwnerInit` runs the first-time branch on the server only.
+- `ZDO.GetOwner()` / `ZDO.SetOwner(ZDOID)`.
+- **No `ZNetSession` type** in 1.0.16 (Cecil search; the session ID lives on `ZDOMan`).
+
 ---
 
 ## 16. Tests I ran for you (results)
@@ -805,6 +883,20 @@ All under `/hirdmandr` (`HirdmandrSpawnCommand`, `HirdmandrCommand.cs` :12, `Nam
   `m_customData` (so resurrection knows which structure to claim back).
 - **MP:** the scan is gated to the instance owner → implemented as `ZNet.instance.IsServer()`
   (SP is always true).
+- **Fix A (2026-10-26): the scanner is server-only + player-centered (MP 0-rescues).** Root cause
+  (confirmed): the old pass required a local player (gate + scan center); the headless MP
+  server has none, and clients never scan (`IsServer()` false) → in MP nobody scanned and
+  rescues never appeared (SP worked — the host *is* the player). Fix: `RunPass` centers on each
+  scan center (`GetScanCenters()` = peers ∪ local player); `Ready()` drops the local-player
+  gate; `PlaceAtLocation` drops the local-player requirement (identity rotation; `CreateNewZDO`
+  default owner, guarded player-owner copy). **MP in-game VERIFIED (Thomas, 2026-10-26: "MP
+  worked very well")** — rescues spawn around each connected peer's 3×3 window.
+- **SP regression + fix (2026-10-26): rescues no longer spawned in SP after Fix A.** Root
+  cause: the "SP server has exactly one peer" assumption was wrong — in SP `GetPeers()` does
+  not provide the host's position, so the peer loop scanned nothing. Fix: centers = `peers ∪
+  local player` (`RescueScanner.GetScanCenters()`, 10m dedup) — SP works through the
+  local-player center, dedicated MP unchanged. `rescue scan` now prints the actual centers
+  (`STATE: scanCenters=N` + `CENTER` lines). **SP retest pending (Thomas).**
 - **Ledger scoping:** world-scoped — the welcomed flag rides the **world global key space** and
   "live" is derived; no dedicated ledger ZDO, nothing to re-find, no cross-world leak.
 - **D9:** confirmed working (Thomas tried to kill/damage an unrescued NPC; couldn't). Re-confirmed
@@ -895,6 +987,11 @@ against PMW (`hirdmandr`) INBOX / DECISIONS / TASKS.
   per zone, so (name, zone) is already unique per candidate; not a correctness issue. (PMW #40.)
 
 **OPEN — genuine remaining spawn work (in PMW):**
+- **SP retest (PMW #83)** — SP regression found 2026-10-26 (rescues stopped spawning in SP
+  after Fix A: `GetPeers()` has no host peer in SP); fix BUILT + DEPLOYED 2026-10-26
+  (`GetScanCenters` = peers ∪ local player, 10m dedup; `rescue scan` prints the centers).
+  Pending Thomas's SP run: `/hirdmandr rescue` → expect `STATE: scanCenters=1` (the local
+  player) → rescues appear around the player. (MP is verified — "MP worked very well".)
 - **Soul item polish (#26h)** — refine `hirdmandr_soul` name/description/icon/weight before release
   (dependency of the rescue feature; P2 pool).
 - **20% rate config** — deferred until after release (decision #27/D1).
@@ -910,10 +1007,10 @@ against PMW (`hirdmandr`) INBOX / DECISIONS / TASKS.
 
 | File | What's there | Lines |
 |---|---|---|
-| `RescueSpawn.cs` | `RescueSpawner` class; `PlaceAtLocation(inst, reason, rescuepoiHash)` (stamps `hmnpc_rescuepoiHash`); `PickClearSpot`. (Old `RescueChance` + `RescueSpawnHook` **REMOVED**.) | 32, 95 |
+| `RescueSpawn.cs` | `RescueSpawner` class; `PlaceAtLocation(inst, reason, rescuepoiHash)` :18 (stamps `hmnpc_rescuepoiHash` :70–73; identity rotation :43; `CreateNewZDO` default owner + guarded player-owner copy :46–66); `PickClearSpot` :100. (Old `RescueChance` + `RescueSpawnHook` **REMOVED**.) | 18, 100 |
 | `RescueLedger.cs` | **NEW** — the ledger: `HashKey`; `IsWelcomed`/`SetWelcomed` (global keys); `CollectLive` (derive live from loaded ZDOs); `Claimed(h, live)` | — |
-| `RescueScanner.cs` | **NEW** — the 5s pass: `Start(host)`, `Loop`, `RunPass`, `Ready` (authority gate), `HashFor`, `Hits`; `Interval`/`GridRadius`/`HitPercent` | — |
-| `HirdmandrCommand.cs` | `HirdmandrSpawnCommand` (`Name=>"hirdmandr"`); `Help`; IsCheat/IsNetwork; `SpawnSoulTest`; `RescueTest` dispatch (now has `zdo`); `RescueForceSpawn`; `ScanLocations`; `RescueList`; **`ZdoCensus` (added this session)** | 12, 16, 21–23, 404, ~436–480, 486, ~585+ |
+| `RescueScanner.cs` | **NEW** — the 5s pass (Fix A + SP fix, player-centered): `Start(host)` :33, `Loop` :43, `RunPass` :60 (centers loop), `GetScanCenters` :84 (peers ∪ local player, 10m dedup), `ScanAround` :118 (3×3 grid + in-pass `s_live.Add(h)` :163), `Ready` :174 (server gate, no local-player gate), `HashFor` :197, `Hits` :204; `Interval`/`GridRadius`/`HitPercent` :22–24 | 22–24, 33, 43, 60, 84, 118, 163, 174, 197, 204 |
+| `HirdmandrCommand.cs` | `HirdmandrSpawnCommand` (`Name=>"hirdmandr"`); `Help`; IsCheat/IsNetwork; `SpawnSoulTest`; `RescueTest` dispatch (now has `zdo`); `RescueForceSpawn`; `ScanLocations` :907 (`rescue scan`; prints `STATE: peers=N` :987, `STATE: scanCenters=N` :999, `CENTER` lines :1003 — the scanner's actual decision); `RescueList`; **`ZdoCensus`** | 12, 16, 21–23, 404, ~436–480, 486, ~585+, 907, 987, 999, 1003 |
 | `SoulItem.cs` | `SoulPrefabName`; `SourcePrefabName`; `SoulTagKey`; `RegisterSoulItem`; `SpawnTestSoul`; `SpawnSoulFromNpc` (stamps `hmnpc_rescuepoiHash` in payload); payload; bed exclusion; `RemoveBoltEmitters` | 26, 29, 32, 41, 129, 210, 197–246, 222–227, 273 |
 | `Hirdmandr.cs` | `Awake` (starts the scanner: `RescueScanner.Start(this)`); `Harmony.PatchAll`; `OnVanillaPrefabsAvailable` (incl. `SoulItem.RegisterSoulItem`); `AddConsoleCommand`; `CreateNPCPlayer`; npc_entity clone (from "Goblin"); `AddComponent` (HirdmandrNPC/AI/GUI/GUIRescue) | 51, 56–57, 68–75, 80, 87, 386, 391–394, 567–570 |
 | `HirdmandrNPC.cs` | `m_isRescued`/`m_isHirdmandr`; first-time branch (`hmnpc_name`, set flags); `Set("hmnpc_isrescued",false)`; `LoadState`; `Rescue`; `RescueWait`; `WelcomeHome` (ledger write: `SetWelcomed(H)`); `CheckWelcomeRanges`; `HandleDeath` (welcomed: drop gear+soul; not-welcomed: nothing; writes no ledger) | 39–40, 186, 215–216, 774, 860–878, 1051, 1075, 1196, 1215–1218, 1120 |
@@ -928,10 +1025,15 @@ against PMW (`hirdmandr`) INBOX / DECISIONS / TASKS.
 | `Hirdmandr.csproj` | **MUST register new `.cs` files** (`<Compile Include="..."/>`) | — |
 
 **Deployed mod:** `D:\SteamLibrary\steamapps\common\Valheim\BepInEx\plugins\Hirdmandr\Hirdmandr.dll`
-(**190,976 bytes, 10/8/2026 07:35** — #26i sitting-pose fix + diagnostics removed; 0 errors).
-Prior builds: 190,976 B (10/7 20:53, R7 playtest: per-pass scan log removed, `hash=` added to
-`rescue zdo` + `rescue list`), 192,000 B (20:10, per-pass log added), 190,464 B (16:42, ledger +
-scanner refactor).
+(**280,576 bytes, 10/26/2026 11:50** — Fix A + SP fix: player-centered server scanner (peers ∪
+local player, `GetScanCenters`); 0 errors / 27 warnings; deployed DLL byte-identical to
+`bin\Debug\Hirdmandr.dll`, SHA256 `0148717718B2…` verified).
+(The 190,976 → 279,552 growth is the "Massive refactor for 0.9" tree (7f8b741) — thought-string
+debugs + combat behaviors — not spawn-system work.)
+Prior builds: 190,976 B (10/8 07:35, #26i sitting-pose fix + diagnostics removed; 0 errors),
+190,976 B (10/7 20:53, R7 playtest: per-pass scan log removed, `hash=` added to `rescue zdo` +
+`rescue list`), 192,000 B (20:10, per-pass log added), 190,464 B (16:42, ledger + scanner
+refactor).
 
 **Build command:**
 `& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" "D:\OpenCode\hirdmandr_project\hirmandr_repo\Hirdmandr.sln" /t:Rebuild /p:Configuration=Debug /p:Platform="Any CPU" /p:ExecutePrebuild=false /nologo /m`
@@ -961,7 +1063,7 @@ Post-build auto-deploys to the BepInEx plugins path.
 **ADD (ALL DONE 2026-10-07, built + deployed, 0 errors):**
 1. **`RescueLedger.cs`** — the ledger: `IsWelcomed`/`SetWelcomed` (`hmnpc_rescue_welcomed_<H>`
    global key), `CollectLive` (derive live from loaded ZDOs), `Claimed(h, live)`. No ZDO, no sweep.
-2. **`RescueScanner.cs`** — 5s periodic coroutine (authoritative client only); 3×3 zone grid; for
+2. **`RescueScanner.cs`** — 5s periodic coroutine (server-only); 3×3 zone grid; for
    each placed+whitelisted PoI: `H = HashFor(name, zone)`; `if (Hits(H) && !Claimed(H, live))`
    `PlaceAtLocation(inst, "scan", H)`. No safety net (live is derived).
 3. **Spawn stamping** — `PlaceAtLocation` stamps `hmnpc_rescuepoiHash = H` on the NPC ZDO (and the
@@ -975,6 +1077,17 @@ Post-build auto-deploys to the BepInEx plugins path.
    :73, `RescueSpawn.cs` :74).
 8. **Register the scanner** — `Hirdmandr.cs` `Awake` :87 calls `RescueScanner.Start(this)`. (No
    ledger ZDO to create/own.)
+9. **Fix A (2026-10-26): player-centered server pass** — `RunPass` :60 loops the scan centers
+   → `ScanAround(center)`; `Ready()` :174 drops the local-player gate; `PlaceAtLocation` :18
+   drops the local-player requirement (identity rotation :43, `CreateNewZDO` default owner +
+   guarded player-owner copy :46–66); in-pass `s_live.Add(h)` :163 on successful spawn
+   (overlapping windows). **MP in-game VERIFIED (Thomas, 2026-10-26).**
+10. **SP fix (2026-10-26): local-player scan center** — `GetScanCenters()` :84 = peers
+   (`GetPeers()` → `GetRefPos()`) ∪ the local player (`Player.m_localPlayer`), 10m dedup; empty
+   list = nothing to scan (dedicated MP, nobody connected). Root cause of the SP regression:
+   `GetPeers()` does not provide the host's position in SP. `rescue scan` now prints
+   `STATE: scanCenters=N` + `CENTER` lines (`HirdmandrCommand.cs` :999–1004).
+   **SP retest pending (Thomas).**
 
 **FUTURE (not this refactor):** resurrection UI/flow (soul → new NPC; the new NPC is stamped
 `hmnpc_rescuepoiHash = H`, which makes it live again). §18.
