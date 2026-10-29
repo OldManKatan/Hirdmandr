@@ -65,7 +65,7 @@ namespace OldManSM
             // Jotunn.Logger.LogInfo("Evaluate() started");
             if (nextState != curState)  // State transition is queued
             {
-                Jotunn.Logger.LogInfo("  Detected state transition from " + stateIndexes[curState] + " to " + stateIndexes[nextState]);
+                // Jotunn.Logger.LogInfo("  Detected state transition from " + stateIndexes[curState] + " to " + stateIndexes[nextState]);
 
                 if (states.TryGetValue(curState, out SMNode curNode) && states.TryGetValue(nextState, out SMNode nextNode))
                 {

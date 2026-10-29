@@ -158,7 +158,7 @@ namespace Hirdmandr
                 {
                     ownerZDOID = owner_id;
                     m_znetv.GetZDO().Set("hmnpc_bedOwnerZDOID", owner_id);
-                    Jotunn.Logger.LogWarning("HirdmandrBed.Claim: " + owner_id + " claimed the bed.");
+                    // Jotunn.Logger.LogWarning("HirdmandrBed.Claim: " + owner_id + " claimed the bed.");
                     return true;
                 }
                 Jotunn.Logger.LogWarning("HirdmandrBed.Claim REFUSED for " + owner_id

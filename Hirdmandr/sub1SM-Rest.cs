@@ -41,7 +41,7 @@ namespace Hirdmandr
             {
                 if (hmAI.m_hmnpc.ownedBedZDOID != ZDOID.None)
                 {
-                    Jotunn.Logger.LogWarning(hmAI.m_hmHumanoid.m_name + " has a bed!");
+                    // Jotunn.Logger.LogWarning(hmAI.m_hmHumanoid.m_name + " has a bed!");
                     hmAI.restBedZDO = ZDOMan.instance.GetZDO(hmAI.m_hmnpc.ownedBedZDOID);
                     if (hmAI.restBedZDO is null)
                     {
@@ -51,13 +51,13 @@ namespace Hirdmandr
                     }
                     else
                     {
-                        Jotunn.Logger.LogWarning("  " + hmAI.m_hmHumanoid.m_name + " and it exists.");
+                        // Jotunn.Logger.LogWarning("  " + hmAI.m_hmHumanoid.m_name + " and it exists.");
                         parentSM.ChangeState("goBed");
                         return;
                     }
                 }
 
-                Jotunn.Logger.LogWarning(hmAI.m_hmHumanoid.m_name + " is trying to claim a bed!");
+                // Jotunn.Logger.LogWarning(hmAI.m_hmHumanoid.m_name + " is trying to claim a bed!");
                 foreach (string npcBedStr in new string[] { "piece_npc_bed02", "piece_npc_bed" })
                 {
                     // 50 m is the bed "in range" distance: matches the goBed out-of-range release
@@ -67,17 +67,17 @@ namespace Hirdmandr
                     {
                         if (thisBed.GetZDOID("hmnpc_bedOwnerZDOID") == ZDOID.None)
                         {
-                            Jotunn.Logger.LogWarning("  " + hmAI.m_hmHumanoid.m_name + " found an unclaimed bed.");
+                            // Jotunn.Logger.LogWarning("  " + hmAI.m_hmHumanoid.m_name + " found an unclaimed bed.");
                             ZNetView bedInstance = ZNetScene.instance.FindInstance(thisBed);
                             if (bedInstance.GetComponent<HirdmandrBed>().Claim(hmAI.m_znetv.GetZDO().m_uid))
                             {
-                                Jotunn.Logger.LogWarning("    " + hmAI.m_hmHumanoid.m_name + " has successfully claimed a bed!");
+                                // Jotunn.Logger.LogWarning("    " + hmAI.m_hmHumanoid.m_name + " has successfully claimed a bed!");
                                 hmAI.restBedZDO = thisBed;
                                 hmAI.m_hmnpc.SetBed(thisBed.m_uid);
                                 parentSM.ChangeState("goBed");
                                 return;
                             }
-                            Jotunn.Logger.LogWarning("    " + hmAI.m_hmHumanoid.m_name + " FAILED to claim a bed!");
+                            // Jotunn.Logger.LogWarning("    " + hmAI.m_hmHumanoid.m_name + " FAILED to claim a bed!");
                         }
                     }
 
@@ -85,7 +85,7 @@ namespace Hirdmandr
 
                 if (hmAI.m_hmnpc.ownedBedZDOID == ZDOID.None)
                 {
-                    Jotunn.Logger.LogWarning(hmAI.m_hmHumanoid.m_name + " can't find a bed!!");
+                    // Jotunn.Logger.LogWarning(hmAI.m_hmHumanoid.m_name + " can't find a bed!!");
                 }
 
             }
@@ -163,9 +163,9 @@ namespace Hirdmandr
                 // claim, and re-find instead of throwing NRE from RunState every tick.
                 if (bedObject == null || bedComp == null)
                 {
-                    Jotunn.Logger.LogWarning(hmAI.m_hmHumanoid.m_name + " atBed: bed no longer usable "
-                        + "(object=" + bedObject + ", bedComp=" + bedComp
-                        + ", ownedBedZDOID=" + hmAI.m_hmnpc.ownedBedZDOID + "). Re-finding bed.");
+                    // Jotunn.Logger.LogWarning(hmAI.m_hmHumanoid.m_name + " atBed: bed no longer usable "
+                    //     + "(object=" + bedObject + ", bedComp=" + bedComp
+                    //     + ", ownedBedZDOID=" + hmAI.m_hmnpc.ownedBedZDOID + "). Re-finding bed.");
                     hmAI.m_hmnpc.ReleaseBed();
                     parentSM.ChangeState("findBed");
                     return;
@@ -182,8 +182,8 @@ namespace Hirdmandr
                 ZDOID myZDOID = hmAI.m_znetv.GetZDO().m_uid;
                 if (bedOwner != myZDOID)
                 {
-                    Jotunn.Logger.LogWarning(hmAI.m_hmHumanoid.m_name + " atBed: bed owner mismatch "
-                        + "(bedOwner=" + bedOwner + ", me=" + myZDOID + "). Releasing and re-finding.");
+                    // Jotunn.Logger.LogWarning(hmAI.m_hmHumanoid.m_name + " atBed: bed owner mismatch "
+                    //     + "(bedOwner=" + bedOwner + ", me=" + myZDOID + "). Releasing and re-finding.");
                     hmAI.m_hmnpc.ReleaseBed();
                     parentSM.ChangeState("findBed");
                     return;

@@ -108,7 +108,7 @@ namespace Hirdmandr
 
         public void TogglePanel()
         {
-            Jotunn.Logger.LogInfo("TogglePanel happened in Hirdmandr GUI");
+            // Jotunn.Logger.LogInfo("TogglePanel happened in Hirdmandr GUI");
             // Create the panel if it does not exist
             if (!GUIHirdmandr)
             {

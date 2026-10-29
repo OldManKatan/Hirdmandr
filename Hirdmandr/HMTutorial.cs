@@ -58,9 +58,9 @@ namespace Hirdmandr
                     m_topic = "You are not the first...",
                     m_label = "This is the label",
                     m_isMunin = false,
-                    m_text = "Odin's Valkyires have been bringing warriors to Valheim for centuries. Warriors who succeed in the tasks laid out by Odin are " +
-                    "carried to Valhalla by the Valkyries. Those who fail lose Odin's blessing and are no longer to be reborn on Valheim when they die, instead " +
-                    "they are claimed by Hel and the Valkyries bring them to Helheim upon their death in Valheim.\n\n" +
+                    m_text = "Odin's Valkyries have been bringing warriors to Valheim for centuries. Warriors who please the allfather are " +
+                    "carried to Valhalla by his Valkyries. Those who fail lose Odin's blessing and are no longer reborn in the 10th world. Their souls are claimed " +
+                    "by the Forsaken, to be their unholy soldiers should the 10th world ever rejoin the world tree.\n\n" +
                     "If you find these cast out warriors and offer them protection: they will join your cause as one of your Hirdmandr and serve you faithfully!"
                 },
                 new Tutorial.TutorialText()
@@ -72,7 +72,7 @@ namespace Hirdmandr
                     m_text = "You have rescued a lost warrior! \n\n" +
                     "You have taken your first step to becoming a mighty Jarl of Valheim! To be a Jarl is to be responsible for the health, happiness, and security of your Hirdmandr. " +
                     "Your first task as a Jarl is to lead this lost warrior to one of your strongholds or camps. You may welcome them to their new home only within range of a " +
-                    "workbench and a fire \n\n" +
+                    "<color=yellow><b>workbench</b></color> and a <color=yellow><b>fire</b></color> \n\n" +
                     "Whether grand castle or humble shack, your new friend will make their home in that place as a Hirdmandr, loyal to their benevolent Jarl: You."
                 },
                 new Tutorial.TutorialText()
@@ -82,9 +82,9 @@ namespace Hirdmandr
                     m_label = "This is the label",
                     m_isMunin = false,
                     m_text = "<color=yellow><b>Hugin</b></color> and <color=yellow><b>Munin</b></color> join you in welcoming this lost warrior home! \n\n" +
-                    "Take some time to speak [<color=yellow><b>E</b></color>] with your new hirdmandr, and discuss their duties [<color=yellow><b>LShift+E</b></color>] " +
-                    "at length. A good Jarl assigns duties by each person's strengths! You can also discover their skills, " +
-                    "which may help you. Remember: Each of your hirdmandr may be assigned a role of Artisan or Warrior, but not both."
+                    "Take some time to speak with your new hirdmandr, and discuss their duties [<color=yellow><b>LShift+E</b></color>] " +
+                    "at length. A good Jarl assigns duties by each person's strengths! Hirdmandr have many skills, " +
+                    "which may help you, in stronghold or afield. Remember: Each of your hirdmandr may be assigned a role of Artisan or Warrior, but not both."
                 },
                 new Tutorial.TutorialText()
                 {
@@ -93,8 +93,10 @@ namespace Hirdmandr
                     m_label = "This is the label",
                     m_isMunin = false,
                     m_text = "Thegn are young warriors, full of drive but lacking in experience. Warriors assigned to the Thegn duty will remain " +
-                    "in your stronghold and protect your hirdmandr from the threats of wandering creatures and attacks by the forsaken. Once the " +
-                    "mod author figures out how to do patrols, there will be a note about it here!"
+                    "in your stronghold and protect your hirdmandr from the threats of wandering creatures and attacks by the forsaken. Lead them " +
+                    "to their their post and ask them to guard there. They will return to this spot each guard shift, to keep the people and holdings " + 
+					"of their Jarl safe.\n\n" + 
+					"Should any Hirdmandr find an enemy of their Jarl, Thegn will converge upon the threat to protect their kin!"
                 },
                 new Tutorial.TutorialText()
                 {
@@ -104,8 +106,9 @@ namespace Hirdmandr
                     m_isMunin = false,
                     m_text = "A Himthiki is an elite warrior! They have been the backbone of every Jarl's royal guard for centuries. At your command, " +
                     "your Himthiki will follow you out of your stronghold and into glorious battle. Take care with their trust! Valheim " +
-                    "is dangerous, and a Himthiki who dies is not reborn. Himthiki with the Gatherer job enabled will pick up useful things on your " +
-                    "journeys, everything from stone to cloudberries."
+                    "is dangerous, and a Jarl must barter with Hel to recover a Himthiki who has died.\n\n" + 
+					"Himthiki with the Gatherer job enabled will " + 
+					"pick up useful things on your journeys, everything from stone to cloudberries."
                 },
                 new Tutorial.TutorialText()
                 {
@@ -115,7 +118,9 @@ namespace Hirdmandr
                     m_isMunin = false,
                     m_text = "While any hirdmandr can learn any skill, many hirdmandr are best suited to the quiet, industrious life of an Artisan. " +
                     "You may give any number of artisan duties to each hirdmandr, but they always prefer the jobs they are best at. Each artisan " +
-                    "requires a workspace before they can work. A Wood Burner, for example, requires an NPC Chest (any kind) close to a Kiln."
+                    "requires a workspace before they can work. A Wood Burner, for example, requires an NPC Chest (any kind) close to a Kiln. " + 
+					"Stock this chest with wood, and your artisan will put the coal they produce back in this chest. Hirdmandr respect their Jarl's " + 
+					"possessions, and only ever touch items in NPC containers."
                 },
                 new Tutorial.TutorialText()
                 {
@@ -123,7 +128,7 @@ namespace Hirdmandr
                     m_topic = "A Rest for the Weary",
                     m_label = "This is the label",
                     m_isMunin = true,
-                    m_text = "Your hirdmandr has found rest. \n\n" +
+                    m_text = "Your hirdmandr has found rest! \n\n" +
                     "A hirdmandr rests by lying on a bed, and can only rest in a bed it can reach. Keep a bed close to where your hirdmandr live " +
                     "and work, so they can find their way back to it. A hirdmandr with no bed in reach has no rest to find."
                 },
@@ -135,8 +140,8 @@ namespace Hirdmandr
                     m_isMunin = true,
                     m_text = "Your artisan has set to work. \n\n" +
                     "You can see an artisan at their worksite: they move to their chest, take what they need, and do the work. A Wood Burner feeds " +
-                    "a Kiln, a Furnace Operator feeds a Smelter, and a Farmer tends a plot. Give each artisan a chest stocked with what they " +
-                    "need, and they will work without being told."
+                    "a Kiln, a Furnace Operator feeds a Smelter, a Farmer tends a plot, and a Lamplighter fills torches and fires. Give each artisan " + 
+					"a chest stocked with what they need, and they will happily ply their trade."
                 },
                 new Tutorial.TutorialText()
                 {
@@ -147,7 +152,7 @@ namespace Hirdmandr
                     m_text = "Your hirdmandr has entered battle! \n\n" +
                     "A hirdmandr with a Warrior role will defend you and your halls. They fight to protect the hirdmandr around them, and if " +
                     "they are overmatched they will fall back to safety to recover. A Thegn guards your stronghold, and a Himthiki will follow " +
-                    "you into battle. Lead them well, Jarl."
+                    "you into battle. Your artisans will defend themselves when attacked, all Hirdmandr bleed viking blood! Lead them well, Jarl."
                 },
                 new Tutorial.TutorialText()
                 {
@@ -156,9 +161,10 @@ namespace Hirdmandr
                     m_label = "This is the label",
                     m_isMunin = false,
                     m_text = "A hirdmandr now follows you. \n\n" +
-                    "Send a hirdmandr to follow you, and they will travel at your side, ready for whatever lies ahead. You can send them or recall " +
-                    "them at will from the hirdmandr panel. A Himthiki makes a fine companion on the road. Just remember: a hirdmandr that dies " +
-                    "is not brought back."
+                    "Command a hirdmandr to follow you, and they will travel at your side, ready for whatever lies ahead. You can send them or recall " +
+                    "them at will with [<color=yellow><b>E</b></color>] or from the hirdmandr panel. A Himthiki makes a fine companion on the road! " + 
+					"Their Jarl is blessed by Oden, giving them the power to use Portals. Should a hirdmandr die, a Jarl may carry their soul to an " +
+					"Altar to Hel, and treat with the gods for their rebirth in the 10th world."
                 },
                 new Tutorial.TutorialText()
                 {
@@ -169,7 +175,8 @@ namespace Hirdmandr
                     m_text = "You have set a guard post. \n\n" +
                     "A Thegn will hold the spot you choose and keep watch over it, guarding the hirdmandr around it. Set a guard post where you " +
                     "need a steady hand, and your Thegn will stand watch there during their shift. Thegn are young and eager. Place their post " +
-                    "where their courage is needed most."
+                    "where their courage is needed most. Tell your Thegn whether to guard during the day, the night, or both, and ensure your stronghold " + 
+					"is never undefended."
                 },
                 new Tutorial.TutorialText()
                 {
@@ -179,8 +186,9 @@ namespace Hirdmandr
                     m_isMunin = true,
                     m_text = "You have given your hirdmandr a skill. \n\n" +
                     "A skill is a trade your hirdmandr can learn: a Mender mends, a Lamplighter refuels, a Wood Burner feeds the kiln, and a " +
-                    "Farmer tends the fields. Enable a skill to set that trade loose, and your hirdmandr will take it up. A hirdmandr can learn " +
-                    "many skills at once. They simply do best the ones they were born to."
+                    "Farmer tends the fields. Enable a skill to set that trade loose, and your hirdmandr will take it up. As their skill improves, " + 
+					"they work faster and are more efficient with their materials. A hirdmandr can learn " +
+                    "many skills at once, but do best the skills they were born to do."
                 },
                 new Tutorial.TutorialText()
                 {
@@ -209,9 +217,11 @@ namespace Hirdmandr
                     m_topic = "A Himthiki Falls",
                     m_label = "This is the label",
                     m_isMunin = true,
-                    m_text = "A Himthiki has fallen. \n\n" +
-                    "A Himthiki who dies in Valheim is not reborn. They have given their life to your cause, and their loss is yours to remember. " +
-                    "Send your Himthiki into battle with care, Jarl. For every one you lose, you lose a warrior who will not return."
+                    m_text = "A Himthiki has fallen!\n\n" +
+                    "Oden and Hel, Moder and Fader, the Forsaken. These all have some dominion over souls in the drifting 10th world. " + 
+					"The trust and faith of your Hirdmandr has given you a sliver of this power. Your Himthiki has died but their memory yet remains " + 
+					"in the soul that is left behind! Take it. Keep it safe until you can build an Altar to Hella. I've heard stories of a Jarl whose " + 
+					"offerings returned the lost..."
                 },
             };
         }

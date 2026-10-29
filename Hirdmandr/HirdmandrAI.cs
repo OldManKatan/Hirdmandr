@@ -140,6 +140,27 @@ namespace Hirdmandr
 		public bool farmerMoveIssued = false;
 		public float farmerCollectNextTime = 0f;
 
+        // #94 Catch-up: the "last seen simulating" heartbeat. m_catchupLastSimTime/m_catchupLastToD
+        // are in-memory (world sim seconds via ZNet.instance.GetTimeSeconds() + ToD at the last
+        // Update); the ZDO key "hmnpc_catchupToD" (read/written via m_catchupLastZDOWrite)
+        // persists the ToD across load / relog / owner transfer. On re-entry after an unsim
+        // gap >= CATCHUP_MIN_GAP the missed artisan work is banked into m_unspentCatchupSeconds
+        // (m_catchupStartToD = the ToD at the start of the earliest banked gap) and runs as fast
+        // catch-up CATCHUP_DEFER s later via a single-shot Invoke, so the just-loaded area's
+        // ZDOs / m_container have settled before the catch-up mutates them (the #94 race); a
+        // load/unload inside that window just accrues more banked seconds (see
+        // WorkDaySM/NodeDoJob.RunCatchupWork).
+        // CATCHUP_DAY_SECONDS: one in-game day is 1800 s of real time (ToD advances 1 per day).
+		public float m_catchupLastSimTime = 0f;
+		public float m_catchupLastToD = 0f;
+		public float m_catchupLastZDOWrite = 0f;
+		public float m_unspentCatchupSeconds = 0f;
+		public float m_catchupStartToD = 0f;
+		public const float CATCHUP_MIN_GAP = 60f;
+		public const float CATCHUP_HEARTBEAT = 30f;
+		public const float CATCHUP_DAY_SECONDS = 1800f;
+		public const float CATCHUP_DEFER = 3f;
+
         // Rest
         public ZDO restBedZDO = null;
         public HirdmandrBed restBedHMBed = null;
@@ -183,6 +204,10 @@ namespace Hirdmandr
             // NPC's behavior from the owner's (review F4).
             if (m_znetv.IsOwner())
             {
+                // #94 Catch-up: heartbeat the sim presence (in-memory + throttled ZDO) and run
+                // the missed-work catchup when this NPC re-enters after an unsim gap.
+                CatchupCheckAndHeartbeat();
+
                 // Auto-stop (D5): the only stop condition we manage. The follow target is
                 // m_user's GameObject; when that player dies / logs out / disconnects the game
                 // destroys the GameObject, so GetFollowTarget() goes null. Clear the transient
@@ -552,6 +577,152 @@ namespace Hirdmandr
                 m_hmMonsterAI.ResetRandomMovement();
                 topSM.Evaluate();
             }
+        }
+
+        // #94 Catch-up: "did this NPC just come back from unsim?" check + the sim-presence
+        // heartbeat. Called from Update on the owner every frame (cheap: float compares).
+        //  - FRESH path: m_catchupLastSimTime <= 0 (first spawn, or re-entered sim after load /
+        //    relog / owner transfer): the last-known ToD came from the ZDO, so the gap is the
+        //    ToD delta since the heartbeat was written.
+        //  - PERSISTENT path: already seen simulating this session: the gap is wall-clock
+        //    since the last Update.
+        // The ZDO heartbeat is throttled (CATCHUP_HEARTBEAT) and is ALWAYS written immediately
+        // on a catchup fire, so a relog in the middle of a catchup cannot double-count the gap.
+        // #94 Catch-up diagnostic (test build): log every candidate time clock so a single
+        // in-game session shows which clock a 2-day time-skip actually advances.
+        //   net   = ZNet.m_netTime seconds (our current clock, via GetTimeSeconds)
+        //   ticks = ZNet.GetTime().Ticks (the smelter's clock; GetTime() = new DateTime(m_netTime * 1e7))
+        //   time  = ZNet.GetTime() as a readable DateTime
+        //   tot   = EnvMan.m_totalSeconds (second game-time accumulator, FixedUpdate-written)
+        //   day   = EnvMan.GetCurrentDay() (= m_totalSeconds / m_dayLengthSec)
+        //   tod/todSec = EnvMan.m_smoothDayFraction (0..1) and *1800 (mod unit)
+        //   dayLen = EnvMan.m_dayLengthSec
+        //   wrap  = ZNet.GetWrappedDayTimeSeconds() (= m_netTime % 86400)
+        private void DiagLogClocks(string ctx)
+        {
+            Jotunn.Logger.LogInfo("[HirdmandrAI] diag " + ctx
+                + " net=" + ZNet.instance.GetTimeSeconds()
+                + " ticks=" + ZNet.instance.GetTime().Ticks
+                + " time=" + ZNet.instance.GetTime().ToString("yyyy-MM-dd HH:mm:ss")
+                + " tot=" + EnvMan.instance.m_totalSeconds
+                + " day=" + EnvMan.instance.GetCurrentDay()
+                + " tod=" + EnvMan.instance.m_smoothDayFraction
+                + " todSec=" + (EnvMan.instance.m_smoothDayFraction * CATCHUP_DAY_SECONDS)
+                + " dayLen=" + EnvMan.instance.m_dayLengthSec
+                + " wrap=" + ZNet.instance.GetWrappedDayTimeSeconds());
+        }
+
+        // #94 Catch-up: atomically stamp the ZDO with the monotonic sim clock (m_netTime seconds)
+        // and the time-of-day fraction at the same instant. The sim clock drives the GAP
+        // MAGNITUDE (it is monotonic and advances through time-skips, so multi-day unsim gaps
+        // measure exactly); the ToD fraction is only the banked period's ToD-walk START
+        // (RunCatchupWork). Writing both together keeps the gap and its path start consistent.
+        private void StampCatchupZDO(ZDO zdo, float now, float nowToD)
+        {
+            zdo.Set("hmnpc_catchupSimSec", now);
+            zdo.Set("hmnpc_catchupToD", nowToD);
+            m_catchupLastZDOWrite = now;
+        }
+
+        private void CatchupCheckAndHeartbeat()
+        {
+            float now = (float)ZNet.instance.GetTimeSeconds();
+            float nowToD = EnvMan.instance.m_smoothDayFraction;
+            ZDO zdo = m_znetv.GetZDO();
+            if (zdo == null)
+            {
+                m_catchupLastSimTime = now;
+                m_catchupLastToD = nowToD;
+                return;
+            }
+            if (m_catchupLastSimTime <= 0f)
+            {
+                // FRESH: never seen simulating this session (first spawn, or the area unloaded
+                // and re-instantiated this component after an unsim gap). The ZDO holds the
+                // last-known monotonic sim clock (m_netTime seconds) and the ToD at that instant.
+                float storedSimSec = zdo.GetFloat("hmnpc_catchupSimSec", -1f);
+                float storedToD = zdo.GetFloat("hmnpc_catchupToD", -1f);
+                // DiagLogClocks("FRESH storedSimSec=" + storedSimSec + " storedToD=" + storedToD + (storedSimSec < 0f ? " (firstSpawn)" : ""));
+                if (storedSimSec < 0f || storedToD < 0f)
+                {
+                    // First spawn ever (or a stamp written before the sim-clock key existed):
+                    // write the monotonic baseline so future unsim gaps are measurable. There is
+                    // no measurable gap yet, so nothing to bank.
+                    StampCatchupZDO(zdo, now, nowToD);
+                }
+                else
+                {
+                    // Re-entered after unsim. The GAP MAGNITUDE comes from the monotonic sim
+                    // clock (m_netTime seconds): it does not wrap, so a multi-day unsim gap
+                    // measures exactly. (The old ToD-delta approach wrapped at one day, so a
+                    // 2-day gap read as only the residual ~fraction of a day.) The banked
+                    // period's ToD walk in RunCatchupWork starts at storedToD.
+                    float gapSeconds = now - storedSimSec;
+                    if (gapSeconds >= CATCHUP_MIN_GAP)
+                    {
+                        BankCatchup(gapSeconds, storedToD);
+                    }
+                    // Always re-stamp immediately: the catchup (if any) is now "paid for" up to
+                    // the current sim clock, so a later relog must not measure the same gap again.
+                    StampCatchupZDO(zdo, now, nowToD);
+                }
+            }
+            else if (now - m_catchupLastSimTime >= CATCHUP_MIN_GAP)
+            {
+                // PERSISTENT: already simulating this session and this is a real mid-session
+                // unsim gap (sleep / owner transfer without an area unload). Gap from the
+                // in-memory sim clock (m_netTime seconds, same monotonic clock as FRESH).
+                // DiagLogClocks("PERSISTENT gap=" + (now - m_catchupLastSimTime) + " frozen=" + m_catchupLastSimTime);
+                BankCatchup(now - m_catchupLastSimTime, m_catchupLastToD);
+                StampCatchupZDO(zdo, now, nowToD);
+            }
+            else if (now - m_catchupLastZDOWrite >= CATCHUP_HEARTBEAT)
+            {
+                // Routine heartbeat: keep the ZDO monotonic clock + ToD fresh (throttled).
+                StampCatchupZDO(zdo, now, nowToD);
+            }
+            m_catchupLastSimTime = now;
+            m_catchupLastToD = nowToD;
+        }
+
+        // #94 Catch-up: bank an unsim gap for deferred execution instead of running it on the
+        // re-entry frame. Re-entry is exactly when the area's ZDOs / m_container are still
+        // loading (and get overwritten by the ZDOMan in the same frame), so the catch-up must
+        // not mutate containers until the area has settled. A pending bank is signalled by
+        // m_unspentCatchupSeconds > 0 (its single-shot Invoke is still outstanding); a
+        // load/unload inside the CATCHUP_DEFER window just accrues more banked seconds, and
+        // the deferred run always sees the whole bank.
+        private void BankCatchup(float gapSeconds, float startToD)
+        {
+            // DiagLogClocks("BANK gap=" + gapSeconds + " startToD=" + startToD + " totalBankAfter=" + (m_unspentCatchupSeconds + gapSeconds));
+            if (m_unspentCatchupSeconds <= 0f)
+            {
+                // First bank in this run: remember where the banked period started (the deferred
+                // run walks the ToD path from there) and arm the single-shot deferred run.
+                m_catchupStartToD = startToD;
+                Invoke(nameof(CatchupDeferredRun), CATCHUP_DEFER);
+            }
+            m_unspentCatchupSeconds += gapSeconds;
+        }
+
+        // #94 Catch-up: the single-shot deferred run, CATCHUP_DEFER s after the gap was banked.
+        // Runs the whole bank as fast catch-up, then clears it.
+        private void CatchupDeferredRun()
+        {
+            if (m_unspentCatchupSeconds <= 0f) return;
+            float bankedSeconds = m_unspentCatchupSeconds;
+            float startToD = m_catchupStartToD;
+            m_unspentCatchupSeconds = 0f;
+            RunCatchupWork(bankedSeconds, startToD);
+        }
+
+        // #94 Catch-up: forward to the work-day state machine (the work logic lives there with
+        // the rest of the artisan jobs). gapSeconds = how long this NPC was unsimulated;
+        // storedToD = the ToD at the START of the gap (ZDO heartbeat, or in-memory stamp for
+        // the persistent path) -- the work-window math walks the ToD path from there.
+        public void RunCatchupWork(float gapSeconds, float storedToD)
+        {
+            WorkDaySM.RunCatchupWork(this, gapSeconds, storedToD);
         }
     }
 }

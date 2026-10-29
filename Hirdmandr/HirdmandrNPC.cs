@@ -350,7 +350,6 @@ namespace Hirdmandr
                 m_hirdmandrAI.StartAI();
             }
             EquipBest();
-            LogLoadValidation();
 
             // The synchronous spawn-frame EquipBest() above runs before the humanoid/visual
             // pipeline and the item model prefabs are ready, so it equips into empty visuals and
@@ -1336,7 +1335,7 @@ namespace Hirdmandr
             {
                 return false;
             }
-            Jotunn.Logger.LogInfo("Interact happened!");
+            // Jotunn.Logger.LogInfo("Interact happened!");
             m_user = user;
             ZInput.ResetButtonStatus("Inventory");
             ZInput.ResetButtonStatus("JoyButtonB");
@@ -1693,14 +1692,6 @@ namespace Hirdmandr
             m_fightingRangeFar = m_znet.GetZDO().GetBool("hmnpc_fightingRangeFar");
 
             ownedBedZDOID = m_znet.GetZDO().GetZDOID("hmnpc_ownedbed");
-        }
-
-        // One-shot dump of the values loaded from the ZDO, for validating save/load.
-        private void LogLoadValidation()
-        {
-            Jotunn.Logger.LogInfo("[HirdmandrLoad] name='" + m_humanoid.m_name + "' rescued=" + m_isRescued + " hirdmandr=" + m_isHirdmandr + " roleArtisan=" + m_roleArtisan + " roleWarrior=" + m_roleWarrior);
-            Jotunn.Logger.LogInfo("[HirdmandrLoad] jobThegn=" + m_jobThegn + " jobHimthiki=" + m_jobHimthiki + " jobGatherer=" + m_jobGatherer + " bed=" + ownedBedZDOID);
-            Jotunn.Logger.LogInfo("[HirdmandrLoad] thegnGuardSet=" + m_thegnGuardSet + " thegnGuardPoint=" + m_thegnGuardPoint + " thegnDayshift=" + m_thegnDayshift + " thegnNightshift=" + m_thegnNightshift);
         }
 
         public void ZDOSaveGeneral()

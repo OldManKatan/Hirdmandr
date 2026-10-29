@@ -25,7 +25,7 @@ namespace Hirdmandr
 
         // How far around a Farmer's chest it looks for mature crops to harvest + replant.
         // Matches the chest's existing farmer worksite radius so the field reads as one area.
-        public const float FarmerRange = 15f;
+        public const float FarmerRange = 25f;
 
         // Horizontal (XZ) distance at which the Farmer is "close enough" to harvest (Interact) a
         // crop. Same idea as MenderRepairReach: the walk aims a bit closer than this.

@@ -261,6 +261,20 @@ namespace Hirdmandr
             }
         }
 
+        // Catch-up-specific farmer worksite check. The catch-up NPC (hmAI) is the one doing the
+        // work, so the cultivator is available if it's in the chest OR held by hmAI -- unlike
+        // ValidFarmerInventory, which finds the holder via the worksite CLAIM (set only while
+        // the farmer is actively working), so an unsimulated farmer holding the tool would
+        // otherwise make the chest invalid and the catch-up would never fire.
+        public bool IsValidCatchupFarmerSite(HirdmandrAI hmAI)
+        {
+            if (GetMatureCropsInRange().Count == 0) return false;
+            if (m_container.m_inventory.HaveItem(FarmerCrops.CultivatorItem)) return true;
+            if (hmAI != null && hmAI.m_hmnpc != null && hmAI.m_hmnpc.m_container != null && hmAI.m_hmnpc.m_container.m_inventory != null)
+                return hmAI.m_hmnpc.m_container.m_inventory.HaveItem(FarmerCrops.CultivatorItem);
+            return false;
+        }
+
         // Cached "is there a mature crop in this chest's field" at the same 5s cadence as
         // IsValidWorksite (shares its lastZDOCheck gate; the actual FindObjectsOfType<Pickable>
         // scan runs inside GetValidWorksites' farmer branch). Exposed for WorkDay setup: a
@@ -394,14 +408,27 @@ namespace Hirdmandr
 
         public bool ValidLamplighterInventory()
         {
-            // Fuel fixtures take wood (wood torch, campfire) or coal (iron torches, braziers,
-            // sconce, iron fire pit, hearth, bonfire). The chest is a valid Lamplighter worksite if
-            // it holds either fuel type.
-            if (m_container.m_inventory.HaveItem("$item_wood") || m_container.m_inventory.HaveItem("$item_coal"))
+            // A fuel fixture burns one of three fuels - resin (the lamplighter's own fuel, e.g.
+            // torch/sconce), wood (campfire/hearth/bonfire) or coal (iron torches/braziers/iron
+            // fire pit). The chest is a valid Lamplighter worksite if it holds any of the three.
+            if (m_container.m_inventory.HaveItem("$item_resin")
+                || m_container.m_inventory.HaveItem("$item_wood")
+                || m_container.m_inventory.HaveItem("$item_coal"))
             {
                 return true;
             }
             return false;
+        }
+
+        // The lamplighter's fuel preference, most-specific first: 0 = holds resin (its own fuel -
+        // the one no other artisan produces), 1 = wood, 2 = coal, 3 = none. Ranks which valid fuel
+        // chest to claim: a resin chest beats a nearer wood/coal chest.
+        public int LamplighterFuelPriority()
+        {
+            if (m_container.m_inventory.HaveItem("$item_resin")) return 0;
+            if (m_container.m_inventory.HaveItem("$item_wood")) return 1;
+            if (m_container.m_inventory.HaveItem("$item_coal")) return 2;
+            return 3;
         }
 
         public bool ValidFarmerInventory()
@@ -532,7 +559,7 @@ namespace Hirdmandr
         // The internal item name a mature crop drops -- its detection key. m_itemPrefab is a
         // GameObject (the prefab dropped when picked); its ItemDrop component carries the item
         // data. null if the pickable has no ItemDrop / no item data (defensive: never throws).
-        private string YieldsOf(Pickable pk)
+        public string YieldsOf(Pickable pk)
         {
             GameObject drop = pk.m_itemPrefab;
             if (drop == null)

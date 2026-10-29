@@ -126,7 +126,7 @@ namespace Hirdmandr
                     enabledNow.Add(m_hmSkillNames[i]);
                 }
             }
-            Jotunn.Logger.LogInfo("[HMSkills.SaveSkills] persisted enabled=[" + string.Join(",", enabledNow.ToArray()) + "] furnaceop_readback=" + m_znetv.GetZDO().GetBool("hmnpc_skillfurnaceoperatorenable"));
+            // Jotunn.Logger.LogInfo("[HMSkills.SaveSkills] persisted enabled=[" + string.Join(",", enabledNow.ToArray()) + "] furnaceop_readback=" + m_znetv.GetZDO().GetBool("hmnpc_skillfurnaceoperatorenable"));
         }
 
         public float GetSkill(string skill_name)

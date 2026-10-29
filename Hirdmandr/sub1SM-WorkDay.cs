@@ -100,7 +100,7 @@ namespace Hirdmandr
                     {
                         hmAI.curJob = hmAI.workJobs[0];
                         hmAI.workJobs.RemoveAt(0);
-                        Jotunn.Logger.LogInfo("  setupArtJob: picked job '" + hmAI.curJob + "' (remaining workJobs=" + hmAI.workJobs.Count + ")");
+                        // Jotunn.Logger.LogInfo("  setupArtJob " + hmAI.m_hmHumanoid.m_name + ": picked job '" + hmAI.curJob + "' (remaining workJobs=" + hmAI.workJobs.Count + ")");
                     }
                     else
                     {
@@ -184,20 +184,29 @@ namespace Hirdmandr
                     }
                 }
 
-                Jotunn.Logger.LogInfo("  setupArtJob: found " + foundWorkSites.Count + " valid worksite(s) for job '" + hmAI.curJob + "'");
+                // Jotunn.Logger.LogInfo("  setupArtJob: found " + foundWorkSites.Count + " valid worksite(s) for job '" + hmAI.curJob + "'");
                 var fwNum = foundWorkSites.Count;
                 for (var i = 0; i < fwNum; i++)
                 {
                     GameObject closestSite = null;
                     float closestSiteDist = 999999;
+                    int closestTier = int.MaxValue;
 
                     foreach (GameObject thisGO in foundWorkSites)
                     {
                         float thisDist = Vector3.Distance(hmAI.transform.position, thisGO.transform.position);
-                        if (thisDist < closestSiteDist)
+                        // Lamplighter: rank by the fuel the chest holds, most-specific first (resin =
+                        // its own fuel > wood > coal), so a resin chest beats a nearer wood/coal
+                        // chest. Other jobs: tier is a constant 0, so this is nearest-only (the
+                        // original behaviour, unchanged).
+                        int thisTier = (hmAI.curJob == "lamplighter")
+                            ? thisGO.GetComponent<HirdmandrChest>().LamplighterFuelPriority()
+                            : 0;
+                        if (thisTier < closestTier || (thisTier == closestTier && thisDist < closestSiteDist))
                         {
-                            closestSite = thisGO;
+                            closestTier = thisTier;
                             closestSiteDist = thisDist;
+                            closestSite = thisGO;
                         }
                     }
 
@@ -244,7 +253,7 @@ namespace Hirdmandr
                         }
                         else
                         {
-                            Jotunn.Logger.LogWarning("  setupArtJob: could not claim worksite " + closestSite.transform.name + " for job '" + hmAI.curJob + "' (already claimed?), trying next");
+                            // Jotunn.Logger.LogWarning("  setupArtJob: could not claim worksite " + closestSite.transform.name + " for job '" + hmAI.curJob + "' (already claimed?), trying next");
                             foundWorkSites.RemoveAt(foundWorkSites.IndexOf(closestSite));
                         }
                     }
@@ -255,7 +264,7 @@ namespace Hirdmandr
                     // range). Fall through to the next ranked job - clear curJob so the next tick
                     // picks workJobs[0] (the next highest-skill enabled job). When workJobs runs
                     // out, the pick block above re-ranks on the gate.
-                    Jotunn.Logger.LogWarning("  setupArtJob: no claimable worksite for job '" + hmAI.curJob + "' (exhausted all " + fwNum + " candidate(s)) - falling through to next ranked job");
+                    // Jotunn.Logger.LogWarning("  setupArtJob: no claimable worksite for job '" + hmAI.curJob + "' (exhausted all " + fwNum + " candidate(s)) - falling through to next ranked job");
                     hmAI.curJob = "";
                 }
             }
@@ -429,7 +438,7 @@ namespace Hirdmandr
                         // No active target: wait out the cooldown, then pick one fixture to refuel.
                         if (Time.time > hmAI.nextJobTime)
                         {
-                            GameObject thisTarget = PickLamplighterTarget();
+                            GameObject thisTarget = PickLamplighterTarget(hmAI, hmAI.workSiteHMChest);
                             if (thisTarget != null)
                             {
                                 hmAI.lamplighterTarget = thisTarget;
@@ -584,7 +593,7 @@ namespace Hirdmandr
                         {
                             if (RepairMenderTarget(hmAI.menderTarget))
                             {
-                                Jotunn.Logger.LogInfo("Mender: repaired " + hmAI.menderTarget.name);
+                                // Jotunn.Logger.LogInfo("Mender: repaired " + hmAI.menderTarget.name);
                                 hmAI.m_hmnpc.m_skills.ModifySkill(hmAI.curJob, 1.0f);
                                 // Full restore done: clear the target and rest out the skill-based
                                 // work cooldown before the next scan may start.
@@ -619,7 +628,7 @@ namespace Hirdmandr
                         {
                             if (RepairMenderTarget(hmAI.menderTarget))
                             {
-                                Jotunn.Logger.LogInfo("Mender: repaired " + hmAI.menderTarget.name + " (from " + menderDist.ToString("0") + "f)");
+                                // Jotunn.Logger.LogInfo("Mender: repaired " + hmAI.menderTarget.name + " (from " + menderDist.ToString("0") + "f)");
                                 hmAI.m_hmnpc.m_skills.ModifySkill(hmAI.curJob, 1.0f);
                                 hmAI.menderTarget = null;
                                 hmAI.menderMoveIssued = false;
@@ -701,7 +710,7 @@ namespace Hirdmandr
                         {
                             if (DoFarmerStuff(hmAI.farmerTarget))
                             {
-                                Jotunn.Logger.LogInfo("Farmer: harvested " + hmAI.farmerTargetEntry.yieldItem + " -> replanted " + hmAI.farmerTargetEntry.sapling);
+                                // Jotunn.Logger.LogInfo("Farmer: harvested " + hmAI.farmerTargetEntry.yieldItem + " -> replanted " + hmAI.farmerTargetEntry.sapling);
                                 hmAI.m_hmnpc.m_skills.ModifySkill(hmAI.curJob, 1.0f);
                                 hmAI.farmerTarget = null; // pick the next crop
                                 hmAI.farmerMoveIssued = false;
@@ -746,18 +755,18 @@ namespace Hirdmandr
                         {
                             if (hmAI.workSiteHMChest.m_container.m_inventory.HaveItem("$item_wood"))
                             {
-                                Jotunn.Logger.LogWarning("Wood was found");
+                                // Jotunn.Logger.LogWarning("Wood was found");
                                 Smelter kilnSmelter = hmAI.workSiteObject.GetComponent<Smelter>();
                                 if (kilnSmelter.GetQueueSize() < 25)
                                 {
                                     hmAI.m_hmMonsterAI.LookAt(hmAI.workSiteObject.transform.position);
-                                    Jotunn.Logger.LogWarning("One wood was removed from chest");
+                                    // Jotunn.Logger.LogWarning("One wood was removed from chest");
                                     if (hmAI.workSiteHMChest.m_container.m_inventory.HaveItem("$item_wood"))
                                     {
                                         hmAI.workSiteHMChest.m_container.m_inventory.RemoveOneItem(hmAI.workSiteHMChest.m_container.m_inventory.GetItem("$item_wood"));
                                         hmAI.workSiteHMChest.m_container.Save();
                                     }
-                                     Jotunn.Logger.LogWarning("One wood was added to kiln");
+                                     // Jotunn.Logger.LogWarning("One wood was added to kiln");
                                      kilnSmelter.m_nview.InvokeRPC("RPC_AddOre", "Wood", false);
                                      // Job done: the Woodburner plays the "interact" anim (owner-local + all clients).
                                      hmAI.m_hmnpc.FireArtisanInteractAnim();
@@ -782,15 +791,15 @@ namespace Hirdmandr
                         List<ZDO> products = Utils.GetPrefabZDOsInRange(hmAI.transform.position, 15f, "Coal");
                         foreach (ZDO coalZDO in products)
                         {
-                            Jotunn.Logger.LogWarning("Found a coal");
+                            // Jotunn.Logger.LogWarning("Found a coal");
                             GameObject eachCoal = ZNetScene.instance.FindInstance(coalZDO).gameObject;
 
-                            Jotunn.Logger.LogWarning("Trying to add item");
+                            // Jotunn.Logger.LogWarning("Trying to add item");
                             if (hmAI.workSiteHMChest.m_container.m_inventory.AddItem(eachCoal.GetComponent<ItemDrop>().m_itemData))
                             {
                                 hmAI.workSiteHMChest.m_container.Save();
-                                Jotunn.Logger.LogWarning("Item was added");
-                                Jotunn.Logger.LogWarning("Destroying item");
+                                // Jotunn.Logger.LogWarning("Item was added");
+                                // Jotunn.Logger.LogWarning("Destroying item");
                                 if (hmAI.m_znetv.GetZDO() == null)
                                 {
                                     UnityEngine.Object.Destroy((UnityEngine.Object)(object)eachCoal);
@@ -822,7 +831,7 @@ namespace Hirdmandr
                                 {
                                     hmAI.m_hmMonsterAI.LookAt(hmAI.workSiteObject.transform.position);
 
-                                    Jotunn.Logger.LogWarning("Queue size less than 10");
+                                    // Jotunn.Logger.LogWarning("Queue size less than 10");
                                     string addedOreName = AddOneOreToSmelter(smelterSmelter);
                                     if (addedOreName != null)
                                     {
@@ -853,7 +862,7 @@ namespace Hirdmandr
                                 {
                                      smelterChestInv.RemoveOneItem(smelterChestInv.GetItem("$item_coal"));
                                      hmAI.workSiteHMChest.m_container.Save();
-                                      Jotunn.Logger.LogWarning("One Coal was added to Smelter");
+                                      // Jotunn.Logger.LogWarning("One Coal was added to Smelter");
                                       smelterSmelter.m_nview.InvokeRPC("RPC_AddFuel", 0L);
                                       // Fuel-only cycle (no ore added this pass): play the anim here too, so a
                                       // fuel-only pass still shows one "interact" (never a double-call).
@@ -888,15 +897,15 @@ namespace Hirdmandr
                         }
                         foreach (ZDO productZDO in products)
                         {
-                            Jotunn.Logger.LogWarning("Found a coal");
+                            // Jotunn.Logger.LogWarning("Found a coal");
                             GameObject eachProduct = ZNetScene.instance.FindInstance(productZDO).gameObject;
 
-                            Jotunn.Logger.LogWarning("Trying to add item");
+                            // Jotunn.Logger.LogWarning("Trying to add item");
                             if (hmAI.workSiteHMChest.m_container.m_inventory.AddItem(eachProduct.GetComponent<ItemDrop>().m_itemData))
                             {
                                 hmAI.workSiteHMChest.m_container.Save();
-                                Jotunn.Logger.LogWarning("Item was added");
-                                Jotunn.Logger.LogWarning("Destroying item");
+                                // Jotunn.Logger.LogWarning("Item was added");
+                                // Jotunn.Logger.LogWarning("Destroying item");
                                 if (hmAI.m_znetv.GetZDO() == null)
                                 {
                                     UnityEngine.Object.Destroy((UnityEngine.Object)(object)eachProduct);
@@ -912,10 +921,12 @@ namespace Hirdmandr
                 }
             }
 
-            // Find the closest in-range fixture that needs fuel and whose fuel type we carry.
-            private GameObject PickLamplighterTarget()
+            // Find the closest in-range fixture that needs fuel and whose fuel type the chest
+            // carries. Static so BOTH the live loop and the catch-up batch share this exact same
+            // picker (the catch-up runs from a static context and can't call instance methods).
+            private static GameObject PickLamplighterTarget(HirdmandrAI hmAI, HirdmandrChest chest)
             {
-                if (!hmAI.workSiteHMChest)
+                if (chest == null)
                 {
                     return null;
                 }
@@ -945,7 +956,7 @@ namespace Hirdmandr
                     string fuelName = (thisFire.m_fuelItem != null && thisFire.m_fuelItem.m_itemData != null)
                         ? thisFire.m_fuelItem.m_itemData.m_shared.m_name
                         : "$item_coal";
-                    if (!hmAI.workSiteHMChest.m_container.m_inventory.HaveItem(fuelName))
+                    if (!chest.m_container.m_inventory.HaveItem(fuelName))
                     {
                         continue; // we don't carry this fuel type
                     }
@@ -961,23 +972,49 @@ namespace Hirdmandr
                 return best;
             }
 
-            // Add exactly one fuel item to the fixture (the game's canonical "one fuel").
-            private bool RefuelLamplighterTarget(GameObject target)
+            // Shared by BOTH refuelers: a fixture has room for one more fuel (+1) if adding it
+            // can't reach or exceed the max. Refueling a near-full fixture clips the overflow
+            // (wasted fuel) and the same piece would just keep getting re-picked as it burns back
+            // below "full". (The picker runs its own copy of this same check in its skip-branch.)
+            private static bool LamplighterTargetHasRoom(Fireplace fire)
+            {
+                return fire != null && fire.m_nview != null && fire.m_nview.GetZDO() != null
+                    && (fire.m_nview.GetZDO().GetFloat(ZDOVars.s_fuel, 0f) + 1f < fire.m_maxFuel);
+            }
+
+            // LIVE: add exactly one fuel item to the fixture (the game's canonical "one fuel").
+            // Static so the catch-up batch can reuse the same picker + full-check.
+            private static bool RefuelLamplighterTarget(GameObject target)
             {
                 Fireplace thisFire = target.GetComponent<Fireplace>();
-                if (thisFire == null || thisFire.m_nview == null || thisFire.m_nview.GetZDO() == null)
-                {
-                    return false;
-                }
-                // Re-check at add time (fuel may have burned between pick and now): skip if one more
-                // fuel would clip against the max, so we never waste the overflow.
-                if (thisFire.m_nview.GetZDO().GetFloat(ZDOVars.s_fuel, 0f) + 1f >= thisFire.m_maxFuel)
+                // Re-check at add time (fuel may have burned between pick and now).
+                if (!LamplighterTargetHasRoom(thisFire))
                 {
                     return false;
                 }
                 // Owner-gated and networked; plays the spark effect and updates the visuals.
                 // (The player-id argument is unused by the game.)
                 thisFire.m_nview.InvokeRPC("RPC_AddFuel", 0L);
+                return true;
+            }
+
+            // CATCH-UP: the same +1 fuel, written straight to the ZDO var (no RPC). The game's
+            // RPC_AddFuel is owner-gated (it opens with "if (!m_nview.IsOwner()) return;") and
+            // bails before it writes in the catch-up context, so the RPC never lands the fuel -
+            // which is why the chest fuel was spent with nothing reaching the fire. The direct
+            // ZDO.Set is exactly how Container.Save() pushes the inventory (non-owner-gated), and
+            // the world save then persists it. No spark effect / UpdateState: the catch-up is
+            // state-only, and the fire re-reads its fuel var every frame anyway.
+            private static bool RefuelLamplighterCatchup(GameObject target)
+            {
+                Fireplace thisFire = target.GetComponent<Fireplace>();
+                if (!LamplighterTargetHasRoom(thisFire))
+                {
+                    return false;
+                }
+                float fuel = thisFire.m_nview.GetZDO().GetFloat(ZDOVars.s_fuel, 0f);
+                float newFuel = Mathf.Clamp(fuel + 1f, 0f, thisFire.m_maxFuel);
+                thisFire.m_nview.GetZDO().Set(ZDOVars.s_fuel, newFuel);
                 return true;
             }
 
@@ -992,7 +1029,7 @@ namespace Hirdmandr
                 {
                     chestInv.RemoveOneItem(chestInv.GetItem("$item_silverore"));
                     hmAI.workSiteHMChest.m_container.Save();
-                    Jotunn.Logger.LogWarning("One SilverOre was added to Smelter");
+                    // Jotunn.Logger.LogWarning("One SilverOre was added to Smelter");
                     smelter.m_nview.InvokeRPC("RPC_AddOre", "SilverOre", false);
                     return "SilverOre";
                 }
@@ -1000,7 +1037,7 @@ namespace Hirdmandr
                 {
                     chestInv.RemoveOneItem(chestInv.GetItem("$item_ironscrap"));
                     hmAI.workSiteHMChest.m_container.Save();
-                    Jotunn.Logger.LogWarning("One IronOre was added to Smelter");
+                    // Jotunn.Logger.LogWarning("One IronOre was added to Smelter");
                     smelter.m_nview.InvokeRPC("RPC_AddOre", "IronScrap", false);
                     return "IronScrap";
                 }
@@ -1008,7 +1045,7 @@ namespace Hirdmandr
                 {
                     chestInv.RemoveOneItem(chestInv.GetItem("$item_copperore"));
                     hmAI.workSiteHMChest.m_container.Save();
-                    Jotunn.Logger.LogWarning("One CopperOre was added to Smelter");
+                    // Jotunn.Logger.LogWarning("One CopperOre was added to Smelter");
                     smelter.m_nview.InvokeRPC("RPC_AddOre", "CopperOre", false);
                     return "CopperOre";
                 }
@@ -1016,7 +1053,7 @@ namespace Hirdmandr
                 {
                     chestInv.RemoveOneItem(chestInv.GetItem("$item_tinore"));
                     hmAI.workSiteHMChest.m_container.Save();
-                    Jotunn.Logger.LogWarning("One TinOre was added to Smelter");
+                    // Jotunn.Logger.LogWarning("One TinOre was added to Smelter");
                     smelter.m_nview.InvokeRPC("RPC_AddOre", "TinOre", false);
                     return "TinOre";
                 }
@@ -1148,7 +1185,7 @@ namespace Hirdmandr
             // the owner-spawned pick VFX (MP-visible, like the Mender's fix effect).
             // (PoR §9.4: Step 11 confirms Interact fires for an NPC Humanoid; if not, drive the
             // owner-side pick directly as the fallback.)
-            private bool FarmerHarvest(NPCPlayerClone npc, Pickable crop, out string yieldItem, out Vector3 position)
+            private static bool FarmerHarvest(NPCPlayerClone npc, Pickable crop, out string yieldItem, out Vector3 position)
             {
                 position = Vector3.zero;
                 yieldItem = null;
@@ -1180,7 +1217,7 @@ namespace Hirdmandr
             // Plantable consumption (the -1 from the chest) is the CALLER's job (Step 8), so this
             // helper stays pure. (PoR §9.5: Step 11 confirms it attaches + grows on cultivated ground;
             // if not, PlaceAgainst the ground and/or set the cultivated-ground fields.)
-            private bool FarmerReplant(Vector3 position, string saplingName)
+            private static bool FarmerReplant(Vector3 position, string saplingName)
             {
                 if (string.IsNullOrEmpty(saplingName)) return false;
                 ZNetScene scene = ZNetScene.instance;
@@ -1227,7 +1264,7 @@ namespace Hirdmandr
                 Vector3 placedPos = instance.transform.position;
                 Heightmap hm = Heightmap.FindHeightmap(placedPos);
                 bool cultivated = (hm != null) ? hm.IsCultivated(placedPos) : false;
-                Jotunn.Logger.LogInfo("[Hirdmandr] FarmerReplant: placed '" + saplingName + "' at zdo(" + position.x.ToString("0") + "," + position.y.ToString("0") + "," + position.z.ToString("0") + ") transform(" + placedPos.x.ToString("0.00") + "," + placedPos.y.ToString("0.00") + "," + placedPos.z.ToString("0.00") + ") heightmap=" + (hm != null) + " cultivated=" + cultivated + " (ZDO " + zdo.m_uid + ")");
+                // Jotunn.Logger.LogInfo("[Hirdmandr] FarmerReplant: placed '" + saplingName + "' at zdo(" + position.x.ToString("0") + "," + position.y.ToString("0") + "," + position.z.ToString("0") + ") transform(" + placedPos.x.ToString("0.00") + "," + placedPos.y.ToString("0.00") + "," + placedPos.z.ToString("0.00") + ") heightmap=" + (hm != null) + " cultivated=" + cultivated + " (ZDO " + zdo.m_uid + ")");
                 return true;
             }
 
@@ -1304,7 +1341,7 @@ namespace Hirdmandr
                     if (hmAI.workSiteHMChest.m_container.m_inventory.AddItem(bonusYield))
                     {
                         hmAI.workSiteHMChest.m_container.Save();
-                        Jotunn.Logger.LogWarning("Farmer bonus: extra " + yieldItem + " yield added to chest");
+                        // Jotunn.Logger.LogWarning("Farmer bonus: extra " + yieldItem + " yield added to chest");
                     }
                     hmAI.m_hmnpc.FireMpEffect(HMEffectKind.BonusYield, "farmer bonus yield (extra " + yieldItem + ")");
                 }
@@ -1352,6 +1389,496 @@ namespace Hirdmandr
                     }
                 }
             }
+
+            // ============================================================================
+            // #94 CATCH-UP: missed artisan work, run as fast catch-up when a hirdmandr
+            // re-enters simulation after an unsimulated gap (load / sleep / relog / owner
+            // transfer). HirdmandrAI.CatchupCheckAndHeartbeat detects the gap and calls
+            // RunCatchupWork (via the WorkDaySM forwarder below). Everything here is static;
+            // the only per-NPC state is the HirdmandrAI passed in.
+            //
+            //   work_seconds = seconds inside the [workday] ToD window along the gap's path
+            //   n            = floor(work_seconds / time_per_job)
+            //   time_per_job = max(0.5, 18 - 0.18 * skill)          (the live job pacing)
+            //   then n jobs of the NPC's TOP enabled job run FAST (no walk / anim / cooldowns)
+            //   with the real world effects (chest inventory, RPCs, replanted crops, fuel),
+            //   so it looks like the NPC simply kept working.
+            //
+            // Skill: n steps of the live ModifySkill curve (per spec, even if the world
+            // absorbed fewer jobs), applied once. Bonus yield: (int)(nEff * p) extra per
+            // effective job, p = (int)skill / 400 (the "free bonus" expected value). Log: one line.
+            // ============================================================================
+
+            // Work is counted only inside the [ArtisanWorkdayStart, ArtisanEveningSocialStart)
+            // window of each day (HMSchedule is the source of truth), with a small overhead so
+            // a caught-up workday is slightly shorter than a real one.
+            private const float CATCHUP_WORK_OVERHEAD = 0.933f;
+
+            // Item tables, built once from ObjectDB (EnsureCatchupItemTables). The ObjectDB name
+            // (prefab.name, e.g. "Silver") is NOT the internal name (ItemData.m_shared.m_name,
+            // e.g. "$item_silver"); the world runs on internal names, so ingots are resolved here
+            // at runtime (the internal names are data, not compile-time constants).
+            private static Dictionary<string, ItemDrop.ItemData> s_catchupProtoByInternal = new Dictionary<string, ItemDrop.ItemData>();
+            private static Dictionary<string, string> s_catchupDBToInternal = new Dictionary<string, string>();
+            private static bool s_catchupTablesBuilt = false;
+
+            // Build the item tables once, from the ObjectDB's registered item prefabs.
+            private static void EnsureCatchupItemTables()
+            {
+                if (s_catchupTablesBuilt) return;
+                s_catchupTablesBuilt = true;
+                foreach (GameObject prefab in ObjectDB.instance.m_items)
+                {
+                    ItemDrop drop = prefab.GetComponent<ItemDrop>();
+                    if (drop == null || drop.m_itemData == null || drop.m_itemData.m_shared == null)
+                    {
+                        continue;
+                    }
+                    string internalName = drop.m_itemData.m_shared.m_name;
+                    s_catchupProtoByInternal[internalName] = drop.m_itemData;
+                    s_catchupDBToInternal[prefab.name] = internalName;
+                }
+            }
+
+            // ObjectDB name ("Silver") -> internal name ("$item_silver"); pass-through if the
+            // argument is already an internal name; null if unknown.
+            private static string ResolveInternal(string dbOrInternal)
+            {
+                string internalName;
+                if (s_catchupDBToInternal.TryGetValue(dbOrInternal, out internalName))
+                {
+                    return internalName;
+                }
+                if (s_catchupProtoByInternal.ContainsKey(dbOrInternal))
+                {
+                    return dbOrInternal;
+                }
+                return null;
+            }
+
+            // A FRESH one-unit ItemData for internalName, cloned from the ObjectDB prefab's
+            // ItemData (same pattern as SoulItem: Clone() keeps m_shared/m_dropPrefab intact,
+            // and we never mutate the prefab's template itself).
+            private static ItemDrop.ItemData GetFreshItemData(string internalName)
+            {
+                ItemDrop.ItemData proto;
+                if (internalName == null || !s_catchupProtoByInternal.TryGetValue(internalName, out proto))
+                {
+                    return null;
+                }
+                ItemDrop.ItemData data = proto.Clone();
+                data.m_stack = 1;
+                return data;
+            }
+
+            // Add `count` units of internalName to the chest, one fresh one-unit ItemData at a
+            // time (a single big-stack AddItem can overflow the item's max stack). No Save here:
+            // the caller commits the whole chest with ONE Save at the end of the catch-up
+            // executor. (Saving after each unit - like the live loops do across separate frames -
+            // did NOT persist the additions when all done in a single frame; one final Save does.)
+            // Stops early if the chest fills up or the prefab is missing.
+            private static void AddItemsCount(HirdmandrChest chest, string internalName, int count)
+            {
+                if (chest == null || count <= 0 || internalName == null) return;
+                Inventory inv = chest.m_container.m_inventory;
+                for (int i = 0; i < count; i++)
+                {
+                    ItemDrop.ItemData data = GetFreshItemData(internalName);
+                    if (data == null) return;
+                    if (!inv.AddItem(data)) return; // chest full
+                }
+            }
+
+            // Work seconds inside the [workday] window along the gap's ToD trajectory. The gap
+            // may span whole days, so walk day-by-day: day k covers [k, k+1) in ToD space and
+            // its work window is [k + ArtisanWorkdayStart, k + ArtisanEveningSocialStart).
+            private static float CatchupWorkSeconds(float gapSeconds, float fromToD)
+            {
+                float a = fromToD;
+                float b = fromToD + gapSeconds / HirdmandrAI.CATCHUP_DAY_SECONDS;
+                float workFrac = 0f;
+                for (int k = Mathf.FloorToInt(a); k <= Mathf.FloorToInt(b); k++)
+                {
+                    float lo = Mathf.Max(a, k + HMSchedule.ArtisanWorkdayStart);
+                    float hi = Mathf.Min(b, k + HMSchedule.ArtisanEveningSocialStart);
+                    if (hi > lo)
+                    {
+                        workFrac += hi - lo;
+                    }
+                }
+                return workFrac * HirdmandrAI.CATCHUP_DAY_SECONDS * CATCHUP_WORK_OVERHEAD;
+            }
+
+            // The nearest chest this NPC knows that accepts job as a valid worksite (no claim:
+            // catch-up must not steal a worksite from a currently-working NPC).
+            private static HirdmandrChest FindCatchupWorksite(HirdmandrAI hmAI, string job)
+            {
+                HirdmandrChest best = null;
+                float bestDist = float.MaxValue;
+                foreach (string chestString in hmAI.npcChests)
+                {
+                    if (string.IsNullOrEmpty(chestString)) continue;
+                    foreach (ZDO zdo in Utils.GetPrefabZDOsInRange(hmAI.transform.position, 100f, chestString))
+                    {
+                        ZNetView cv = ZNetScene.instance.FindInstance(zdo);
+                        if (cv == null) continue;
+                        GameObject go = cv.gameObject;
+                        if (go == null) continue;
+                        HirdmandrChest chest = go.GetComponent<HirdmandrChest>();
+                        if (chest == null) continue;
+                        bool siteOk = (job == "farmer") ? chest.IsValidCatchupFarmerSite(hmAI) : chest.IsValidWorksite(job);
+                        if (!siteOk) continue;
+                        float d = Vector3.Distance(hmAI.transform.position, chest.transform.position);
+                        if (d < bestDist)
+                        {
+                            bestDist = d;
+                            best = chest;
+                        }
+                    }
+                }
+                return best;
+            }
+
+            // WOODBURNER: n jobs, each burning 1 wood -> then deliver the coal (nEff + bonus).
+            // No kiln state to touch (the live loop's kiln animation is cosmetic; the output
+            // is what matters). World-capped: stops when the chest runs out of wood.
+            private static void CatchupWoodburner(HirdmandrChest chest, int n, float p, out int nEff)
+            {
+                nEff = 0;
+                Inventory inv = chest.m_container.m_inventory;
+                // Remove the wood first. No per-iteration Save (many Saves in one frame did not
+                // persist; the chest is committed once at the end). World-capped: stop when the
+                // chest runs out of wood.
+                while (nEff < n && inv.HaveItem("$item_wood"))
+                {
+                    inv.RemoveOneItem(inv.GetItem("$item_wood"));
+                    nEff++;
+                }
+                // Deliver the coal for every unit actually burned (nEff + free bonus), then
+                // commit the whole chest once.
+                AddItemsCount(chest, "$item_coal", nEff + (int)(nEff * p));
+                chest.m_container.Save();
+            }
+
+            // FURNACEOPERATOR: n jobs, each smelting 1 ore (priority: silver > iron > copper >
+            // tin) + 2 coal -> then deliver the ingots (nEff per kind + bonus). 2 coal per ingot
+            // matches the live loop's steady state: coal is consumed EVERY job tick (fuel top-up
+            // while fuel < max-1) but ore is added on ALTERNATING ticks (genericToggle), so the
+            // simulation burns 1 ore + 2 coal per ingot - catchup must consume the same.
+            // No smelter state to touch; the chest is both input and output, exactly like the
+            // live loop.
+            private static void CatchupFurnaceoperator(HirdmandrChest chest, int n, float p, out int nEff)
+            {
+                nEff = 0;
+                Inventory inv = chest.m_container.m_inventory;
+                int silver = 0;
+                int iron = 0;
+                int copper = 0;
+                int tin = 0;
+                // Remove 1 ore + 2 coal per job. No per-iteration Save (the chest is committed
+                // once at the end). World-capped: stop when ore, coal, or the job count runs
+                // out.
+                while (nEff < n)
+                {
+                    string oreName = null;
+                    if (inv.HaveItem("$item_silverore")) oreName = "$item_silverore";
+                    else if (inv.HaveItem("$item_ironscrap")) oreName = "$item_ironscrap";
+                    else if (inv.HaveItem("$item_copperore")) oreName = "$item_copperore";
+                    else if (inv.HaveItem("$item_tinore")) oreName = "$item_tinore";
+                    if (oreName == null || !inv.HaveItem("$item_coal") || inv.GetItem("$item_coal").m_stack < 2) break;
+                    inv.RemoveOneItem(inv.GetItem(oreName));
+                    inv.RemoveOneItem(inv.GetItem("$item_coal"));
+                    inv.RemoveOneItem(inv.GetItem("$item_coal"));
+                    nEff++;
+                    if (oreName == "$item_silverore") silver++;
+                    else if (oreName == "$item_ironscrap") iron++;
+                    else if (oreName == "$item_copperore") copper++;
+                    else tin++;
+                }
+                // Deliver the ingots for every ore actually smelted (per kind + free bonus),
+                // then commit the whole chest once.
+                AddItemsCount(chest, ResolveInternal("Silver"), silver + (int)(silver * p));
+                AddItemsCount(chest, ResolveInternal("Iron"), iron + (int)(iron * p));
+                AddItemsCount(chest, ResolveInternal("Copper"), copper + (int)(copper * p));
+                AddItemsCount(chest, ResolveInternal("Tin"), tin + (int)(tin * p));
+                chest.m_container.Save();
+            }
+
+            // LAMPLIGHTER: n jobs, each refueling the NEAREST fixture that still needs fuel -
+            // exactly the live loop's per-cycle pick (shared picker + refueler), so the batch tops
+            // up MANY fixtures (torches, sconces, braziers, firepits, hearths - anything with a
+            // Fireplace component), not just one. Fuel is only consumed on the "paid" roll
+            // (1 - no-consume chance), mirroring the live loop. World-capped: stops when no fixture
+            // needs fuel, or the chest runs out of the fuel type a fixture wants.
+            private static void CatchupLamplighter(HirdmandrAI hmAI, HirdmandrChest chest, int n, float skill, float p, out int nEff)
+            {
+                nEff = 0;
+                Inventory inv = chest.m_container.m_inventory;
+                // No-consume chance rises with skill (live: 0.20 at 1 -> 0.80 at 100); only a
+                // "paid" refuel spends a chest item. Live re-reads the skill per refuel (before
+                // that refuel's ModifySkill), so the chance climbs slightly as refuels land -
+                // mirror that with a local copy advanced on the exact live curve (+1/floor(value),
+                // the same step ApplyCatchupSkill applies), rolled BEFORE the advance, matching
+                // the live order (roll, then ModifySkill).
+                float curSkill = skill;
+                for (int i = 0; i < n; i++)
+                {
+                    float noConsume = 0.20f + ((curSkill - 1f) * (0.60f / 99f));
+                    // Per job: nearest fixture that still needs fuel AND whose fuel we carry (the
+                    // shared live picker). None left -> the batch is done.
+                    GameObject target = PickLamplighterTarget(hmAI, chest);
+                    if (target == null) break;
+                    if (!RefuelLamplighterCatchup(target)) break; // full / gone: nothing left to do
+                    Fireplace fire = target.GetComponent<Fireplace>();
+                    string fuelName = (fire != null && fire.m_fuelItem != null && fire.m_fuelItem.m_itemData != null)
+                        ? fire.m_fuelItem.m_itemData.m_shared.m_name
+                        : "$item_coal";
+                    // "Paid" roll: spend one of the fuel THIS fixture actually burns.
+                    if (UnityEngine.Random.value >= noConsume && inv.HaveItem(fuelName))
+                    {
+                        inv.RemoveOneItem(inv.GetItem(fuelName));
+                    }
+                    nEff++;
+                    // Advance the roll's skill AFTER the roll (live: ModifySkill after the roll),
+                    // exact live curve: +1/floor(value), +1 below level 1, capped at 100.
+                    if (Math.Floor(curSkill) > 0f)
+                    {
+                        curSkill += (float)(1.0 / Math.Floor(curSkill));
+                    }
+                    else
+                    {
+                        curSkill += 1.0f;
+                    }
+                    if (curSkill > 100f) curSkill = 100f;
+                }
+                // Commit the chest once: the single final Save persists the fuel removals.
+                chest.m_container.Save();
+            }
+
+            // MENDER: n jobs, each = 1 full repair (RPC_Repair, MP-visible) of the most
+            // damaged-in-range player-placed piece (score = damage * distance). No chest
+            // involved. World-capped: stops when no damaged piece is in range.
+            private static void CatchupMender(HirdmandrAI hmAI, int n, out int nEff)
+            {
+                nEff = 0;
+                for (int i = 0; i < n; i++)
+                {
+                    WearNTear target = null;
+                    float bestScore = float.MaxValue;
+                    foreach (WearNTear wnt in WearNTear.s_allInstances)
+                    {
+                        if (wnt == null) continue;
+                        Piece piece = wnt.m_piece;
+                        if (piece == null || !piece.IsPlacedByPlayer()) continue;
+                        float hp = wnt.GetHealthPercentage();
+                        if (hp <= 0f || hp >= 1f) continue; // unrepairable / already whole
+                        float dx = piece.transform.position.x - hmAI.transform.position.x;
+                        float dz = piece.transform.position.z - hmAI.transform.position.z;
+                        float d = Mathf.Sqrt(dx * dx + dz * dz); // flat XZ, like the live scan
+                        if (d > Utils.MenderRange) continue;
+                        float score = hp * d;
+                        if (score < bestScore)
+                        {
+                            bestScore = score;
+                            target = wnt;
+                        }
+                    }
+                    if (target == null) return;
+                    target.m_nview.InvokeRPC("RPC_Repair", 0L);
+                    nEff++;
+                }
+            }
+
+            // FARMER: n jobs, each = 1 harvest + replant of a mature crop in range (the chest
+            // supplies the cultivator, exactly like the live loop). The base yields fall to
+            // the ground (the game's own pick) and are swept into the chest at the end; the
+            // FREE-BONUS yield is delivered straight to the chest. World-capped: stops when
+            // crops or cultivators run out.
+            private static void CatchupFarmer(HirdmandrAI hmAI, HirdmandrChest chest, int n, float p, out int nEff)
+            {
+                nEff = 0;
+                Inventory inv = chest.m_container.m_inventory;
+                List<Pickable> crops = chest.GetMatureCropsInRange();
+                crops.Sort(delegate(Pickable a, Pickable b)
+                {
+                    float da = (a != null && a.transform != null) ? Vector3.Distance(chest.transform.position, a.transform.position) : float.MaxValue;
+                    float db = (b != null && b.transform != null) ? Vector3.Distance(chest.transform.position, b.transform.position) : float.MaxValue;
+                    return da.CompareTo(db);
+                });
+                Dictionary<string, int> yieldCounts = new Dictionary<string, int>();
+                foreach (Pickable crop in crops)
+                {
+                    if (nEff >= n) break;
+                    if (crop == null || crop.transform == null) continue;
+                    // No NPC-reach check: the live-loop farmer WALKS to each crop inside the 15m
+                    // chest work area (FarmerMoveTimeout), so the catch-up matches that work area
+                    // (crops within FarmerRange of the chest, from GetMatureCropsInRange) rather
+                    // than requiring the crop to be within reach of the NPC's current position.
+                    string yi = chest.YieldsOf(crop);
+                    if (yi == null) continue;
+                    FarmerCrop entry;
+                    if (!FarmerCrops.TryGetByYield(yi, out entry)) continue;
+                    if (!inv.HaveItem(entry.consumeItem)) continue;
+                    Vector3 spot;
+                    if (!FarmerHarvest(hmAI.m_hmHumanoid, crop, out yi, out spot)) continue;
+                    inv.RemoveOneItem(inv.GetItem(entry.consumeItem));
+                    FarmerReplant(spot, entry.sapling);
+                    int count;
+                    yieldCounts.TryGetValue(yi, out count);
+                    yieldCounts[yi] = count + 1;
+                    nEff++;
+                }
+                foreach (KeyValuePair<string, int> kv in yieldCounts)
+                {
+                    FarmerCrop entry;
+                    if (!FarmerCrops.TryGetByYield(kv.Key, out entry)) continue;
+                    // FREE-BONUS: expected-value bonus yield for this yield type, delivered
+                    // straight to the chest (the base yield went in via the ground sweep).
+                    AddItemsCount(chest, kv.Key, (int)(kv.Value * p) * entry.yieldAmount);
+                }
+                CatchupCollectYields(hmAI, chest);
+                // Commit the whole chest once (cultivator removed + bonus yields + ground sweep);
+                // one final Save persists, many per-iteration Saves did not.
+                chest.m_container.Save();
+            }
+
+            // The catch-up version of FarmerCollectYields: sweep the ground drops near the NPC
+            // into the chest (same range / filter / destroy as the live loop).
+            private static void CatchupCollectYields(HirdmandrAI hmAI, HirdmandrChest chest)
+            {
+                foreach (ZDO zdo in Utils.GetAllZDOsInRange(hmAI.transform.position, Utils.FarmerRange))
+                {
+                    ZNetView cv = ZNetScene.instance.FindInstance(zdo);
+                    if (cv == null) continue;
+                    GameObject go = cv.gameObject;
+                    if (go == null) continue;
+                    ItemDrop it = go.GetComponent<ItemDrop>();
+                    if (it == null || it.m_itemData == null || it.m_itemData.m_shared == null) continue;
+                    if (!FarmerCrops.IsKnownYield(it.m_itemData.m_shared.m_name)) continue;
+                    if (chest.m_container.m_inventory.AddItem(it.m_itemData))
+                    {
+                        if (hmAI.m_znetv.GetZDO() == null)
+                        {
+                            UnityEngine.Object.Destroy((UnityEngine.Object)(object)go);
+                        }
+                        else
+                        {
+                            ZNetScene.instance.Destroy(go);
+                        }
+                    }
+                }
+            }
+
+            // Skill: n steps of the live ModifySkill curve (per spec, regardless of how many
+            // jobs the world actually absorbed), applied once via SetSkillValue (which also
+            // persists to the ZDO). If the floor crosses an integer, fire the level-up effect
+            // + the socialize moment, exactly like ModifySkill does.
+            private static void ApplyCatchupSkill(HirdmandrAI hmAI, string job, int n, float startSkill)
+            {
+                if (n <= 0) return;
+                HMSkills skills = hmAI.m_hmnpc.m_skills;
+                if (skills == null) return;
+                float cur = startSkill;
+                for (int i = 0; i < n; i++)
+                {
+                    // The exact live curve: +1 below level 1, else +1/floor(value) (change=1).
+                    if (Math.Floor(cur) > 0f)
+                    {
+                        cur += (float)(1.0 / Math.Floor(cur));
+                    }
+                    else
+                    {
+                        cur += 1.0f;
+                    }
+                    if (cur < 0f) cur = 0f;
+                    if (cur > 100f) cur = 100f;
+                }
+                skills.SetSkillValue(job, cur);
+                int floorStart = (int)Math.Floor(startSkill);
+                int floorEnd = (int)Math.Floor(cur);
+                if (floorEnd > floorStart)
+                {
+                    hmAI.m_hmnpc.FireMpEffect(HMEffectKind.SkillLevelup, job + ":" + floorEnd);
+                    if (job != "fighter" && job != "melee" && job != "range")
+                    {
+                        hmAI.m_hmnpc.m_socialize.EnqueueSkillup(job, SkillReadable(job), floorEnd);
+                    }
+                }
+            }
+
+            // The readable name for a job key ("woodburner" -> "Wood Burner"); falls back to
+            // the key itself if the skill table doesn't know it.
+            private static string SkillReadable(string job)
+            {
+                foreach (HMSkills.SkillDef def in HMSkills.m_skillDefs)
+                {
+                    if (def.key == job) return def.readable;
+                }
+                return job;
+            }
+
+            // #94 entry point (HirdmandrAI.RunCatchupWork -> WorkDaySM.RunCatchupWork -> here).
+            // Runs the top enabled job for the work seconds the unsim gap covers, FAST, with
+            // the real world effects.
+            public static void RunCatchupWork(HirdmandrAI hmAI, float gapSeconds, float storedToD)
+            {
+                if (hmAI == null || hmAI.m_hmnpc == null || gapSeconds <= 0f) return;
+                EnsureCatchupItemTables();
+                HMSkills skills = hmAI.m_hmnpc.m_skills;
+                if (skills == null) return;
+                List<string> jobs = skills.GetEnabledSkillsHighestFirst();
+                if (jobs == null || jobs.Count == 0) return;
+                string job = jobs[0];
+                float skill = skills.GetSkill(job);
+                float timePerJob = 18f - 0.18f * skill;
+                if (timePerJob < 0.5f) timePerJob = 0.5f;
+                float workSeconds = CatchupWorkSeconds(gapSeconds, storedToD);
+                int n = (int)Mathf.Floor(workSeconds / timePerJob);
+                if (n < 1) return;
+                HirdmandrChest chest = null;
+                if (job != "mender")
+                {
+                    chest = FindCatchupWorksite(hmAI, job);
+                    if (chest == null) return;
+                }
+                float p = (int)skill / 400f;
+                int nEff = 0;
+                if (job == "woodburner")
+                {
+                    CatchupWoodburner(chest, n, p, out nEff);
+                }
+                else if (job == "furnaceoperator")
+                {
+                    CatchupFurnaceoperator(chest, n, p, out nEff);
+                }
+                else if (job == "lamplighter")
+                {
+                    CatchupLamplighter(hmAI, chest, n, skill, p, out nEff);
+                }
+                else if (job == "mender")
+                {
+                    CatchupMender(hmAI, n, out nEff);
+                }
+                else if (job == "farmer")
+                {
+                    CatchupFarmer(hmAI, chest, n, p, out nEff);
+                }
+                else
+                {
+                    return; // non-artisan job: nothing to catch up
+                }
+                // nEff (not n): the world only absorbed nEff jobs (capped by wood/seeds/crops in
+                // range), so the artisan did nEff jobs (idle for the rest) -> skill + log use nEff.
+                ApplyCatchupSkill(hmAI, job, nEff, skill);
+                Jotunn.Logger.LogInfo(hmAI.m_hmHumanoid.m_name + " processed " + nEff + " " + SkillReadable(job) + " while not simulated.");
+            }
+        }
+
+        // #94 catch-up forwarder: HirdmandrAI.RunCatchupWork lands here (the AI class doesn't
+        // reach into the work-day internals); the actual work logic is on NodeDoJob.
+        public static void RunCatchupWork(HirdmandrAI hmAI, float gapSeconds, float storedToD)
+        {
+            NodeDoJob.RunCatchupWork(hmAI, gapSeconds, storedToD);
         }
     }
 }
