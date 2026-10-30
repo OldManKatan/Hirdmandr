@@ -310,7 +310,10 @@ namespace Hirdmandr
 
             public override void EnterFrom(int aState)
             {
-                hmAI.moveToTrying = false;
+                // Entering follow always starts a fresh gather pick session (any in-flight pick
+                // from before - e.g. interrupted by threat - is dropped, including its move and
+                // pending sweep).
+                hmAI.ClearGatherSession();
             }
             public override void RunState()
             {
@@ -319,7 +322,11 @@ namespace Hirdmandr
                 if (!hmAI.m_hmnpc.m_following)
                 {
                     parentSM.ChangeState("schedule");
+                    return;
                 }
+                // Gather (Himthiki Gatherer job): the pick session runs as a sub-behavior of
+                // follow (S5). A no-op unless the session gates hold (GatherSessionGatesHold).
+                hmAI.GatherPickStep();
             }
         }
     }

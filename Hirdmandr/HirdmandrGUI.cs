@@ -12,6 +12,10 @@ namespace Hirdmandr
         GameObject GUIHirdmandr;
         NPCPlayerClone m_humanoid;
         HirdmandrNPC m_hirdmandrnpc;
+        // GUI freeze MP: on a NON-OWNER client this client's panel state must reach the owner
+        // (the movement authority). Track the last value we RPC'd so we only send on a
+        // transition (open<->closed), not every frame. The owner applies directly, never RPCs.
+        bool m_lastSentGuiFreeze;
         GameObject g_name;
         GameObject g_jarl;
         GameObject g_talk;
@@ -42,6 +46,8 @@ namespace Hirdmandr
         GameObject g_war_ch_thegnNight;
         GameObject g_war_t_thegnNight;
         GameObject g_war_t_guardHeader;
+        GameObject g_b_gatherWood;
+        GameObject g_b_gatherStone;
         GameObject g_war_ch_himthiki;
         GameObject g_war_t_himthiki;
         GameObject g_b_follow;
@@ -67,6 +73,35 @@ namespace Hirdmandr
 
         void Update()
         {
+            // GUI freeze (Thomas): while this NPC's management panel is open the NPC stands still
+            // no matter what job/state it is in, so the panel isn't dragged off-screen by a
+            // moving NPC. Derived from activeSelf (the same single source of truth TogglePanel
+            // uses) and set every frame; it clears itself when the panel is closed. m_hirdmandrnpc
+            // is normally assigned in TogglePanel; grab it here too so the freeze holds from the
+            // first frame, not just after the first open. MP: every client sets its own panel
+            // state on its local HirdmandrAI (SetLocalGuiFreeze); a NON-owner additionally RPCs
+            // the transition to the owner (RPC_HMGuiFreeze), since the owner is the movement
+            // authority. The owner applies its own state directly and never RPCs.
+            if (!m_hirdmandrnpc)
+            {
+                m_hirdmandrnpc = GetComponent<HirdmandrNPC>();
+            }
+            if (m_hirdmandrnpc != null && m_hirdmandrnpc.m_hirdmandrAI != null)
+            {
+                HirdmandrAI hmAI = m_hirdmandrnpc.m_hirdmandrAI;
+                bool panelOpen = GUIHirdmandr != null && GUIHirdmandr.activeSelf;
+                hmAI.SetLocalGuiFreeze(panelOpen);
+                // MP: a non-owner client's panel must freeze the OWNER's copy of the NPC, so
+                // RPC the transition (open<->closed only) at the owner. The owner applies
+                // locally and never RPCs (a sender never receives its own RPC).
+                ZNetView v = hmAI.m_znetv;
+                if (v != null && !v.IsOwner() && panelOpen != m_lastSentGuiFreeze)
+                {
+                    m_lastSentGuiFreeze = panelOpen;
+                    v.InvokeRPC("RPC_HMGuiFreeze", panelOpen);
+                }
+            }
+
             if (GUIHirdmandr)
             {
                 if (
@@ -869,7 +904,32 @@ namespace Hirdmandr
                     height: 40f,
                     addContentSizeFitter: false);
 
-                all_wars = new GameObject[24] {
+                // Gather Rules (Himthiki Gatherer): text-toggling buttons on the "Guard here" row
+                // (y=-500), same two columns as Day/Night. Shown only while jobHimthiki &&
+                // jobGatherer (gated in RefreshGuardControls). Thomas.
+                g_b_gatherWood = GUIManager.Instance.CreateButton(
+                    text: m_hirdmandrnpc.m_gatherIgnoreWood ? "Ignore Wood" : "Collect Wood",
+                    parent: GUIHirdmandr.transform,
+                    anchorMin: new Vector2(0.55f, 1f),
+                    anchorMax: new Vector2(0.55f, 1f),
+                    position: new Vector2(0f, -500f),
+                    width: 120f,
+                    height: 40f);
+                g_b_gatherWood.SetActive(true);
+                g_b_gatherWood.GetComponent<Button>().onClick.AddListener(ToggleGatherIgnoreWood);
+
+                g_b_gatherStone = GUIManager.Instance.CreateButton(
+                    text: m_hirdmandrnpc.m_gatherIgnoreStone ? "Ignore Stone" : "Collect Stone",
+                    parent: GUIHirdmandr.transform,
+                    anchorMin: new Vector2(0.78f, 1f),
+                    anchorMax: new Vector2(0.78f, 1f),
+                    position: new Vector2(0f, -500f),
+                    width: 120f,
+                    height: 40f);
+                g_b_gatherStone.SetActive(true);
+                g_b_gatherStone.GetComponent<Button>().onClick.AddListener(ToggleGatherIgnoreStone);
+
+                all_wars = new GameObject[26] {
                     g_war_ch_thegn,
                     g_war_t_thegn,
                     g_b_guard,
@@ -894,7 +954,9 @@ namespace Hirdmandr
                     g_war_ch_rangeMid,
                     g_war_t_rangeMid,
                     g_war_ch_rangeFar,
-                    g_war_t_rangeFar
+                    g_war_t_rangeFar,
+                    g_b_gatherWood,
+                    g_b_gatherStone
                 };
 
                 g_role_tg = g_role_t_header.AddComponent<ToggleGroup>();
@@ -1069,6 +1131,7 @@ namespace Hirdmandr
                     }
                     g_war_ch_thegn.GetComponent<Toggle>().SetIsOnWithoutNotify(m_hirdmandrnpc.m_jobThegn);
                     g_war_ch_himthiki.GetComponent<Toggle>().SetIsOnWithoutNotify(m_hirdmandrnpc.m_jobHimthiki);
+                    RefreshGuardControls();
                 }
             }
         }
@@ -1178,17 +1241,80 @@ namespace Hirdmandr
         {
             if (g_b_guard == null || g_war_ch_thegnDay == null || g_war_ch_thegnNight == null) return;
             bool thegn = m_hirdmandrnpc.m_roleWarrior && m_hirdmandrnpc.m_jobThegn;
+            // Gather Rules buttons show while the Himthiki job is active AND the Gatherer
+            // sub-feature is enabled (the gate Thomas chose).
+            bool gather = m_hirdmandrnpc.m_jobHimthiki && m_hirdmandrnpc.m_jobGatherer;
             g_war_ch_thegnDay.GetComponent<Toggle>().isOn = m_hirdmandrnpc.m_thegnDayshift;
             g_war_ch_thegnNight.GetComponent<Toggle>().isOn = m_hirdmandrnpc.m_thegnNightshift;
             g_b_guard.GetComponent<Button>().interactable = thegn;
             g_war_ch_thegnDay.GetComponent<Toggle>().interactable = thegn;
             g_war_ch_thegnNight.GetComponent<Toggle>().interactable = thegn;
+            // The Gatherer sub-feature is usable only while the Himthiki job is active
+            // (the shift toggles above gate on m_jobThegn; this one gates on m_jobHimthiki).
+            // The whole warrior page is already role-hidden via all_wars, so no role gate here.
+            g_war_ch_gatherer.GetComponent<Toggle>().interactable = m_hirdmandrnpc.m_jobHimthiki;
+
+            // Visibility: the shared section shows the Thegn guard controls while jobThegn and the
+            // Gather Rules buttons while jobHimthiki && jobGatherer. The two jobs are mutually
+            // exclusive, so the content sets never coexist (the all_wars role hide still applies).
+            g_b_guard.SetActive(thegn);
+            g_war_ch_thegnDay.SetActive(thegn);
+            g_war_t_thegnDay.SetActive(thegn);
+            g_war_ch_thegnNight.SetActive(thegn);
+            g_war_t_thegnNight.SetActive(thegn);
+            if (g_b_gatherWood != null)
+            {
+                g_b_gatherWood.SetActive(gather);
+                g_b_gatherWood.GetComponentInChildren<Text>().text = m_hirdmandrnpc.m_gatherIgnoreWood ? "Ignore Wood" : "Collect Wood";
+            }
+            if (g_b_gatherStone != null)
+            {
+                g_b_gatherStone.SetActive(gather);
+                g_b_gatherStone.GetComponentInChildren<Text>().text = m_hirdmandrnpc.m_gatherIgnoreStone ? "Ignore Stone" : "Collect Stone";
+            }
+            // Header: one element, text swaps by context ("Guard Duty" / "Gather Rules").
+            if (g_war_t_guardHeader != null)
+            {
+                if (thegn || gather)
+                {
+                    g_war_t_guardHeader.GetComponent<Text>().text = thegn ? "Guard Duty" : "Gather Rules";
+                    g_war_t_guardHeader.SetActive(true);
+                }
+                else
+                {
+                    g_war_t_guardHeader.SetActive(false);
+                }
+            }
         }
 
         public void ToggleGatherer(bool toggle_value)
         {
             m_hirdmandrnpc.InvokeSetting("jobGatherer", toggle_value);
+            RefreshGuardControls();
             Jotunn.Logger.LogInfo("Gatherer enabled changed to " + toggle_value.ToString());
+        }
+
+        // Gather Rules: text-toggling buttons. Flip the field, relabel this button, and persist
+        // (InvokeSetting -> ApplySettingLocal also re-scans + drops a now-blacklisted current
+        // target on the AI).
+        public void ToggleGatherIgnoreWood()
+        {
+            bool nv = !m_hirdmandrnpc.m_gatherIgnoreWood;
+            if (g_b_gatherWood != null)
+            {
+                g_b_gatherWood.GetComponentInChildren<Text>().text = nv ? "Ignore Wood" : "Collect Wood";
+            }
+            m_hirdmandrnpc.InvokeSetting("gatherIgnoreWood", nv);
+        }
+
+        public void ToggleGatherIgnoreStone()
+        {
+            bool nv = !m_hirdmandrnpc.m_gatherIgnoreStone;
+            if (g_b_gatherStone != null)
+            {
+                g_b_gatherStone.GetComponentInChildren<Text>().text = nv ? "Ignore Stone" : "Collect Stone";
+            }
+            m_hirdmandrnpc.InvokeSetting("gatherIgnoreStone", nv);
         }
 
         private void SyncCombatTogglesFromFields()

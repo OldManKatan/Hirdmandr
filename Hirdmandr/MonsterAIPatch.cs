@@ -166,7 +166,44 @@ namespace Hirdmandr
                 return true;
             }
             HirdmandrAI ai = __instance.GetComponent<HirdmandrAI>();
-            return !(ai != null && ai.moveEnabled);
+            // m_guiFreeze (GUI freeze): the panel is open, so the native idle/wander branch is
+            // suppressed too (in addition to UpdateMoving's StopMoving), skipping the whole
+            // branch rather than just its MoveTo call.
+            return !(ai != null && (ai.moveEnabled || ai.m_guiFreeze));
         }
     }
+
+    // Gather (S5): the follow-state twin of the patch above. While a gather detour is in flight
+    // (m_gatherTarget set by GatherPickStep) our UpdateMoving issues MoveTo(bush) every FixedUpdate,
+    // but the native MonsterAI.UpdateAI is in its FOLLOW branch (m_follow set), so it ALSO runs
+    // Follow(m_follow, dt) -> MoveTo(player) every frame - two drivers on one path state, the
+    // jitter seen in the S5 mini-test. We deliberately do NOT null m_follow: that trips the
+    // auto-stop repair in HirdmandrAI.Update (m_following && GetFollowTarget()==null ->
+    // StopFollowing -> the NPC leaves follow for its schedule), and the state driver re-requests
+    // "follow" every frame while m_following anyway. Follow is pure movement here, so skipping it
+    // while the detour is in flight makes our MoveTo(bush) the sole driver, with m_follow /
+    // m_following / GetFollowTarget() all intact - MP sync, the follow-hardening guards, and the
+    // auto-stop repair are unaffected. Gated on (m_gatherTarget || m_gatherSweepPending), NOT moveEnabled: after the walk
+    // settles (moveEnabled false) and before the Interact (next 0.5s tick) the native Follow must
+    // stay off, or it yanks the NPC back out of the 4m Interact reach. It must also stay off
+    // during the ~1s ground sweep after the pick (m_gatherSweepPending, m_gatherTarget already
+    // null), or it walks the NPC away from the pick point before the sweep reaches the yield.
+    [HarmonyPatch(typeof(BaseAI), nameof(BaseAI.Follow))]
+    internal class BaseAI_FollowPatch
+    {
+        private static bool Prefix(BaseAI __instance)
+        {
+            if (__instance == null)
+            {
+                return true;
+            }
+            HirdmandrAI ai = __instance.GetComponent<HirdmandrAI>();
+            // m_guiFreeze (GUI freeze): the panel is open, so native follow-walking is
+            // suppressed too (in addition to UpdateMoving's StopMoving), skipping the whole
+            // branch rather than just its MoveTo call.
+            return !(ai != null && (ai.m_gatherTarget != null || ai.m_gatherSweepPending || ai.m_guiFreeze));
+        }
+    }
+
+
 }

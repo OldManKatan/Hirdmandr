@@ -71,6 +71,21 @@ namespace Hirdmandr
         // re-issuing TryToMove every tick (which made it waddle forever at an unreachable anchor).
         public bool menderMoveIssued;
         public bool moveEnabled;
+        // GUI freeze: true while ANY client's management panel (HirdmandrGUI) is open - the NPC
+        // must stand still so the panel isn't dragged off-screen by a moving NPC. Every client
+        // sets its own panel state (HirdmandrGUI.Update -> SetLocalGuiFreeze); a non-owner client
+        // ALSO fires RPC_HMGuiFreeze so the OWNER's copy is set, because the owner is the
+        // movement authority (FixedUpdate/UpdateMoving are owner-gated). m_guiFreeze = this
+        // client's own panel (m_guiFreezeLocal) OR a peer's panel (m_guiFreezeRemote, owner-side,
+        // set by the RPC), so the owner stays frozen whether its own or a peer's panel is open.
+        // While true, UpdateMoving halts the current path every FixedUpdate (StopMoving) and the
+        // IdleMovement/Follow prefixes suppress the native wander/follow branches; in-place
+        // combat is preserved (DoAttack/SelectBestAttack are untouched).
+        public bool m_guiFreeze;
+        // This client's own panel open (HirdmandrGUI.Update, per-frame from activeSelf).
+        private bool m_guiFreezeLocal;
+        // A non-owner client's panel open (owner-side only; set by RPC_HMGuiFreeze).
+        private bool m_guiFreezeRemote;
         public float moveToTimeout;
         public float moveMinDist;
         public float moveMaxDist;
@@ -140,6 +155,35 @@ namespace Hirdmandr
 		public bool farmerMoveIssued = false;
 		public float farmerCollectNextTime = 0f;
 
+        // Gather fields (Himthiki Gatherer job): the 5s scan cache. m_gatherPickables = the
+        // loaded pickables, m_gatherExcluded = the ones inside GatherSafeRadius of a
+        // player-placed chest (the safe zone), m_gatherAnchorCount = anchors found in the
+        // last scan. The cache is a starting point: eligibility is re-validated at pick
+        // time (S5).
+        public float m_lastGatherScan = -60f;
+        public List<Pickable> m_gatherPickables = new List<Pickable>();
+        public HashSet<Pickable> m_gatherExcluded = new HashSet<Pickable>();
+        public int m_gatherAnchorCount;
+
+        // Gather (S5/S6) pick session (a sub-behavior of the follow state): m_gatherTarget = the
+        // pickable being moved to / picked, m_gatherMoveIssued = a TryToMove was issued for it,
+        // m_gatherSweepPending = a pick just happened and its ~1s ground sweep is in flight (the
+        // NPC holds at the pick point; the Follow patch suppresses native Follow while this OR
+        // m_gatherTarget is set), m_gatherTargetPos = the pre-Interact pick point the sweep is
+        // centered on (where the yield lands), and the per-target cooldown so a blocked
+        // pickable isn't immediately re-selected (tug-loop guard).
+        public Pickable m_gatherTarget = null;
+        public bool m_gatherMoveIssued = false;
+        public bool m_gatherSweepPending = false;
+        public Vector3 m_gatherTargetPos = Vector3.zero;
+        public Pickable m_gatherCooldownTarget = null;
+        public float m_gatherCooldownUntil = 0f;
+
+        // Gather (reselect pause): the earliest time the NPC may select a new target, after a
+        // pick / abandon. A short beat between picks so it doesn't rush to the next (possibly
+        // opposite-side) pickable and shuttle back and forth.
+        public float m_gatherReselectAt = 0f;
+
         // #94 Catch-up: the "last seen simulating" heartbeat. m_catchupLastSimTime/m_catchupLastToD
         // are in-memory (world sim seconds via ZNet.instance.GetTimeSeconds() + ToD at the last
         // Update); the ZDO key "hmnpc_catchupToD" (read/written via m_catchupLastZDOWrite)
@@ -178,6 +222,13 @@ namespace Hirdmandr
             m_hmBaseAI = GetComponent<BaseAI>();
             m_hmHumanoid = GetComponent<NPCPlayerClone>();
             m_znetv = GetComponent<ZNetView>();
+            // GUI freeze MP: a non-owner client's HirdmandrGUI fires RPC_HMGuiFreeze at THIS
+            // view's owner (the movement authority) on panel open/close; the owner applies
+            // its own panel state directly and never RPCs.
+            if (m_znetv != null)
+            {
+                m_znetv.Register<bool>("RPC_HMGuiFreeze", RPC_HMGuiFreeze);
+            }
             topSM = new TopLevelSM(GetComponent<HirdmandrAI>());
 
             hazardTypes.Add("fire_pit", 1f);
@@ -216,6 +267,29 @@ namespace Hirdmandr
                 if (m_hmnpc.m_following && m_hmMonsterAI.GetFollowTarget() == null)
                 {
                     m_hmnpc.StopFollowing();
+                }
+
+                // Gather (Himthiki Gatherer job): refresh the 5s scan cache while the job can
+                // actually run (warrior role + Himthiki job + Gatherer enabled + following);
+                // otherwise drop it (the S5 session gate is re-checked every frame, so a stale
+                // cache is never harmful, just wasted memory).
+                if (m_hmnpc != null && m_hmnpc.m_roleWarrior && m_hmnpc.m_jobHimthiki
+                    && m_hmnpc.m_jobGatherer && m_hmnpc.m_following)
+                {
+                    if (Time.time - m_lastGatherScan > 5f)
+                    {
+                        GatherScan();
+                        m_lastGatherScan = Time.time;
+                    }
+                }
+                else if (m_gatherPickables != null && m_gatherPickables.Count > 0)
+                {
+                    m_gatherPickables.Clear();
+                    if (m_gatherExcluded != null)
+                    {
+                        m_gatherExcluded.Clear();
+                    }
+                    m_gatherAnchorCount = 0;
                 }
 
                 // Drive the top-level state from (m_following, alerted). ChangeState only sets
@@ -300,6 +374,391 @@ namespace Hirdmandr
             }
         }
 
+        // Gather (Himthiki Gatherer job): rebuild the 5s scan cache.
+        // Pickables = the loaded set (the player's simulated range - unstreamed objects don't
+        // exist to Unity). Anchors = player-placed storage (Piece + IsPlacedByPlayer +
+        // Container) union HirdmandrChest (defensive redundancy, confirmed in S1). A pickable
+        // within GatherSafeRadius of any anchor is marked excluded (the "away from home"
+        // safe zone).
+        public void GatherScan()
+        {
+            // A fresh scan only refreshes the cache (destroyed pickables drop out, streamed-in
+            // pickables appear). The pick session itself is continuous (S6 chain): picks are
+            // paced by the ~1s ground sweep (m_gatherSweepPending), not by the scan cadence.
+            m_gatherPickables.Clear();
+            var pickups = UnityEngine.Object.FindObjectsOfType<Pickable>();
+            foreach (var pk in pickups)
+            {
+                // CanBePicked() = the game's own "pickable right now?" check: the hide-when-
+                // picked visual is active in hierarchy, or else !m_picked && enabled. Picked
+                // pickables stay in the world as GameObjects (a stone is hidden until it
+                // respawns), so without this they'd stay cached and get chased forever.
+                if (pk != null && pk.transform != null && pk.CanBePicked())
+                {
+                    // Gather Rules blacklist: never cache an ignored resource - a blacklisted
+                    // pickable is simply not a target (no walk-to, no pick, no sweep).
+                    if (GatherBlacklisted(pk)) continue;
+                    m_gatherPickables.Add(pk);
+                }
+            }
+
+            m_gatherExcluded.Clear();
+            m_gatherAnchorCount = 0;
+            var anchors = new List<Vector3>();
+            var pieces = UnityEngine.Object.FindObjectsOfType<Piece>();
+            foreach (var pc in pieces)
+            {
+                if (pc == null || pc.transform == null)
+                {
+                    continue;
+                }
+                if (pc.GetComponent<Container>() == null)
+                {
+                    continue;
+                }
+                if (pc.IsPlacedByPlayer() || pc.GetComponent<HirdmandrChest>() != null)
+                {
+                    anchors.Add(pc.transform.position);
+                }
+            }
+            m_gatherAnchorCount = anchors.Count;
+            if (anchors.Count > 0)
+            {
+                float r2 = Utils.GatherSafeRadius * Utils.GatherSafeRadius;
+                foreach (var pk in m_gatherPickables)
+                {
+                    if (pk == null || pk.transform == null)
+                    {
+                        continue;
+                    }
+                    Vector3 pp = pk.transform.position;
+                    for (int i = 0; i < anchors.Count; i++)
+                    {
+                        Vector3 ap = anchors[i];
+                        float dx = pp.x - ap.x;
+                        float dz = pp.z - ap.z;
+                        if (dx * dx + dz * dz <= r2)
+                        {
+                            m_gatherExcluded.Add(pk);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Gather Rules blacklist (Thomas): does this pickable match an ignored resource? Matched
+        // on the pickable's prefab name - wood = "Pickable_Branch", stone = "Pickable_Stone"
+        // (StartsWith so Pickable_Stone_Large counts as stone too). Exact runtime names confirmed
+        // in-game.
+        public bool GatherBlacklisted(Pickable pk)
+        {
+            if (pk == null || m_hmnpc == null) return false;
+            string n = pk.name;
+            if (n == null) return false;
+            if (m_hmnpc.m_gatherIgnoreWood && n.StartsWith("Pickable_Branch")) return true;
+            if (m_hmnpc.m_gatherIgnoreStone && n.StartsWith("Pickable_Stone")) return true;
+            return false;
+        }
+
+        // Called from the GUI (via ApplySettingLocal) when the Gather Rules blacklist changes:
+        // refresh the scan cache now (don't wait for the 5s cadence) and drop the current target
+        // if it is now blacklisted, so the NPC re-selects a valid target on the next tick.
+        public void GatherBlacklistChanged()
+        {
+            GatherScan();
+            if (m_gatherTarget != null && GatherBlacklisted(m_gatherTarget))
+            {
+                // Drop just the target + its in-flight move (not the full session): the next
+                // GatherPickStep re-selects a valid target.
+                m_gatherTarget = null;
+                m_gatherMoveIssued = false;
+                if (moveEnabled)
+                {
+                    moveEnabled = false;
+                    moveToPos = Vector3.zero;
+                    moveToTrying = false;
+                    moveToReached = false;
+                    if (m_hmMonsterAI != null) m_hmMonsterAI.StopMoving();
+                }
+            }
+        }
+
+        // Gather (S5): the session gates - all must hold for a pick to be considered. Checked on
+        // the 0.5s SM tick (NodeFollow) and re-validated before Interact. (S5 has no sweep, so
+        // weight never rises here; the weight gate is future-proofed for S6.)
+        public bool GatherSessionGatesHold()
+        {
+            if (m_hmnpc == null) return false;
+            if (!m_hmnpc.m_roleWarrior || !m_hmnpc.m_jobHimthiki || !m_hmnpc.m_jobGatherer) return false;
+            if (!m_hmnpc.m_following) return false;
+            if (m_hmMonsterAI == null || m_hmMonsterAI.IsAlerted()) return false;
+            if (m_hmMonsterAI.GetFollowTarget() == null) return false;
+            // The follow leash: never gather while the player is >20m away ("never chase a
+            // running player"; far behind = no gather).
+            if (GatherHDist(transform.position, m_hmMonsterAI.GetFollowTarget().transform.position) > Utils.GatherTargetRadius) return false;
+            if (m_hmHumanoid == null || m_hmHumanoid.m_inventory == null) return false;
+            return m_hmHumanoid.m_inventory.GetTotalWeight() < m_hmHumanoid.GetMaxCarryWeight();
+        }
+
+        // Gather (S5): the closest cached pickable to the center, not excluded (safe zone),
+        // within GatherTargetRadius of the center, and not on cooldown. Center = the follow
+        // target while following, else this NPC (the design's evaluation radius).
+        public Pickable SelectGatherTarget()
+        {
+            if (m_gatherPickables == null || m_gatherPickables.Count == 0) return null;
+            Vector3 center = transform.position;
+            if (m_hmnpc != null && m_hmnpc.m_following && m_hmMonsterAI != null && m_hmMonsterAI.GetFollowTarget() != null)
+            {
+                center = m_hmMonsterAI.GetFollowTarget().transform.position;
+            }
+            float r2 = Utils.GatherTargetRadius * Utils.GatherTargetRadius;
+            Pickable best = null;
+            float bestD2 = float.MaxValue;
+            for (int i = 0; i < m_gatherPickables.Count; i++)
+            {
+                Pickable pk = m_gatherPickables[i];
+                if (pk == null || pk.transform == null) continue;
+                // Live re-check: the cache is built on the scan cadence, but a pickable can be
+                // picked (hidden) any time between scans (by this NPC or by the player).
+                if (!pk.CanBePicked()) continue;
+                if (m_gatherExcluded != null && m_gatherExcluded.Contains(pk)) continue;
+                if (pk == m_gatherCooldownTarget) continue;
+                float dx = pk.transform.position.x - center.x;
+                float dz = pk.transform.position.z - center.z;
+                float d2 = dx * dx + dz * dz;
+                if (d2 > r2) continue;
+                if (d2 < bestD2)
+                {
+                    bestD2 = d2;
+                    best = pk;
+                }
+            }
+            return best;
+        }
+
+        // Gather (S5): one tick of the pick session, driven from NodeFollow on the 0.5s SM tick.
+        // A single pick (target selection + move + Interact); no sweep / no chain yet (S6).
+        public void GatherPickStep()
+        {
+            // A gate dropped mid-session (job off, not following, alerted, player >20m, weight
+            // cap): drop the move cleanly. (Danger routes to the top-level threatened transition,
+            // not here.)
+            if (!GatherSessionGatesHold())
+            {
+                // The session is over (job off, alerted, player >20m, weight cap): clear it fully,
+                // including stopping the in-flight gather move - a stale MoveTo would keep driving
+                // the NPC to the pickable and fight the native combat movement (erratic/stunted
+                // pathing in a fight). The 0.5s SM tick is "immediate" enough (Thomas).
+                ClearGatherSession();
+                return;
+            }
+            // A pick just happened and its ~1s ground sweep is in flight: hold position at the
+            // pick point so the sweep can reach the yield drops (native Follow is suppressed by
+            // the Follow patch via m_gatherSweepPending). The sweep clears m_gatherSweepPending,
+            // and the next tick chains to the next target.
+            if (m_gatherSweepPending)
+            {
+                return;
+            }
+
+            // No live target: (re)select. m_gatherTarget being null also covers "the previous
+            // target was destroyed mid-flight" (Unity fake-null) - any in-flight move is dropped.
+            if (m_gatherTarget == null)
+            {
+                m_gatherMoveIssued = false;
+                // Reselect pause: after a pick / abandon, hold for GatherReselectPause before
+                // selecting the next target, so the NPC doesn't rush to the next (possibly
+                // opposite-side) pickable and shuttle back and forth.
+                if (Time.time < m_gatherReselectAt) return;
+                if (m_gatherCooldownTarget != null && Time.time >= m_gatherCooldownUntil)
+                {
+                    m_gatherCooldownTarget = null;
+                }
+                Pickable t = SelectGatherTarget();
+                if (t == null)
+                {
+                    return; // nothing eligible -> just keep following.
+                }
+                m_gatherTarget = t;
+                m_gatherMoveIssued = true;
+                // Farmer-style walk: aim a bit closer than the 4m interact reach, 15s timeout.
+                TryToMove(t.transform.position, 2f, 3f, 6f, false, Utils.FarmerMoveTimeout);
+                return;
+            }
+
+            // Live target: get in reach, then pick.
+            // It may have been picked out from under us (the player) since selection: Interact
+            // on a picked pickable is a silent no-op (no drop, no RPC). Drop it cleanly - no
+            // cooldown needed, the scan/select CanBePicked filter keeps it out from now on.
+            if (!m_gatherTarget.CanBePicked())
+            {
+                m_gatherTarget = null;
+                m_gatherMoveIssued = false;
+                // Picked out from under us (the player): pause before the next selection so the
+                // NPC doesn't immediately turn and rush to another target (shuttle guard).
+                m_gatherReselectAt = Time.time + Utils.GatherReselectPause;
+                return;
+            }
+            float dist = GatherHDist(transform.position, m_gatherTarget.transform.position);
+            if (dist <= Utils.FarmerInteractReach)
+            {
+                DoGatherPick(m_gatherTarget); // captures the pick point, Interacts, schedules the ~1s sweep
+                m_gatherTarget = null;
+                m_gatherMoveIssued = false;
+                // m_gatherSweepPending is set inside DoGatherPick; the sweep clears it (S6 chain).
+                return;
+            }
+
+            // Out of reach: walk to it (one attempt). If the walk settles without getting in
+            // reach, the target is blocked -> abandon + cooldown (tug-loop guard).
+            if (!m_gatherMoveIssued)
+            {
+                m_gatherMoveIssued = true;
+                TryToMove(m_gatherTarget.transform.position, 2f, 3f, 6f, false, Utils.FarmerMoveTimeout);
+            }
+            else if (!moveToTrying)
+            {
+                AbandonGatherTarget();
+            }
+        }
+
+        // Gather (S5/S6): pick a pickable - the game's own Interact (the farmer's exact call):
+        // drops the yield (a networked ItemDrop), drives the pickable's own pick-count/regrowth,
+        // plays the pick VFX. Capture the pick point BEFORE Interact (it destroys the pickable);
+        // the ~1s ground sweep (S6) is centered on m_gatherTargetPos. The sweep is Invoke-delayed
+        // so the RPC/server has time to spawn the yield drops; m_gatherSweepPending holds the NPC
+        // at the pick point (native Follow suppressed) for that window.
+        public void DoGatherPick(Pickable target)
+        {
+            if (target == null || target.transform == null || m_hmHumanoid == null) return;
+            m_gatherTargetPos = target.transform.position; // BEFORE Interact: it destroys the pickable
+            // Bonus yield (Thomas): linear 0% @ 0 skill -> 25% @ 100 skill chance to spawn the
+            // base yield a second time (skill/400f). Issued BEFORE Interact: Interact's
+            // owner-directed RPC_Pick -> RPC_SetPicked -> SetPicked destroys single-pick
+            // pickables (tree/stone/flower), so target is gone by the time Interact returns and
+            // a post-Interact Drop would have nothing to spawn on. The drop lands at the pick
+            // point, where the ~1s ground sweep (m_gatherSweepPending) is centered, so it is
+            // picked up like the base yield. The stack mirrors the game's own base drop exactly
+            // (Game.ScaleDrops of m_amount); offset 0 = no scatter, right on the pick point.
+            // Roll BEFORE the skill-up below, matching the WorkDay live pattern (roll, then
+            // ModifySkill), so the pick's +1.0 does not inflate its own bonus chance.
+            if (target.m_itemPrefab != null && UnityEngine.Random.value <= m_hmnpc.m_skills.GetSkill("gatherer") / 400f)
+            {
+                target.Drop(target.m_itemPrefab, 0, Game.instance.ScaleDrops(target.m_itemPrefab, target.m_amount));
+                // Announce it on the MP effect bus (all clients), like the other jobs' bonus yields.
+                m_hmnpc.FireMpEffect(HMEffectKind.BonusYield, "gatherer bonus yield (extra yield from " + target.name + ")");
+            }
+            target.Interact(m_hmHumanoid, false, false);
+            // Skill up: 1.0f per pickable Interact (the ground-sweep pickup gets none).
+            m_hmnpc.m_skills.ModifySkill("gatherer", 1.0f);
+            // Job done: the Gatherer plays the "interact" anim (owner-local + all clients), so it
+            // looks like it is picking by hand like a player. One anim per pick, never per bonus
+            // drop (see FireArtisanInteractAnim: deliberately not fired for bonus yields).
+            m_hmnpc.FireArtisanInteractAnim();
+            // Schedule the ~1s ground sweep (S6). Defensive cancel so a re-pick can't double-schedule.
+            CancelInvoke("GatherSweep");
+            Invoke("GatherSweep", 1f);
+            m_gatherSweepPending = true;
+            // Reselect pause: hold for GatherReselectPause before the next selection (gated by
+            // m_gatherReselectAt in GatherPickStep) so the NPC doesn't rush to the next pickable.
+            m_gatherReselectAt = Time.time + Utils.GatherReselectPause;
+        }
+
+        // Gather (S6): the ~1s ground sweep, centered on the pick point (m_gatherTargetPos, where
+        // the yield lands). Mirrors the vanilla Player auto-pickup (NPCPlayerClone.cs AutoPickup):
+        // for each auto-pickup ItemDrop within GatherSweepRadius that isn't a unique key, has a
+        // valid ZNetView, passes CanPickup, fits the grid, and fits under the carry weight, call
+        // the game's own Pickup (adds to the inventory, despawns the drop, syncs for all
+        // clients). Then Save() persists the NPC inventory (m_container's grid IS the humanoid's
+        // inventory, via UnifyInventories). Finally clear m_gatherSweepPending so the chain
+        // continues to the next target on the next tick.
+        public void GatherSweep()
+        {
+            m_gatherSweepPending = false;
+            if (m_hmnpc == null || m_hmHumanoid == null || m_hmHumanoid.m_inventory == null) return;
+
+            Vector3 center = m_gatherTargetPos;
+            float r = Utils.GatherSweepRadius;
+            // Same 3-arg OverlapSphere call the vanilla AutoPickup uses (NPCPlayerClone.cs): the
+            // own call catches the ItemDrop pickup colliders, so match it exactly (Physics.AllLayers
+            // stands in for the Player's m_autoPickupMask; we filter by GetComponent<ItemDrop>).
+            Collider[] cols = Physics.OverlapSphere(center, r, Physics.AllLayers);
+            for (int i = 0; i < cols.Length; i++)
+            {
+                Collider col = cols[i];
+                if (col == null || col.attachedRigidbody == null) continue;
+                ItemDrop drop = col.attachedRigidbody.GetComponent<ItemDrop>();
+                if (drop == null || drop.m_itemData == null) continue;
+                if (!drop.m_autoPickup) continue;
+                if (m_hmHumanoid.HaveUniqueKey(drop.m_itemData.m_shared.m_name)) continue;
+                ZNetView nview = drop.GetComponent<ZNetView>();
+                if (nview == null || !nview.IsValid()) continue;
+                if (!drop.CanPickup(true)) continue;
+                if (!m_hmHumanoid.m_inventory.CanAddItem(drop.m_itemData, -1)) continue;
+                // Whole-drop weight (m_stack units), not per-unit: matches what Pickup would add.
+                if (drop.m_itemData.GetWeight(drop.m_itemData.m_stack) + m_hmHumanoid.m_inventory.GetTotalWeight() > m_hmHumanoid.GetMaxCarryWeight()) continue;
+                if (Vector3.Distance(drop.transform.position, center) > r) continue;
+                m_hmHumanoid.Pickup(drop.gameObject, true, true);
+            }
+            if (m_hmnpc.m_container != null)
+            {
+                m_hmnpc.m_container.Save();
+            }
+        }
+
+        // Gather (S5): give up on a target whose walk settled out of reach (blocked). Cooldown it
+        // so the next scan doesn't immediately re-select it (tug loop).
+        public void AbandonGatherTarget()
+        {
+            if (m_gatherTarget != null)
+            {
+                m_gatherCooldownTarget = m_gatherTarget;
+                m_gatherCooldownUntil = Time.time + Utils.GatherTargetCooldown;
+            }
+            m_gatherTarget = null;
+            m_gatherMoveIssued = false;
+            // The walk settled out of reach (blocked): pause before the next selection so the
+            // NPC doesn't immediately turn and rush to another target (shuttle guard).
+            m_gatherReselectAt = Time.time + Utils.GatherReselectPause;
+        }
+
+        // Gather (S5/S6): clear the pick session fully - drop the target, stop the in-flight
+        // gather move, cancel the pending ground sweep, and reset the reselect pause. Called when
+        // the session ends mid-flight (the GatherPickStep gate-fail branch: job off, alerted,
+        // player >20m, weight cap) and on a fresh session start (NodeFollow.EnterFrom). Stopping
+        // the move is the important part: a stale gather MoveTo would keep driving the NPC to
+        // the pickable and fight the native combat movement (erratic/stunted pathing that can
+        // get the NPC killed in a fight). The per-target cooldown is intentionally kept: a
+        // blocked pickable is still blocked across a session restart.
+        public void ClearGatherSession()
+        {
+            m_gatherTarget = null;
+            m_gatherMoveIssued = false;
+            m_gatherSweepPending = false;
+            m_gatherReselectAt = 0f;
+            CancelInvoke("GatherSweep");
+            // In the follow state gather is the only TryToMove user, so a live move IS the
+            // gather move: clear it and StopMoving so it can't fight the native combat movement.
+            bool hadLiveMove = moveEnabled;
+            moveEnabled = false;
+            moveToPos = Vector3.zero;
+            moveToTrying = false;
+            moveToReached = false;
+            if (hadLiveMove && m_hmMonsterAI != null)
+            {
+                m_hmMonsterAI.StopMoving();
+            }
+        }
+
+        // Horizontal (XZ) distance - the scan/exclusion/leash all measure XZ, not 3D.
+        static float GatherHDist(Vector3 a, Vector3 b)
+        {
+            float dx = a.x - b.x;
+            float dz = a.z - b.z;
+            return Mathf.Sqrt(dx * dx + dz * dz);
+        }
+
         protected virtual void FixedUpdate()
         {
             try
@@ -332,8 +791,43 @@ namespace Hirdmandr
             // guaranteed set (Awake always precedes Update).
         }
         
+        // GUI freeze MP: this client's own panel state (HirdmandrGUI.Update, per-frame). The
+        // effective freeze is the OR of the local (own panel) and remote (peer's panel,
+        // owner-side) states.
+        public void SetLocalGuiFreeze(bool open)
+        {
+            m_guiFreezeLocal = open;
+            m_guiFreeze = m_guiFreezeLocal || m_guiFreezeRemote;
+        }
+
+        // GUI freeze MP: owner-side, set by RPC_HMGuiFreeze from a non-owner client's panel
+        // open/close (HirdmandrGUI fires it on transition). Owner-gated: only the movement
+        // authority applies it.
+        public void RPC_HMGuiFreeze(long sender, bool open)
+        {
+            if (m_znetv == null || !m_znetv.IsOwner())
+            {
+                return;
+            }
+            m_guiFreezeRemote = open;
+            m_guiFreeze = m_guiFreezeLocal || m_guiFreezeRemote;
+        }
+
         public void UpdateMoving(float timeDelta)
         {
+            if (m_guiFreeze)
+            {
+                // GUI freeze: the management panel is open, so the NPC stands still. StopMoving
+                // each FixedUpdate cancels the path issued before the freeze (a stale m_moveDir
+                // would otherwise keep the character walking); the IdleMovement/Follow prefixes
+                // suppress the native wander/follow branches while frozen. UpdateTimers still
+                // runs (called after UpdateMoving).
+                if (m_hmMonsterAI != null)
+                {
+                    m_hmMonsterAI.StopMoving();
+                }
+                return;
+            }
             if (moveEnabled)
             {
                 if (Time.time > nextHazardCheck)

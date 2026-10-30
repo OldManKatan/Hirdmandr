@@ -13,7 +13,7 @@ namespace Hirdmandr
     {
         public override string Name => "hirdmandr";
 
-        public override string Help => "hirdmandr spawn - spawn a Hirdmandr NPC near the calling player; hirdmandr destroy - destroy all Hirdmandr NPCs; hirdmandr list - list each Hirdmandr NPC with its distance from the player and cardinal direction (N/S/E/W), one per line (leash test aid); hirdmandr monster <skeleton|draugr|goblinarcher|goblin> - spawn a test-rig monster near the calling player; hirdmandr move [stat|run <0|1>|walk <0|1>|speed|runspeed|walkspeed|crouchspeed|accel|turn <float>] - live movement diagnostics/tuning for all Hirdmandr NPCs; hirdmandr rescue [scan|catalog|ship|close|find <name>|spawn|list|zdo] - rescue diagnostics: placed PoI locations near player / full location catalog / ship + rigidbody dump / nearest placed PoI by name / compass direction+distance to a named PoI / force-place a rescue in the nearest placed whitelisted PoI / list unrescued rescues / ZDOMan census of all npc_entity ZDOs (near+far); hirdmandr soulsoul - drop a test soul item in front of the player (R3c pickable-soul foundation); hirdmandr soulinspect - dump the Eitr source prefab's GameObject/component tree to the log (diagnostic); hirdmandr combatstats <value> - set fighter/melee/range on all loaded Hirdmandr NPCs to <value> (0-100); hirdmandr skill <mender|lamplighter|woodburner|furnaceoperator|farmer> <value> - set that artisan skill to <value> (0-100) on all loaded Hirdmandr NPCs (artisan cooldown test)";
+        public override string Help => "hirdmandr spawn - spawn a Hirdmandr NPC near the calling player; hirdmandr destroy - destroy all Hirdmandr NPCs; hirdmandr list - list each Hirdmandr NPC with its distance from the player and cardinal direction (N/S/E/W), one per line (leash test aid); hirdmandr monster <skeleton|draugr|goblinarcher|goblin> - spawn a test-rig monster near the calling player; hirdmandr move [stat|run <0|1>|walk <0|1>|speed|runspeed|walkspeed|crouchspeed|accel|turn <float>] - live movement diagnostics/tuning for all Hirdmandr NPCs; hirdmandr rescue [scan|catalog|ship|close|find <name>|spawn|list|zdo] - rescue diagnostics: placed PoI locations near player / full location catalog / ship + rigidbody dump / nearest placed PoI by name / compass direction+distance to a named PoI / force-place a rescue in the nearest placed whitelisted PoI / list unrescued rescues / ZDOMan census of all npc_entity ZDOs (near+far); hirdmandr soulsoul - drop a test soul item in front of the player (R3c pickable-soul foundation); hirdmandr soulinspect - dump the Eitr source prefab's GameObject/component tree to the log (diagnostic); hirdmandr combatstats <value> - set fighter/melee/range on all loaded Hirdmandr NPCs to <value> (0-100); hirdmandr skill <mender|lamplighter|woodburner|furnaceoperator|farmer|gatherer> <value> - set that job skill to <value> (0-100) on all loaded Hirdmandr NPCs (job skill test); hirdmandr chestscan - dump every loaded chest (Piece+Container) with its IsPlacedByPlayer flag and every loaded pickable's within-40m-of-a-placed-chest zone membership (gather safe-zone / Hole 1 flag-persistence test); hirdmandr gather - dump each Hirdmandr NPC's gather scan cache (role/job/following flags, pickable/anchor/excluded counts, nearest eligible target)";
 
         // Non-cheat so it works without enabling cheats (testing); networked so it executes
         // on the server in multiplayer (in singleplayer the local player IS the server, so the
@@ -66,9 +66,15 @@ namespace Hirdmandr
                 case "farmscan":
                     FarmScan();
                     break;
+                case "chestscan":
+                    ChestScan();
+                    break;
+                case "gather":
+                    GatherDump();
+                    break;
                 default:
                     Log("Unknown subcommand: " + args[0]);
-                    Log("Usage: /hirdmandr [spawn|destroy|list|monster <name>|move ...|rescue ...|soulsoul|soulinspect|combatstats <value>|skill <job> <value>]");
+                    Log("Usage: /hirdmandr [spawn|destroy|list|monster <name>|move ...|rescue ...|soulsoul|soulinspect|combatstats <value>|skill <job> <value>|farmscan|chestscan|gather]");
                     break;
             }
         }
@@ -175,7 +181,7 @@ namespace Hirdmandr
             }
         }
 
-        // /hirdmandr skill <mender|lamplighter|woodburner|furnaceoperator|farmer> <value> - artisan
+        // /hirdmandr skill <mender|lamplighter|woodburner|furnaceoperator|farmer|gatherer> <value> - artisan
         // cooldown test setter: set the named artisan skill to an exact value (0-100) on every
         // loaded HirdmandrNPC, bypassing the leveled ModifySkill math (and persisting to the ZDO).
         // The cooldown formula is 18s - (value/100 * 18s), so 0 -> 18s, 50 -> 9s, 100 -> instant.
@@ -186,15 +192,15 @@ namespace Hirdmandr
             {
                 if (args == null || args.Length < 3)
                 {
-                    Log("Usage: /hirdmandr skill <mender|lamplighter|woodburner|furnaceoperator|farmer> <value 0-100>");
+                    Log("Usage: /hirdmandr skill <mender|lamplighter|woodburner|furnaceoperator|farmer|gatherer> <value 0-100>");
                     return;
                 }
 
                 string job = args[1].ToLowerInvariant();
-                string[] validJobs = { "mender", "lamplighter", "woodburner", "furnaceoperator", "farmer" };
+                string[] validJobs = { "mender", "lamplighter", "woodburner", "furnaceoperator", "farmer", "gatherer" };
                 if (System.Array.IndexOf(validJobs, job) < 0)
                 {
-                    Log("skill: unknown job '" + args[1] + "'. Valid jobs: mender | lamplighter | woodburner | furnaceoperator | farmer.");
+                    Log("skill: unknown job '" + args[1] + "'. Valid jobs: mender | lamplighter | woodburner | furnaceoperator | farmer | gatherer.");
                     return;
                 }
 
@@ -1533,6 +1539,209 @@ namespace Hirdmandr
             catch (System.Exception e)
             {
                 Jotunn.Logger.LogError("HirdmandrCommand.FarmScan threw:\n" + e);
+                throw;
+            }
+        }
+
+        // GATHER DISCOVERY (Step 1) - GATHER-DEBUG, remove after S1 validation.
+        // Read-only dump of the two things the gather safe zone keys on:
+        //   (A) every loaded chest = a Piece carrying a Container -> its IsPlacedByPlayer()
+        //       flag. This is the HOLE 1 test: on a long-lived world, player-placed chests
+        //       must report placed=true and world-spawned chests placed=false, AND the same
+        //       chest must report the same flag before and after a world reload. If the flag
+        //       does not discriminate / does not persist, the 40m safe zone cannot key on it.
+        //   (B) every loaded Pickable -> its yield and whether it falls within 40m (the zone
+        //       radius) of ANY placed chest, so the exclusion can be eyeballed spatially.
+        // No world mutation; run from the in-game console (singleplayer).
+        private static void ChestScan()
+        {
+            try
+            {
+                Player player = Player.m_localPlayer;
+                if (player == null || player.transform == null)
+                {
+                    Log("/hirdmandr chestscan: no local player (run from a client in singleplayer).");
+                    return;
+                }
+
+                const float zoneRadius = 40f; // the gather safe-zone radius (Utils.GatherSafeRadius).
+
+                // (A) Chests = Pieces carrying a Container. Log the IsPlacedByPlayer() flag per
+                //     chest (Hole 1) and collect the placed-chest positions for the zone test.
+                Log("CHESTSCAN: chests (Piece + Container) -- placed=IsPlacedByPlayer(), hm=has HirdmandrChest:");
+                var placedChestPos = new List<Vector3>();
+                int chestTotal = 0, chestPlaced = 0, chestHm = 0;
+                var pieces = UnityEngine.Object.FindObjectsOfType<Piece>();
+                foreach (var pc in pieces)
+                {
+                    if (pc == null || pc.transform == null)
+                    {
+                        continue;
+                    }
+                    var ct = pc.GetComponent<Container>();
+                    if (ct == null)
+                    {
+                        continue;
+                    }
+                    chestTotal++;
+                    bool placed = pc.IsPlacedByPlayer();
+                    bool hm = pc.GetComponent<HirdmandrChest>() != null;
+                    if (placed)
+                    {
+                        chestPlaced++;
+                        placedChestPos.Add(pc.transform.position);
+                    }
+                    if (hm)
+                    {
+                        chestHm++;
+                    }
+                    int itemCount = 0;
+                    if (ct.m_inventory != null)
+                    {
+                        foreach (var it in ct.m_inventory.GetAllItems())
+                        {
+                            if (it != null)
+                            {
+                                itemCount += (int)it.m_stack;
+                            }
+                        }
+                    }
+                    Vector3 cp = pc.transform.position;
+                    Log(string.Format("  CHEST '{0}' placed={1} hm={2} items={3} pos=({4:F1},{5:F1},{6:F1})",
+                        pc.name, placed, hm, itemCount, cp.x, cp.y, cp.z));
+                }
+                Log(string.Format("CHESTSCAN: {0} chest(s) total, {1} player-placed, {2} Hirdmandr.",
+                    chestTotal, chestPlaced, chestHm));
+
+                // (B) Pickables -> yield + zone membership (within 40m of any placed chest).
+                Log("CHESTSCAN: pickables (loaded) -- inZone=within 40m of a placed chest:");
+                var pickups = UnityEngine.Object.FindObjectsOfType<Pickable>();
+                int pickTotal = 0, pickInZone = 0;
+                foreach (var pk in pickups)
+                {
+                    if (pk == null || pk.transform == null)
+                    {
+                        continue;
+                    }
+                    pickTotal++;
+                    GameObject ip = pk.m_itemPrefab;
+                    string itemName = "?null?";
+                    if (ip != null)
+                    {
+                        var idrop = ip.GetComponent<ItemDrop>();
+                        if (idrop != null && idrop.m_itemData != null && idrop.m_itemData.m_shared != null)
+                        {
+                            itemName = idrop.m_itemData.m_shared.m_name;
+                        }
+                    }
+                    // Nearest placed chest (XZ). -1 = no placed chest to measure against.
+                    float nearest = -1f;
+                    bool inZone = false;
+                    if (placedChestPos.Count > 0)
+                    {
+                        Vector3 pp = pk.transform.position;
+                        nearest = float.MaxValue;
+                        for (int i = 0; i < placedChestPos.Count; i++)
+                        {
+                            float d = HorizontalDist(pp, placedChestPos[i]);
+                            if (d < nearest)
+                            {
+                                nearest = d;
+                            }
+                        }
+                        inZone = nearest <= zoneRadius;
+                        if (inZone)
+                        {
+                            pickInZone++;
+                        }
+                    }
+                    Vector3 kp = pk.transform.position;
+                    Log(string.Format("  PICKABLE '{0}' item='{1}' inZone={2} nearestChest={3:F1} pos=({4:F1},{5:F1},{6:F1})",
+                        pk.name, itemName, inZone, nearest, kp.x, kp.y, kp.z));
+                }
+                Log(string.Format("CHESTSCAN: {0} pickable(s) total, {1} within 40m of a placed chest.",
+                    pickTotal, pickInZone));
+                Log("CHESTSCAN: done. HOLE 1 = does 'placed' discriminate player vs world chests, and does it survive a reload?");
+            }
+            catch (System.Exception e)
+            {
+                Jotunn.Logger.LogError("HirdmandrCommand.ChestScan threw:\n" + e);
+                throw;
+            }
+        }
+
+        // /hirdmandr gather - dump each loaded Hirdmandr NPC's Gather scan cache (S4 test
+        // harness): role/job/following flags, cached pickable/anchor/excluded counts, and the
+        // nearest eligible target under S5's rule (not excluded, within 20m of the center,
+        // center = the follow target while following, else the NPC).
+        private static void GatherDump()
+        {
+            try
+            {
+                var npcs = UnityEngine.Object.FindObjectsOfType<HirdmandrNPC>();
+                int dumpCount = 0;
+                foreach (var npc in npcs)
+                {
+                    if (npc == null || npc.transform == null || npc.m_hirdmandrAI == null)
+                    {
+                        continue;
+                    }
+                    var ai = npc.m_hirdmandrAI;
+                    string name = (npc.m_humanoid != null && !string.IsNullOrEmpty(npc.m_humanoid.m_name))
+                        ? npc.m_humanoid.m_name
+                        : npc.name;
+                    Log(string.Format("GATHER '{0}' warrior={1} himthiki={2} gatherer={3} following={4} pickables={5} anchors={6} excluded={7} (lastScan={8:F1}s ago)",
+                        name, npc.m_roleWarrior, npc.m_jobHimthiki, npc.m_jobGatherer, npc.m_following,
+                        ai.m_gatherPickables.Count, ai.m_gatherAnchorCount, ai.m_gatherExcluded.Count,
+                        UnityEngine.Time.time - ai.m_lastGatherScan));
+                    dumpCount++;
+                    if (ai.m_gatherPickables.Count == 0)
+                    {
+                        continue;
+                    }
+                    Vector3 center = npc.transform.position;
+                    if (npc.m_following && ai.m_hmMonsterAI != null && ai.m_hmMonsterAI.GetFollowTarget() != null)
+                    {
+                        center = ai.m_hmMonsterAI.GetFollowTarget().transform.position;
+                    }
+                    Pickable best = null;
+                    float bestD = float.MaxValue;
+                    foreach (var pk in ai.m_gatherPickables)
+                    {
+                        if (pk == null || pk.transform == null)
+                        {
+                            continue;
+                        }
+                        if (ai.m_gatherExcluded.Contains(pk))
+                        {
+                            continue;
+                        }
+                        float d = HorizontalDist(center, pk.transform.position);
+                        if (d > 20f) // S5 target radius (the follow leash).
+                        {
+                            continue;
+                        }
+                        if (d < bestD)
+                        {
+                            bestD = d;
+                            best = pk;
+                        }
+                    }
+                    if (best != null)
+                    {
+                        Log(string.Format("  NEAREST-ELIGIBLE '{0}' {1:F1}m (center=({2:F1},{3:F1},{4:F1}))",
+                            best.name, bestD, center.x, center.y, center.z));
+                    }
+                    else
+                    {
+                        Log("  NEAREST-ELIGIBLE (none within 20m of center)");
+                    }
+                }
+                Log(string.Format("GATHER: dumped {0} NPC(s).", dumpCount));
+            }
+            catch (System.Exception e)
+            {
+                Jotunn.Logger.LogError("HirdmandrCommand.GatherDump threw:\n" + e);
                 throw;
             }
         }

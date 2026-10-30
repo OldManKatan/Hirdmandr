@@ -108,6 +108,11 @@ namespace Hirdmandr
         public bool m_fightingStyleDefense = true;
         public bool m_fightingStyleOffense = false;
         public bool m_jobGatherer = false;
+        // Gather Rules blacklist (Himthiki Gatherer): when true the gatherer never targets that
+        // resource (no walk-to, no pick, no sweep). Default false = collect. Persisted as
+        // hmnpc_gatherIgnoreWood / hmnpc_gatherIgnoreStone.
+        public bool m_gatherIgnoreWood = false;
+        public bool m_gatherIgnoreStone = false;
         public bool m_fightingRangeClose = true;
         public bool m_fightingRangeMid = false;
         public bool m_fightingRangeFar = false;
@@ -1571,6 +1576,10 @@ namespace Hirdmandr
 
             m_znet.GetZDO().Set("hmnpc_isrescued", false);
             m_znet.GetZDO().Set("hmnpc_isHirdmandr", false);
+            // Fresh spawn: explicitly Set the Gather Rules blacklist to false (an unset boolean
+            // can load back as true - same gotcha as the isHirdmandr fix above).
+            m_znet.GetZDO().Set("hmnpc_gatherIgnoreWood", false);
+            m_znet.GetZDO().Set("hmnpc_gatherIgnoreStone", false);
 
             m_visequip.UpdateBaseModel();
             m_visequip.UpdateColors();
@@ -1687,6 +1696,19 @@ namespace Hirdmandr
             m_fightingStyleDefense = m_znet.GetZDO().GetBool("hmnpc_fightingStyleDefense");
             m_fightingStyleOffense = m_znet.GetZDO().GetBool("hmnpc_fightingStyleOffense");
             m_jobGatherer = m_znet.GetZDO().GetBool("hmnpc_jobGatherer");
+
+            // Gather is a Himthiki sub-feature: it can never be on while the Himthiki job is off.
+            // Repair any stale "gatherer on / himthiki off" state (mirrors the Thegn/Himthiki repair above).
+            if (!m_jobHimthiki && m_jobGatherer)
+            {
+                m_jobGatherer = false;
+                if (m_znet.IsOwner())
+                {
+                    m_znet.GetZDO().Set("hmnpc_jobGatherer", false);
+                }
+            }
+            m_gatherIgnoreWood = m_znet.GetZDO().GetBool("hmnpc_gatherIgnoreWood");
+            m_gatherIgnoreStone = m_znet.GetZDO().GetBool("hmnpc_gatherIgnoreStone");
             m_fightingRangeClose = m_znet.GetZDO().GetBool("hmnpc_fightingRangeClose");
             m_fightingRangeMid = m_znet.GetZDO().GetBool("hmnpc_fightingRangeMid");
             m_fightingRangeFar = m_znet.GetZDO().GetBool("hmnpc_fightingRangeFar");
@@ -1718,6 +1740,8 @@ namespace Hirdmandr
             m_znet.GetZDO().Set("hmnpc_fightingStyleDefense", m_fightingStyleDefense);
             m_znet.GetZDO().Set("hmnpc_fightingStyleOffense", m_fightingStyleOffense);
             m_znet.GetZDO().Set("hmnpc_jobGatherer", m_jobGatherer);
+            m_znet.GetZDO().Set("hmnpc_gatherIgnoreWood", m_gatherIgnoreWood);
+            m_znet.GetZDO().Set("hmnpc_gatherIgnoreStone", m_gatherIgnoreStone);
             m_znet.GetZDO().Set("hmnpc_fightingRangeClose", m_fightingRangeClose);
             m_znet.GetZDO().Set("hmnpc_fightingRangeMid", m_fightingRangeMid);
             m_znet.GetZDO().Set("hmnpc_fightingRangeFar", m_fightingRangeFar);
@@ -2054,6 +2078,15 @@ namespace Hirdmandr
                     if (value && m_jobHimthiki)
                     {
                         m_jobHimthiki = false;
+                        // Gather follows the Himthiki job off (design 1/2): Thegn just displaced Himthiki.
+                        if (m_jobGatherer)
+                        {
+                            m_jobGatherer = false;
+                            if (m_znet != null && m_znet.IsOwner())
+                            {
+                                Jotunn.Logger.LogInfo("[HirdmandrNPC] Gatherer auto-disabled: Thegn replaced the Himthiki job.");
+                            }
+                        }
                     }
                     break;
                 case "jobHimthiki":
@@ -2066,10 +2099,29 @@ namespace Hirdmandr
                     {
                         m_jobThegn = false;
                     }
+                    // Gather is a Himthiki sub-feature: turning the Himthiki job off also turns Gather off (design 1/2).
+                    if (!value && m_jobGatherer)
+                    {
+                        m_jobGatherer = false;
+                        if (m_znet != null && m_znet.IsOwner())
+                        {
+                            Jotunn.Logger.LogInfo("[HirdmandrNPC] Gatherer auto-disabled: Himthiki job turned off.");
+                        }
+                    }
                     break;
                 case "thegnDayshift": m_thegnDayshift = value; break;
                 case "thegnNightshift": m_thegnNightshift = value; break;
                 case "jobGatherer": m_jobGatherer = value; break;
+                // Gather Rules: a blacklist change must take effect immediately (re-scan + drop a
+                // now-blacklisted current target), not on the next 5s scan cadence.
+                case "gatherIgnoreWood":
+                    m_gatherIgnoreWood = value;
+                    if (m_hirdmandrAI != null) m_hirdmandrAI.GatherBlacklistChanged();
+                    break;
+                case "gatherIgnoreStone":
+                    m_gatherIgnoreStone = value;
+                    if (m_hirdmandrAI != null) m_hirdmandrAI.GatherBlacklistChanged();
+                    break;
                 case "fightingStyleDefense": m_fightingStyleDefense = value; break;
                 case "fightingStyleOffense": m_fightingStyleOffense = value; break;
                 case "fightingRangeClose": m_fightingRangeClose = value; break;

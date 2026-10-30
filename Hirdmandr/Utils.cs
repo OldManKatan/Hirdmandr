@@ -35,6 +35,31 @@ namespace Hirdmandr
         // unreachable crop can't make it waddle here forever; a normal stand point settles sooner).
         public const float FarmerMoveTimeout = 15f;
 
+        // Gatherer safe zone: the radius around a player-placed storage piece (or a Hirdmandr
+        // chest) within which the Gatherer never picks - "gathering away from home".
+        public const float GatherSafeRadius = 40f;
+
+        // Gather (S5): how far from the follow center (the player while following) the Gatherer
+        // will look for a pickable to detour to. Same radius as the follow leash: a straight walk
+        // to a <=20m pickable provably stays within the 20m follow leash (distance-to-a-point
+        // along a segment is convex; the max is at an endpoint).
+        public const float GatherTargetRadius = 20f;
+
+        // Gather (S5): how long to skip a pickable whose walk settled out of reach (blocked), so
+        // the next scan doesn't immediately re-select it (tug loop).
+        public const float GatherTargetCooldown = 15f;
+
+        // Gather (reselect pause): how long to wait after a pick / abandon before the Gatherer may
+        // select the next target. A short beat so it doesn't rush to the next (possibly
+        // opposite-side) pickable and shuttle back and forth. Longer than the ~1s ground sweep so
+        // the sweep completes within the pause.
+        public const float GatherReselectPause = 1.5f;
+
+        // Gather (S6): ground-sweep radius around the pick point (where the yield lands). The
+        // vanilla Player auto-pickup range is 2m; 10m clears a whole bush's scattered yield
+        // drops in a single sweep.
+        public const float GatherSweepRadius = 10f;
+
         public static string TrimCloneTag(this string s)
         {
             if (!s.EndsWith("(Clone)"))
